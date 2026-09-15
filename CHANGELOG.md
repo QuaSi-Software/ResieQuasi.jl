@@ -6,6 +6,7 @@ Starting with v1.0.0 breaking changes in the project file concerning component m
 
 ### Version 1.0.2
 * Fix a bug in the battery that caused it to charge more than the set SOC_max at higher time steps
+* Added `JuliaFormat.toml` file to enable formatting in VSCode with newest version of the julia extenstion
 
 ### Version 1.0.1
 * Update README with instructions making note of the --threads=auto argument of Julia
