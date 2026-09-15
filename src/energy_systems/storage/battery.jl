@@ -711,17 +711,10 @@ function control(unit::Battery,
        (unit.V_cell_last > unit.V_cell_min || unit.model_type == "simplified") &&
        unit.capacity > 0
         # end of expression
-        discharge_current = unit.max_discharge_C_rate * unit.capacity_cell_Ah
-        if calc_SOC_Q(discharge_current, unit.cycles, unit.Temp, unit, sim_params) < unit.SOC_min
-            discharge_current = find_zero(I -> calc_SOC_Q(I, unit.cycles, unit.Temp, unit,
-                                                          sim_params) - unit.SOC_min,
-                                          (0, discharge_current),
-                                          Roots.Brent())
-        end
         unit.discharge_efficiency,
         unit.V_cell_discharge,
         unit.max_discharge_energy,
-        unit.max_discharge_charge = calc_efficiency_current(discharge_current, unit, sim_params)
+        unit.max_discharge_charge = calc_efficiency_current(true, unit, sim_params)
     else
         unit.max_discharge_energy = 0.0
     end
@@ -729,25 +722,12 @@ function control(unit::Battery,
 
     if charge_is_allowed(unit.controller, sim_params) && 
        (unit.extracted_charge_last > 0 || unit.model_type == "simplified") && 
-       (unit.SOC < unit.SOC_max || unit.SOC_max == 100) && unit.capacity > 0
+       unit.SOC < unit.SOC_max && unit.capacity > 0
        # end of expression
-        charge_current = -unit.max_charge_C_rate * unit.capacity_cell_Ah
-        if calc_SOC_Q(charge_current, unit.cycles, unit.Temp, unit, sim_params) > unit.SOC_max
-            charge_current = find_zero(I -> calc_SOC_Q(I, unit.cycles, unit.Temp, unit,
-                                                       sim_params) - unit.SOC_max,
-                                       (charge_current, 0),
-                                       Roots.Brent())
-        end
         unit.charge_efficiency,
         unit.V_cell_charge,
         unit.max_charge_energy,
-        unit.max_charge_charge = calc_efficiency_current(charge_current, unit, sim_params)
-        if unit.model_type != "simplified" &&
-           -sim_params["wh_to_watts"](unit.max_charge_charge) < unit.cell_cutoff_current &&
-           unit.V_cell_last == unit.V_cell_max
-            # end of expression
-            unit.max_charge_energy = 0.0
-        end
+        unit.max_charge_charge = calc_efficiency_current(false, unit, sim_params)
     else
         unit.max_charge_energy = 0.0
     end
@@ -966,10 +946,10 @@ function denom(V_cell::Number, energy::Number, unit::Battery, time_step::Number)
     (unit.extracted_charge + 2 * energy / (unit.V_cell_last + V_cell))
 end
 
-function calc_efficiency_current(current::Number, unit::Battery,
+function calc_efficiency_current(discharge::Bool, unit::Battery, 
                                  sim_params::Dict{String,Any})
     if unit.model_type == "simplified"
-        if current >= 0
+        if discharge
             energy = sim_params["watt_to_wh"](unit.max_discharge_C_rate * unit.capacity)
             return unit.discharge_efficiency, 1,
                    min(energy, unit.load * unit.discharge_efficiency), 0
@@ -979,6 +959,23 @@ function calc_efficiency_current(current::Number, unit::Battery,
                    min(abs(energy), (unit.capacity - unit.load) / unit.charge_efficiency), 0
         end
     else
+        if discharge
+            current = unit.max_discharge_C_rate * unit.capacity_cell_Ah
+            if calc_SOC_Q(current, unit.cycles, unit.Temp, unit, sim_params) < unit.SOC_min
+                current = find_zero(I -> calc_SOC_Q(I, unit.cycles, unit.Temp, unit, 
+                                                    sim_params) - unit.SOC_min,
+                                    (0, current),
+                                    Roots.Brent())
+            end
+        else 
+            current = -unit.max_charge_C_rate * unit.capacity_cell_Ah
+            if calc_SOC_Q(current, unit.cycles, unit.Temp, unit, sim_params) > unit.SOC_max
+                current = find_zero(I -> calc_SOC_Q(I, unit.cycles, unit.Temp, unit, 
+                                                    sim_params) - unit.SOC_max,
+                                    (current, 0),
+                                    Roots.Brent())
+            end
+        end
         charge_diff = sim_params["watt_to_wh"](current)
         V_min = unit.V_cell_min
         V_max = unit.V_cell_max
@@ -1057,6 +1054,11 @@ function calc_efficiency_current(current::Number, unit::Battery,
             V_cell_avg = V_cell
         else
             V_cell_avg = (unit.V_cell_last + V_cell) / 2
+        end
+        if max_current < 0 && -max_current < unit.cell_cutoff_current && 
+           unit.V_cell_last == unit.V_cell_max
+           # end of expression
+            max_current = 0.0
         end
         charge = sim_params["watt_to_wh"](max_current)
         max_energy_cell = sim_params["watt_to_wh"](V_cell_avg * max_current)
