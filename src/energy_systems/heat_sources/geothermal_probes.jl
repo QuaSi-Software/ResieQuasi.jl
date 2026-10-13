@@ -1205,9 +1205,9 @@ function check_temperature_and_get_max_energy(unit::GeothermalProbes,
     function calculate_output_temp_after_max_energy(unit::GeothermalProbes, sim_params::Dict{String,Any})
         unit.energy_in_out_per_probe_meter[unit.time_index] = -unit.max_output_energy /
                                                               (unit.probe_depth * unit.number_of_probes)
-        output_temp_after_max_energy = calculate_new_fluid_temperature(unit, sim_params["wh_to_watts"])
+        fluid_temp_after_max_energy = calculate_new_fluid_temperature(unit, sim_params["wh_to_watts"])
         unit.energy_in_out_per_probe_meter[unit.time_index] = 0.0
-        return output_temp_after_max_energy
+        return fluid_temp_after_max_energy + unit.unloading_temperature_spread / 2
     end
 
     # get min and max output temperature of geothermal probe
@@ -1253,6 +1253,10 @@ function control(unit::GeothermalProbes,
     # get output temperature for energy output and set temperature and max_energy to output interface
     unit.current_max_output_temperature = unit.fluid_temperature + unit.unloading_temperature_spread / 2
 
+    # check whether probe field is currently allowed to unload
+    probe_can_unload = unit.min_probe_temperature_unloading === nothing ||
+                       unit.current_max_output_temperature >= unit.min_probe_temperature_unloading
+
     # calculate maximum energy in dependence of the output temperature(s)
     exchanges = balance_on(unit.output_interfaces[unit.m_heat_out], unit.output_interfaces[unit.m_heat_out].target)
 
@@ -1261,21 +1265,27 @@ function control(unit::GeothermalProbes,
     uac_out = Stringing[]
     for exchange in exchanges
         target_uac = exchange.purpose_uac
-        # no check for possibly written max energy --> is done by set_max_energy!() for 1-to-1 connections and for a 
-        # connection to a bus, the interface is only used by the current component
-        success, temperature, max_energy = determine_temperature_and_energy(unit.controller,
-                                                                            components,
-                                                                            unit.uac,
-                                                                            target_uac,
-                                                                            sim_params)
-        if !success
-            # no control module is provided between source and target
-            # set temperature to exchange.temperature_min --> can also be nothing, but in case it is given we will use it
-            # if no control module is used
-            temperature, max_energy = check_temperature_and_get_max_energy(unit,
-                                                                           sim_params,
-                                                                           exchange.temperature_min,
-                                                                           unit.limit_max_output_energy_to_avoid_pulsing)
+
+        if !probe_can_unload
+            temperature = nothing
+            max_energy = 0.0
+        else
+            # no check for possibly written max energy --> is done by set_max_energy!() for 1-to-1 connections and for a 
+            # connection to a bus, the interface is only used by the current component
+            success, temperature, max_energy = determine_temperature_and_energy(unit.controller,
+                                                                                components,
+                                                                                unit.uac,
+                                                                                target_uac,
+                                                                                sim_params)
+            if !success
+                # no control module is provided between source and target
+                # set temperature to exchange.temperature_min --> can also be nothing, but in case it is given we will use it
+                # if no control module is used
+                temperature, max_energy = check_temperature_and_get_max_energy(unit,
+                                                                               sim_params,
+                                                                               exchange.temperature_min,
+                                                                               unit.limit_max_output_energy_to_avoid_pulsing)
+            end
         end
 
         push!(max_energy_out, max_energy)
