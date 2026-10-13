@@ -552,6 +552,11 @@ mutable struct GeothermalProbes <: Component
     # flag indicating if the load step has already been performed in the current time step
     load_done::Bool
 
+    # flag indicating if the conservative temperature estimation based on max_output_energy was used during the simulation
+    used_max_output_energy_temperature_estimation::Bool
+    # highest actual output energy delivered within one simulation time step
+    max_observed_output_energy::Float64
+
     function GeothermalProbes(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
         new(SSOT_parameter_constructor(GeothermalProbes, uac, config, sim_params)...)
     end
@@ -656,7 +661,9 @@ function init_from_params(x::Type{GeothermalProbes}, uac::String, params::Dict{S
             0.0,     # fluid_reynolds_number
             nothing, # probe_coordinates
             false,   # process_done
-            false)   # load_done
+            false,   # load_done
+            false,   # used_max_output_energy_temperature_estimation
+            0.0)     # max_observed_output_energy
 end
 
 function initialise!(unit::GeothermalProbes, sim_params::Dict{String,Any})
@@ -1216,6 +1223,8 @@ function check_temperature_and_get_max_energy(unit::GeothermalProbes,
     # check temperatures and get the max_energy
     if temperature_output === nothing
         # no temperature information is given, set temperature so that the maximum energy can be used
+        # The communicated temperature is conservatively estimated assuming full use of max_output_energy.
+        unit.used_max_output_energy_temperature_estimation = true
         return (source_max_out_temperature + calculate_output_temp_after_max_energy(unit, sim_params)) / 2,
                unit.max_output_energy
     elseif source_min_out_temperature !== nothing && temperature_output < source_min_out_temperature ||
@@ -1621,6 +1630,9 @@ function process(unit::GeothermalProbes, sim_params::Dict{String,Any})
         energy_delivered -= used_heat
     end
 
+    # store the highest actual output energy observed in any simulation time step
+    unit.max_observed_output_energy = max(unit.max_observed_output_energy, abs(energy_delivered))
+
     # write output heat flux into vector
     unit.energy_in_out_per_probe_meter[unit.time_index] = energy_delivered / (unit.probe_depth * unit.number_of_probes) # from total energy to specific power of one single probe.
 
@@ -1723,6 +1735,44 @@ function output_value(unit::GeothermalProbes, key::OutputKey)::Float64
         return unit.fluid_reynolds_number
     end
     throw(KeyError(key.value_key))
+end
+
+function post_simulation_check(unit::GeothermalProbes, sim_params::Dict{String,Any}, suppress_all_output::Bool)
+
+    # Do not issue warnings for suppressed simulations, e.g. individual runs within parameter studies or optimisation.
+    if suppress_all_output
+        return nothing
+    end
+
+    # This warning is only relevant if the automatic conservative output-temperature estimation was actually used.
+    if !unit.used_max_output_energy_temperature_estimation
+        return nothing
+    end
+
+    # Avoid division by zero.
+    if unit.max_output_energy <= sim_params["epsilon"]
+        return nothing
+    end
+
+    # If the probe was never unloaded, the utilisation comparison is not useful.
+    if unit.max_observed_output_energy <= sim_params["epsilon"]
+        return nothing
+    end
+
+    max_utilisation = unit.max_observed_output_energy / unit.max_output_energy
+
+    if max_utilisation < 0.5
+        @warn "The geothermal probe field \"$(unit.uac)\" used at most " *
+              "$(round(100 * max_utilisation; digits=1)) % of its configured " *
+              "maximum output energy within a single time step during the simulation. " *
+              "For automatic output-temperature communication, the geothermal probe " *
+              "conservatively estimates its temperature assuming full use of " *
+              "\"max_output_energy\". The communicated source temperature may therefore " *
+              "be considerably underestimated. Consider checking whether " *
+              "\"max_output_power\" is set unnecessarily high."
+    end
+
+    return nothing
 end
 
 export GeothermalProbes
