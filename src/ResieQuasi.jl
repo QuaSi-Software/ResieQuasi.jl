@@ -343,7 +343,7 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     if do_write_CSV && do_write_summary_CSV
         output_path = sim_params["run_path"](replace(csv_file_path, r"\.csv$"i => "_aggregated.csv"))
 
-        success = aggregate_csv(csv_file_path,
+        success = aggregate_csv(sim_params["run_path"](csv_file_path),
                                 output_path,
                                 output_keys_to_CSV,
                                 weather_CSV_keys,
