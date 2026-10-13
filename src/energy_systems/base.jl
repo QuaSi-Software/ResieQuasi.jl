@@ -25,7 +25,7 @@ export check_balances_of_components, check_balances_of_interfaces, Component, ea
        calculate_energy_flow, highest, default, plot_optional_figures_begin, plot_optional_figures_end,
        reorder_operations_in_time_step, trim_secondary_medium, adjust_name_if_secondary,
        create_secondary_name, get_reference_for_capex_and_embodied_emissions, get_additional_opex_from_component,
-       handle_profiles
+       handle_profiles, post_simulation_check
 
 using ..Profiles
 using UUIDs
@@ -1535,6 +1535,25 @@ function plot_optional_figures_end(unit::Component, sim_params::Dict{String,Any}
 end
 
 """
+    post_simulation_check(unit::Component, sim_params::Dict{String,Any})
+
+Perform component-specific checks after the complete simulation time-step loop has finished.
+
+This hook can be implemented by individual component types to issue warnings or perform
+other consistency checks that require information from the complete simulation period.
+
+The default implementation does nothing.
+
+# Arguments
+- `unit::Component`: Component to check.
+- `sim_params::Dict{String,Any}`: Simulation parameters.
+- `suppress_all_output::Bool`: If set to true, no outputs will be written.
+"""
+function post_simulation_check(unit::Component, sim_params::Dict{String,Any}, suppress_all_output::Bool)
+    return nothing
+end
+
+"""
     output_values(unit)
 
 Specify which data outputs a component can provide, including the medium of each output.
@@ -2036,7 +2055,7 @@ function validate_config(x::Type{Component}, extracted::Dict{String,Any}, uac::S
         # check if it is required but has a value of nothing (meaning both the default is
         # nothing and no value was given). but also check if conditionals would "turn off"
         # the parameter in any case, in which case the value does not matter
-        if type_def[name].required && value === nothing 
+        if type_def[name].required && value === nothing
             if conditionals_apply(name, extracted, type_def)
                 throw(InputError("Required parameter `$name` in component `$uac` has no given value and no default."))
             else
