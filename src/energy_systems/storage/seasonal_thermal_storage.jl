@@ -1579,41 +1579,22 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
 
         # Helper: temperature slice for given time index (handles mirroring)
         temp_slice(t) = begin
-            A = round.(unit.soil_temperature_field_output[t, :, :]; digits=1)  # (nz × nr) half-domain
+            A = unit.soil_temperature_field_output[t, :, :]  # (nz × nr) half-domain
             mirror_domain ? hcat(reverse(A; dims=2), A) : A
         end
 
-        # ================= GLMakie live viewer =================
-        # GLMakie.activate!()
+        temps = unit.soil_temperature_field_output[1:nt, :, :]
+        if mirror_domain
+            temps = cat(reverse(temps; dims=3), temps; dims=3)
+        end
 
-        # time_idx = Observable(1)
-        # surf_obs = @lift(temp_slice($time_idx))
-
-        # f_gl = Figure(; size=(1000, 800))
-        # ax_gl = Axis3(f_gl[1, 1];
-        #                 xlabel="Depth z [m]",
-        #                 ylabel="Radius r [m]",
-        #                 zlabel="Temperature [°C]")
-
-        # ax_gl.limits = ((zmin, zmax), (rmin, rmax), (Tmin, Tmax))
-        # ax_gl.aspect = (aspect_x, aspect_y, aspect_z)
-
-        # surface!(ax_gl, z_abs, r_abs, surf_obs)
-        # scatter!(ax_gl, z_abs, r_abs, surf_obs; markersize=3.5)
-
-        # # Simple slider instead of SliderGrid (more robust across Makie versions)
-        # slider_gl = GLMakie.Slider(f_gl[2, 1]; range=1:nt, startvalue=1, horizontal=true)
-
-        # on(slider_gl.value) do v
-        #     time_idx[] = v
-        # end
-
-        # display(f_gl)
+        # the values are ordered with y (radius) as first index, x (depth) second, time last
+        temps_sorted = permutedims(temps, (3, 2, 1))
 
         # ================= PlotlyJS soil viewer =================
         surface_trace = PlotlyJS.surface(; x=z_abs,
                                          y=r_abs,
-                                         z=temp_slice(1),
+                                         z=temps[1, :, :],
                                          cmin=Tmin,
                                          cmax=Tmax,
                                          colorscale="RdYlBu_r",
@@ -1621,23 +1602,9 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
                                          colorbar=PlotlyJS.attr(; title="Temperature [°C]"))
         scatter_trace = PlotlyJS.scatter3d(; x=vec(repeat(z_abs', length(r_abs), 1)),
                                            y=vec(repeat(r_abs, 1, length(z_abs))),
-                                           z=vec(permutedims(temp_slice(1))),
+                                           z=vec(temps_sorted[:, :, 1]),
                                            mode="markers",
                                            marker=PlotlyJS.attr(; size=3, color="black"))
-        frames = PlotlyJS.PlotlyFrame[]
-        slider_steps = []
-        for step in 1:24:nt
-            frame = PlotlyJS.frame(; name=string(step),
-                                   data=[PlotlyJS.surface(; z=temp_slice(step))
-                                         PlotlyJS.scatter3d(; z=vec(permutedims(temp_slice(step))))],
-                                   traces=[0, 1])
-            slider_step = PlotlyJS.attr(; method="animate",
-                                        label=string(step),
-                                        args=[[string(step)], 
-                                              PlotlyJS.attr(; mode="immediate")])
-            push!(frames, frame)
-            push!(slider_steps, slider_step)
-        end
 
         scene = PlotlyJS.attr(; xaxis=PlotlyJS.attr(; title="Depth z [m]",
                                                     range=[zmin, zmax]),
@@ -1648,22 +1615,17 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
                                 aspectmode="manual",
                                 aspectratio=PlotlyJS.attr(; x=aspect_x, y=aspect_y, z=aspect_z))
 
-        sliders = [PlotlyJS.attr(; active=0,
-                                currentvalue=PlotlyJS.attr(; prefix="Time: "),
-                                steps=slider_steps)]
-
         layout = PlotlyJS.Layout(; title_text="Soil temperature around STES $(unit.uac)" ,
                                 scene=scene,
-                                sliders=sliders,
                                 template=PlotlyJS.templates.plotly_white)
 
-        p = PlotlyJS.plot([surface_trace, scatter_trace], layout, frames)
-        fig_name = "soil_temperature_distribution_STES_$(unit.uac).html"
-        open(joinpath(output_path, fig_name), "w") do io
-            PlotlyJS.PlotlyBase.to_html(io, p.plot; autoplay=false)
-        end
-
+        base_plot = PlotlyJS.Plot([surface_trace, scatter_trace], layout)
         
+
+
+        fig_name = "soil_temperature_distribution_STES_$(unit.uac).html"
+        save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot; 
+                         render_time_ms=50)       
     end
 
     return true

@@ -3351,4 +3351,136 @@ function all_component_parameters()::Dict{String,Any}
     return all_parameters
 end
 
+
+"""
+save_html_slider(output_path, values_y_x_t, base_plot; 
+                 digits=2, render_time_ms=40, play_time_ms=20_000)
+
+Create custom HTML file for 3D slider graph to improve performance.
+
+Order of values MUST be y,x,t with reference to PloltyJS surface plot.
+base_plot defines the layout and type of plots (example in SeasonalThermalStorage and 
+GeothermalHeatCollector)
+
+"""
+function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArray, 
+                          base_plot::PlotlyJS.Plot; digits::Int=2, render_time_ms::Number=40, 
+                          play_time_ms::Number=20_000)
+    ny, nx, nt = size(values_y_x_t)
+    jumped_frames = ceil((nt * render_time_ms) / play_time_ms)
+    values_int = round.(Int, vec(values_y_x_t) .* 10 ^ digits)
+    plot_json = JSON.lower(base_plot)
+
+    open(output_path, "w") do io
+        print(io, 
+            """
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="utf-8" />
+            <script src="$(PlotlyJS.PlotlyBase.cdn_url())"></script>
+            <style>
+                html, body { height: 100%; margin: 0; font-family: sans-serif; }
+                body { display: flex; flex-direction: column; }
+                #plot { flex: 1 1 auto; min-height: 0; }
+                #controls { display: flex; align-items: center; gap: 12px; padding: 8px 16px; }
+                #slider { flex: 1 1 auto; }
+                #label { min-width: 110px; }
+            </style>
+            </head>
+            <body>
+            <div id="plot"></div>
+            <div id="controls">
+                <button id="play" type="button">Play</button>
+                <input id="slider" type="range" min="0" max="$(nt - 1)" step="1" value="0" />
+                <span id="label">Time: 1</span>
+            </div>
+            <script type="application/json" id="temps">[""")
+        join(io, values_int, ',')
+        print(io, 
+            """]</script>
+            <script type="text/javascript">
+            (function () {
+                const NX = $(nx), NY = $(ny), NT = $(nt), N = NX * NY;
+                const raw = JSON.parse(document.getElementById("temps").textContent);
+                const T = new Float64Array(raw.length);
+                for (let i = 0; i < raw.length; i++) T[i] = raw[i] / $(10 ^ digits);
+
+                const gd = document.getElementById("plot");
+                const slider = document.getElementById("slider");
+                const label = document.getElementById("label");
+                const playBtn = document.getElementById("play");
+
+                function zData(step) {
+                    const off = step * N;
+                    const surf = new Array(NY);
+                    for (let j = 0; j < NY; j++) {
+                        const row = new Array(NX);
+                        for (let i = 0; i < NX; i++) row[i] = T[off + i * NY + j];
+                        surf[j] = row;
+                    }
+                    return [surf, Array.from(T.subarray(off, off + N))];
+                }
+
+                // render only the latest requested step and never queue up redraws
+                let busy = false, pending = null, playing = false, lastStepTime = 0;
+                function requestStep(step) {
+                    pending = step;
+                    label.textContent = "Time: " + (step + 1);
+                    if (!busy) flush();
+                }
+                function flush() {
+                    if (pending === null) { busy = false; return; }
+                    const step = pending;
+                    pending = null;
+                    busy = true;
+                    Plotly.restyle(gd, { z: zData(step) }, [0, 1])
+                        .then(function () { requestAnimationFrame(flush); });
+                }
+                function tick(timestamp) {
+                    if (!playing) return;
+                    if (!busy && timestamp - lastStepTime >= $(render_time_ms)) {
+                        lastStepTime = timestamp
+                        const step = (parseInt(slider.value) + $(jumped_frames)) % NT;
+                        slider.value = step;
+                        requestStep(step);
+                    }
+                    requestAnimationFrame(tick);
+                }
+
+                // Plotly upsamples surfaces on non-uniform grids (up to 720 points per axis)
+                // on every update, which dominates the redraw time. The colors are
+                // interpolated on the GPU anyway, so the refinement is switched off.
+                function disableSurfaceRefinement() {
+                    const scene = gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene._scene;
+                    if (!scene || !scene.traces) return;
+                    Object.values(scene.traces).forEach(function (trace) {
+                        if (trace.data && trace.data.type === "surface") {
+                            trace.refineData = false;
+                            trace.dataScaleX = 1;
+                            trace.dataScaleY = 1;
+                        }
+                    });
+                }
+
+                const fig = $(JSON.json(plot_json));
+                Plotly.newPlot(gd, fig.data, fig.layout, { responsive: true, displaylogo: false })
+                    .then(function () {
+                        disableSurfaceRefinement();
+                        requestStep(0);
+                        slider.addEventListener("input", function () { requestStep(parseInt(slider.value)); });
+                        playBtn.addEventListener("click", function () {
+                            playing = !playing;
+                            playBtn.textContent = playing ? "Pause" : "Play";
+                            if (playing) requestAnimationFrame(tick);
+                        });
+                    });
+            })();
+            </script>
+            </body>
+            </html>
+            """)  
+    end
+end
+
 end

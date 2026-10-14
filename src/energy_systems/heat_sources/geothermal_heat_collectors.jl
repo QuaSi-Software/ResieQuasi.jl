@@ -1613,33 +1613,14 @@ function plot_optional_figures_end(unit::GeothermalHeatCollector, sim_params::Di
     x_abs = round.([0; cumsum(unit.dx_mesh)]; digits=2)              # Absolute x coordinates
     y_abs = round.([unit.dy[1] / 2; cumsum(unit.dy_mesh)]; digits=2) # Absolute y coordinates
 
-    # GLMakie
-    # f = Figure()
-    # ax = Axis3(f[1, 1])
-    # ax.zlabel = "Temperature [°C]"
-    # ax.xlabel = "Vertical expansion (depth) [m]"
-    # ax.ylabel = "Horizontal expansion [m]"
-    # Makie.zlims!(ax, min_temp, max_temp)
-    # time = Observable(1)
-    # surfdata = @lift(unit.temp_field_output[$time, :, :])
-    # GLMakie.surface!(ax, y_abs, x_abs, surfdata)
-    # GLMakie.scatter!(ax, y_abs, x_abs, surfdata)
-    # slg = SliderGrid(f[2, 1], (; range=1:1:sim_params["number_of_time_steps_output"], label="Time"))
+    nt = sim_params["number_of_time_steps_output"]
 
-    # on(slg.sliders[1].value) do v
-    #     time[] = v
-    # end
-    # wait(display(f))
+    # the values are ordered with y as first index, x second and time last
+    temps_sorted = permutedims(unit.temp_field_output[1:nt, :, :], (2, 3, 1))
 
-    #PlotlyJS
-
-    n_steps = sim_params["number_of_time_steps_output"]
-    temps = round.(unit.temp_field_output; digits=1)
-    frames = PlotlyJS.PlotlyFrame[]
-    slider_steps = []
     surface_trace = PlotlyJS.surface(; x=x_abs,
                                      y=y_abs,
-                                     z=permutedims(temps[1, :, :]),
+                                     z=temps_sorted[:, :, 1],
                                      cmin=min_temp,
                                      cmax=max_temp,
                                      colorscale="RdBu",
@@ -1647,22 +1628,9 @@ function plot_optional_figures_end(unit::GeothermalHeatCollector, sim_params::Di
                                      colorbar=PlotlyJS.attr(; title="Temperature [°C]"))
     scatter_trace = PlotlyJS.scatter3d(; x=vec(repeat(x_abs', length(y_abs), 1)),
                                        y=vec(repeat(y_abs, 1, length(x_abs))),
-                                       z=vec(temps[1, :, :]),
+                                       z=vec(unit.temp_field_output[1, :, :]),
                                        mode="markers",
                                        marker=PlotlyJS.attr(; size=4, color="black"))
-
-    for step in 1:1:n_steps
-        frame = PlotlyJS.frame(; name=string(step),
-                               data=[PlotlyJS.surface(; z=permutedims(temps[step, :, :])), 
-                                     PlotlyJS.scatter3d(; z=vec(temps[step, :, :]))],
-                               traces=[0, 1])
-        slider_step = PlotlyJS.attr(; method="animate",
-                                    label=string(step),
-                                    args=[[string(step)], 
-                                          PlotlyJS.attr(; mode="immediate")])
-        push!(frames, frame)
-        push!(slider_steps, slider_step)
-    end
 
     scene = PlotlyJS.attr(; xaxis=PlotlyJS.attr(; range=[0.0, maximum(x_abs)],
                                                 title="Vertical expansion (depth) [m]"),
@@ -1671,20 +1639,14 @@ function plot_optional_figures_end(unit::GeothermalHeatCollector, sim_params::Di
                           zaxis=PlotlyJS.attr(; range=[min_temp, max_temp],
                                               title="Temperature [°C]"))
 
-    sliders = [PlotlyJS.attr(; active=0,
-                             currentvalue=PlotlyJS.attr(; prefix="Time: "),
-                             steps=slider_steps)]
-
     layout = PlotlyJS.Layout(; title_text="Temperature distribution of geothermal collector $(unit.uac)",
                              scene=scene,
-                             sliders=sliders,
                              template=PlotlyJS.templates.plotly_white)
 
-    p = PlotlyJS.plot([surface_trace, scatter_trace], layout, frames)
+    base_plot = PlotlyJS.Plot([surface_trace, scatter_trace], layout)
+
     fig_name = "geothermal_collector_temperature_distribution_$(unit.uac).html"
-    open(joinpath(output_path, fig_name), "w") do io
-        PlotlyJS.PlotlyBase.to_html(io, p.plot; autoplay=false)
-    end
+    save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot)
 
     return true
 end
