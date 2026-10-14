@@ -257,7 +257,7 @@ end
 Sort the given components into buckets by their system function.
 """
 function categorize_by_function(components)
-    sorted_components = sort(each(components); by = x -> x.uac)
+    sorted_components = sort(collect(each(components)), by=x->x.uac)
 
     return [[unit for unit in sorted_components
              if unit.sys_function == EnergySystems.sf_fixed_source],
