@@ -309,9 +309,15 @@ function run_simulation_loop(sim_params::Dict{String,Any},
                                           res::Dict{String,Union{Array{Float64},Float64}})
             for key in params
                 func, spec = split(key, " "; limit=2)
-                if func == "sum" || func == "mean"
+                if func == "sum"
                     values = view(output_data, :, output_columns[spec])
-                    res[key] = func == "sum" ? sum(values) : sum(values) / length(values)
+                    res[key] = sum(values)
+                elseif func == "mean"
+                    values = view(output_data, :, output_columns[spec])
+                    res[key] = sum(values) / length(values)
+                elseif func == "last"
+                    values = view(output_data, :, output_columns[spec])
+                    res[key] = values[end]
                 elseif func == "economic"
                     res[key] = getfield(economic_result, Symbol(spec))
                 elseif func == "emissions"

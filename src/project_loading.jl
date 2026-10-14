@@ -2374,7 +2374,7 @@ function prepare_parameter_study!(parameter_study::Dict{String,Any},
 
     for (func, raw_spec) in pairs(parameter_study["objective_params"])
         spec = raw_spec
-        if func == "sum" || func == "mean"
+        if func in ["sum", "mean", "last"]
             for (output_group, output_entries) in pairs(raw_spec)
                 group_key = String(output_group)
                 existing_entries = get!(runtime["objective_output_spec"],
@@ -2385,7 +2385,7 @@ function prepare_parameter_study!(parameter_study::Dict{String,Any},
             spec = parse_outkeys(raw_spec)
         elseif func != "economic" && func != "emissions"
             @error "Objective parameter {$func: $raw_spec} could not be read. $func has " *
-                   "to be one of 'sum', 'mean', 'economic', 'emissions'."
+                   "to be one of 'sum', 'mean', 'last', 'economic', 'emissions'."
             throw(InputError())
         end
 
