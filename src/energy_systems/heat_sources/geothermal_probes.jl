@@ -433,9 +433,10 @@ const GEOTHERMAL_PROBES_COMPONENT_PARAMETERS = Dict(
         unit="-"
     ),
     "load_aggregation_cells_per_level" => (
-        default=5,
+        default=200,
         description="Number of aggregation cells per level for the Claesson-Javed load aggregation. " *
-                    "Higher values retain more load-history detail at the cost of computation time.",
+                    "Higher values increase the temporal resolution of the load history and improve " *
+                    "agreement with full temporal superposition, at the cost of additional computation time.",
         display_name="Load aggregation cells per level",
         required=false,
         validations=[("self", "value_gte_num", 1.0)],
