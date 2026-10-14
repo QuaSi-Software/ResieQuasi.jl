@@ -1246,13 +1246,13 @@ function get_g_values_from_library(unit::Component,
 end
 
 """
-    load_aggregation_cell_widths(number_of_time_steps::Int, cells_per_level::Int)::Vector{Int}
+    load_aggregation_cell_widths(number_of_time_steps::Integer, cells_per_level::Integer)::Vector{Int}
 
 Builds the Claesson-Javed aggregation cell widths. The width doubles after every
 `cells_per_level` cells. The oldest cell is kept at its full width, as in the
 published method and the pygfunction implementation.
 """
-function load_aggregation_cell_widths(number_of_time_steps::Int, cells_per_level::Int)::Vector{Int}
+function load_aggregation_cell_widths(number_of_time_steps::Integer, cells_per_level::Integer)::Vector{Int}
     widths = Int[]
     covered_time_steps = 0
     cell_index = 0
@@ -1269,12 +1269,12 @@ function load_aggregation_cell_widths(number_of_time_steps::Int, cells_per_level
 end
 
 """
-    initialise_load_aggregation!(unit::GeothermalProbes, number_of_time_steps::Int)
+    initialise_load_aggregation!(unit::GeothermalProbes, number_of_time_steps::Integer)
 
 Initialises the energy-conserving Claesson-Javed load aggregation used for the
 temporal superposition of the g-function.
 """
-function initialise_load_aggregation!(unit::GeothermalProbes, number_of_time_steps::Int)
+function initialise_load_aggregation!(unit::GeothermalProbes, number_of_time_steps::Integer)
     widths = load_aggregation_cell_widths(number_of_time_steps, unit.load_aggregation_cells_per_level)
 
     unit.load_aggregation_cell_widths = widths
