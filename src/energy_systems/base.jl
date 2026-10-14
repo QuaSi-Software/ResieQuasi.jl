@@ -3353,8 +3353,8 @@ end
 
 
 """
-save_html_slider(output_path, values_y_x_t, base_plot; 
-                 digits=2, render_time_ms=40, play_time_ms=20_000)
+save_html_slider(output_path, values_y_x_t, base_plot, sim_params; 
+                 digits=2, render_time_ms=40, play_time_ms=20_000, max_steps=30_000)
 
 Create custom HTML file for 3D slider graph to improve performance.
 
@@ -3364,12 +3364,26 @@ GeothermalHeatCollector)
 
 """
 function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArray, 
-                          base_plot::PlotlyJS.Plot; digits::Int=2, render_time_ms::Number=40, 
-                          play_time_ms::Number=20_000)
+                          base_plot::PlotlyJS.Plot, sim_params::Dict{String,Any}; digits::Int=2, render_time_ms::Number=40, 
+                          play_time_ms::Number=20_000, max_steps=30_000)
+    
+    if nt > max_steps
+        jumped_steps = ceil(nt / max_steps)
+        values_y_x_t = values_y_x_t[:, :, 1:jumped_steps:end]
+    end
+    
     ny, nx, nt = size(values_y_x_t)
     jumped_frames = ceil((nt * render_time_ms) / play_time_ms)
     values_int = round.(Int, vec(values_y_x_t) .* 10 ^ digits)
     plot_json = JSON.lower(base_plot)
+    
+    time_step = sim_params["time_step_seconds"]
+    dt_start = sim_params[""]
+    timestamps = Array{String, nt}()
+    for (i, t) in enumerate(1:jumped_steps:nt)
+        timestamps[i] = string(add_ignoring_leap_days(dt_start, 
+                                                      Dates.Second((t - 1) * time_step)))
+    end
 
     open(output_path, "w") do io
         print(io, 
@@ -3399,6 +3413,7 @@ function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArr
         join(io, values_int, ',')
         print(io, 
             """]</script>
+            "<script>const timestamps = $(JSON.json(timestamps));</script>"
             <script type="text/javascript">
             (function () {
                 const NX = $(nx), NY = $(ny), NT = $(nt), N = NX * NY;
@@ -3426,7 +3441,7 @@ function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArr
                 let busy = false, pending = null, playing = false, lastStepTime = 0;
                 function requestStep(step) {
                     pending = step;
-                    label.textContent = "Time: " + (step + 1);
+                    label.textContent = timestamps[step];
                     if (!busy) flush();
                 }
                 function flush() {

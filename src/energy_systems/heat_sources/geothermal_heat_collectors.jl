@@ -1646,7 +1646,7 @@ function plot_optional_figures_end(unit::GeothermalHeatCollector, sim_params::Di
     base_plot = PlotlyJS.Plot([surface_trace, scatter_trace], layout)
 
     fig_name = "geothermal_collector_temperature_distribution_$(unit.uac).html"
-    save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot)
+    save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot, sim_params)
 
     return true
 end

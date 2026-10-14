@@ -1624,8 +1624,8 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
 
 
         fig_name = "soil_temperature_distribution_STES_$(unit.uac).html"
-        save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot; 
-                         render_time_ms=50)       
+        save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot, 
+                         sim_params; render_time_ms=50)       
     end
 
     return true
