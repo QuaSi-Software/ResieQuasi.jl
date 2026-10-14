@@ -421,6 +421,27 @@ const GEOTHERMAL_PROBES_COMPONENT_PARAMETERS = Dict(
         type=Bool,
         json_type="boolean",
         unit="-"
+    ),
+    "use_load_aggregation" => (
+        default=true,
+        description="Use Claesson-Javed load aggregation for the temporal superposition of the g-function. " *
+                    "If false, the complete load history is evaluated in every temperature calculation.",
+        display_name="Use load aggregation",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "load_aggregation_cells_per_level" => (
+        default=5,
+        description="Number of aggregation cells per level for the Claesson-Javed load aggregation. " *
+                    "Higher values retain more load-history detail at the cost of computation time.",
+        display_name="Load aggregation cells per level",
+        required=false,
+        validations=[("self", "value_gte_num", 1.0)],
+        type=Int,
+        json_type="integer",
+        unit="-"
     )
 )
 
@@ -557,6 +578,17 @@ mutable struct GeothermalProbes <: Component
     # highest actual output energy delivered within one simulation time step
     max_observed_output_energy::Float64
 
+    # use Claesson-Javed load aggregation for temporal superposition of the g-function
+    use_load_aggregation::Bool
+    # number of aggregation cells per level
+    load_aggregation_cells_per_level::Int
+    # widths of the load aggregation cells in simulation time steps
+    load_aggregation_cell_widths::Vector{Int}
+    # dimensional response-factor increments of the aggregation cells in K/(W/m)
+    load_aggregation_response_increments::Vector{Float64}
+    # aggregated specific thermal loads in W/m
+    load_aggregation_loads::Vector{Float64}
+
     function GeothermalProbes(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
         new(SSOT_parameter_constructor(GeothermalProbes, uac, config, sim_params)...)
     end
@@ -663,7 +695,12 @@ function init_from_params(x::Type{GeothermalProbes}, uac::String, params::Dict{S
             false,   # process_done
             false,   # load_done
             false,   # used_max_output_energy_temperature_estimation
-            0.0)     # max_observed_output_energy
+            0.0,     # max_observed_output_energy
+            params["use_load_aggregation"],
+            params["load_aggregation_cells_per_level"],
+            Int[],     # load_aggregation_cell_widths
+            Float64[], # load_aggregation_response_increments
+            Float64[]) # load_aggregation_loads
 end
 
 function initialise!(unit::GeothermalProbes, sim_params::Dict{String,Any})
@@ -692,6 +729,10 @@ function initialise!(unit::GeothermalProbes, sim_params::Dict{String,Any})
 
     # calculate g-function and get number of probes in the probe field
     unit.g_function, unit.number_of_probes, unit.probe_coordinates = calculate_g_function(unit, sim_params)
+
+    if unit.use_load_aggregation
+        initialise_load_aggregation!(unit, sim_params["number_of_time_steps"])
+    end
 
     # calculate max energies
     unit.max_output_energy = sim_params["watt_to_wh"](unit.max_output_power * unit.probe_depth * unit.number_of_probes)
@@ -784,12 +825,38 @@ function calculate_g_function(unit::Component, sim_params::Dict{String,Any})
                                                                 sim_params["time_step_seconds"])
 
     # Interpolation between grid points of library, to get g-function values for each time-step.
-    simulation_end_timestamp = Int(sim_params["number_of_time_steps"] * sim_params["time_step_seconds"])
+    # Load aggregation needs the response factor at the end of the oldest aggregation cell, which can lie
+    # slightly beyond the actual simulation horizon.
+    required_time_steps = sim_params["number_of_time_steps"]
+    if unit.use_load_aggregation
+        required_time_steps = sum(load_aggregation_cell_widths(sim_params["number_of_time_steps"],
+                                                               unit.load_aggregation_cells_per_level))
+    end
+    simulation_end_timestamp = Int(required_time_steps * sim_params["time_step_seconds"])
+
     if library_time_grid_absolute[end] < simulation_end_timestamp
-        @error "The duration of the time horizon given for the g_function of \"$(unit.uac)\" does not cover " *
-               "the complete simulation time! Reduce the simulation time or provide a g-function with longer time horizon."
+        function format_duration(seconds::Real)
+            days = seconds / 86400
+            if days >= 730
+                return "$(round(days / 365; digits=2)) years"
+            elseif days >= 2
+                return "$(round(days; digits=1)) days"
+            else
+                return "$(round(seconds / 3600; digits=1)) hours"
+            end
+        end
+
+        @error "The g-function provided for geothermal probe \"$(unit.uac)\" does not cover " *
+               "the complete time range required by the simulation. " *
+               "The available g-function covers $(format_duration(library_time_grid_absolute[end])), " *
+               "but $(format_duration(simulation_end_timestamp)) are required." *
+               (unit.use_load_aggregation ?
+                " With Claesson-Javed load aggregation, the required horizon can be slightly longer " *
+                "than the simulation period because complete aggregation cells are used." :
+                "")
         throw(InputError())
     end
+
     # ensure that the transformation can be made
     if simulation_end_timestamp < library_time_grid_absolute[2]
         simulation_end_timestamp = library_time_grid_absolute[2] + sim_params["time_step_seconds"]
@@ -1179,6 +1246,80 @@ function get_g_values_from_library(unit::Component,
 end
 
 """
+    load_aggregation_cell_widths(number_of_time_steps::Int, cells_per_level::Int)::Vector{Int}
+
+Builds the Claesson-Javed aggregation cell widths. The width doubles after every
+`cells_per_level` cells. The oldest cell is kept at its full width, as in the
+published method and the pygfunction implementation.
+"""
+function load_aggregation_cell_widths(number_of_time_steps::Int, cells_per_level::Int)::Vector{Int}
+    widths = Int[]
+    covered_time_steps = 0
+    cell_index = 0
+
+    while covered_time_steps < number_of_time_steps
+        cell_index += 1
+        level = cld(cell_index, cells_per_level)
+        width = 2^(level - 1)
+        push!(widths, width)
+        covered_time_steps += width
+    end
+
+    return widths
+end
+
+"""
+    initialise_load_aggregation!(unit::GeothermalProbes, number_of_time_steps::Int)
+
+Initialises the energy-conserving Claesson-Javed load aggregation used for the
+temporal superposition of the g-function.
+"""
+function initialise_load_aggregation!(unit::GeothermalProbes, number_of_time_steps::Int)
+    widths = load_aggregation_cell_widths(number_of_time_steps, unit.load_aggregation_cells_per_level)
+
+    unit.load_aggregation_cell_widths = widths
+    unit.load_aggregation_loads = zeros(Float64, length(widths))
+    unit.load_aggregation_response_increments = zeros(Float64, length(widths))
+
+    # For a cell spanning load ages (a+1):b, the response-factor increment is
+    # (g[b] - g[a]) / (2*pi*lambda). This is mathematically equivalent to the
+    # complete superposition with load changes when every cell has width one.
+    previous_g_value = 0.0
+    cumulative_width = 0
+    for i in eachindex(widths)
+        cumulative_width += widths[i]
+        current_g_value = unit.g_function[cumulative_width]
+        unit.load_aggregation_response_increments[i] = (current_g_value - previous_g_value) /
+                                                       (2 * pi * unit.soil_heat_conductivity)
+        previous_g_value = current_g_value
+    end
+
+    return nothing
+end
+
+"""
+    advance_load_aggregation!(unit::GeothermalProbes)
+
+Advances the Claesson-Javed load history by one simulation time step. The
+update is performed from the oldest to the newest cell so that it can be done
+in-place while preserving the values from the previous time step. The first
+cell is cleared and subsequently filled by the current load when the
+temperature is evaluated.
+"""
+function advance_load_aggregation!(unit::GeothermalProbes)
+    loads = unit.load_aggregation_loads
+    widths = unit.load_aggregation_cell_widths
+
+    for i in length(loads):-1:2
+        inverse_width = 1.0 / widths[i]
+        loads[i] = (1.0 - inverse_width) * loads[i] + inverse_width * loads[i - 1]
+    end
+    loads[1] = 0.0
+
+    return nothing
+end
+
+"""
     check_temperature_and_get_max_energy(unit::GeothermalProbes,
                                          sim_params::Dict{String,Any},
                                          temperature_output::Temperature,
@@ -1258,6 +1399,10 @@ function control(unit::GeothermalProbes,
 
     # time index, necessary for g-function approach
     unit.time_index = unit.time_index + 1
+
+    if unit.use_load_aggregation
+        advance_load_aggregation!(unit)
+    end
 
     # get output temperature for energy output and set temperature and max_energy to output interface
     unit.current_max_output_temperature = unit.fluid_temperature + unit.unloading_temperature_spread / 2
@@ -1480,20 +1625,37 @@ function calculate_new_fluid_temperature(unit::GeothermalProbes, wh2w::Function)
     end
 
     # calculate new average fluid temperature with g-function approach
-    if unit.time_index == 1
-        unit.power_in_out_difference_per_probe_meter[unit.time_index] = wh2w(unit.energy_in_out_per_probe_meter[unit.time_index])
-    else
-        unit.power_in_out_difference_per_probe_meter[unit.time_index] = wh2w(unit.energy_in_out_per_probe_meter[unit.time_index] -
-                                                                             unit.energy_in_out_per_probe_meter[unit.time_index - 1])
-    end
+    current_specific_power = wh2w(unit.energy_in_out_per_probe_meter[unit.time_index])
 
-    current_temperature_difference = sum(reverse(unit.power_in_out_difference_per_probe_meter[1:(unit.time_index)]) .*
-                                         unit.g_function[1:(unit.time_index)]) / (2 * pi * unit.soil_heat_conductivity)
+    if unit.use_load_aggregation
+        # The first aggregation cell always represents the current time step.
+        # Repeated calls within the same time step (e.g. during root finding) only
+        # overwrite this current load and therefore do not modify the past history.
+        unit.load_aggregation_loads[1] = current_specific_power
+
+        current_temperature_difference = 0.0
+        @inbounds for i in eachindex(unit.load_aggregation_loads)
+            current_temperature_difference += unit.load_aggregation_loads[i] *
+                                              unit.load_aggregation_response_increments[i]
+        end
+    else
+        # Original full-history temporal superposition.
+        if unit.time_index == 1
+            unit.power_in_out_difference_per_probe_meter[unit.time_index] = current_specific_power
+        else
+            unit.power_in_out_difference_per_probe_meter[unit.time_index] = wh2w(unit.energy_in_out_per_probe_meter[unit.time_index] -
+                                                                                 unit.energy_in_out_per_probe_meter[unit.time_index - 1])
+        end
+
+        current_temperature_difference = sum(reverse(unit.power_in_out_difference_per_probe_meter[1:(unit.time_index)]) .*
+                                             unit.g_function[1:(unit.time_index)]) /
+                                         (2 * pi * unit.soil_heat_conductivity)
+    end
 
     borehole_current_wall_temperature = unit.soil_undisturbed_ground_temperature + current_temperature_difference
 
     fluid_temperature = borehole_current_wall_temperature +
-                        wh2w(unit.energy_in_out_per_probe_meter[unit.time_index]) * borehole_thermal_resistance
+                        current_specific_power * borehole_thermal_resistance
     return fluid_temperature
 end
 
