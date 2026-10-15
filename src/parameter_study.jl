@@ -1196,16 +1196,6 @@ function perform_parameter_study(io_settings::Dict{String,Any},
     local_reference_values = nothing
 
     if parameter_study["runtime"]["run_primary_study"]
-        # warn if file outputs for multi-thread simulations should be created, as this can lead to troubles
-        uses_threaded_sample_evaluation = (parameter_study["parameter_variation"]["run_parameter_variation"] &&
-                                           length(parameter_study["runtime"]["iterator"]) > 1) ||
-                                          (parameter_study["optimisation"]["type"] == "Metaheuristics" &&
-                                           Threads.nthreads() > 1)
-        if uses_threaded_sample_evaluation && !parameter_study["disable_all_simulation_outputs"]
-            @warn "Writing simulation outputs during multi-threaded parameter studies may cause file-access conflicts or crashes. " *
-                  "To be safe, set `disable_all_simulation_outputs` to `true`, or run the study with a single thread."
-        end
-
         primary_start_time = now()
         workflow_name = parameter_study["parameter_variation"]["run_parameter_variation"] ?
                         "Parameter variation" : "Optimisation"

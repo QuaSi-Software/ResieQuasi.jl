@@ -23,6 +23,10 @@ function prepare_output_path(path::AbstractString)::String
     return String(path)
 end
 
+# Plots.jl / GR use shared backend state and must not be accessed concurrently.
+# Lock the entire plot operation, including creation, modification and saving.
+const PLOT_LOCK = ReentrantLock()
+
 """
     get_output_keys(io_settings, economic_parameters, emissions_parameters, parameter_study,
                     components, suppress_all_output)
@@ -678,7 +682,10 @@ function dump_auxiliary_outputs(io_settings::Dict{String,Any},
         aux_plots_formats = Vector{String}(aux_plots_formats)
         component_list = []
         for component in components
-            if plot_optional_figures_begin(component[2], aux_plots_output_path, aux_plots_formats, sim_params)
+            plotted = lock(PLOT_LOCK) do
+                plot_optional_figures_begin(component[2], aux_plots_output_path, aux_plots_formats, sim_params)
+            end
+            if plotted
                 push!(component_list, component[2].uac)
             end
         end
