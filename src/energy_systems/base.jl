@@ -2036,7 +2036,7 @@ function validate_config(x::Type{Component}, extracted::Dict{String,Any}, uac::S
         # check if it is required but has a value of nothing (meaning both the default is
         # nothing and no value was given). but also check if conditionals would "turn off"
         # the parameter in any case, in which case the value does not matter
-        if type_def[name].required && value === nothing 
+        if type_def[name].required && value === nothing
             if conditionals_apply(name, extracted, type_def)
                 throw(InputError("Required parameter `$name` in component `$uac` has no given value and no default."))
             else
@@ -3350,11 +3350,44 @@ function all_component_parameters()::Dict{String,Any}
 
     return all_parameters
 end
+"""
+    downsampling_for_plots(values::AbstractArray, time_dim::Int; 
+                           max_n_values::Union{Int, Nothing}=50_000_000, 
+                           decimation_factor::Union{Int, Nothing}=nothing)
 
+Downsamples an array 'values' on dimension 'time_dim' to reduce file size for plotting.
+If decimation_factor is given, it always takes priority of max_n_values.
+At least one of max_n_values or decimation_factor has to be given.
+
+# Arguments
+- `values::AbstractArray`: Data array to be downsampled.
+- `time_dim::Int`: Dimension of array that carries time steps & is going to be downsampled.
+- `max_n_values=50_000_000`: Maximum number of values in the array after downsampling.
+"""
+function downsampling_for_plots(values::AbstractArray, time_dim::Int;
+                                max_n_values::Union{Int,Nothing}=50_000_000,
+                                decimation_factor::Union{Int,Nothing}=nothing)
+    n_vals = prod(size(values))
+    if isnothing(decimation_factor) && !isnothing(max_n_values)
+        decimation_factor = ceil(Int, n_vals / max_n_values)
+    elseif isnothing(decimation_factor) && isnothing(max_n_values)
+        @error "At least one of max_n_values or decimation_factor has to be given for" *
+               "function downsampling_for_plots()"
+    end
+
+    values = collect(selectdim(values, time_dim, 1:decimation_factor:size(values, time_dim)))
+    if decimation_factor > 1
+        @info "Values for plot got downsampled by factor $decimation_factor to reduce file 
+               size."
+    end
+    return values, decimation_factor
+end
 
 """
-save_html_slider(output_path, values_y_x_t, base_plot, sim_params; 
-                 digits=2, render_time_ms=40, play_time_ms=20_000, max_steps=30_000)
+    save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArray, 
+                    base_plot::PlotlyJS.Plot, sim_params::Dict{String,Any}; 
+                    digits::Int=2, render_time_ms::Number=40, 
+                    play_time_ms::Number=20_000, max_n_values=50_000_000)
 
 Create custom HTML file for 3D slider graph to improve performance.
 
@@ -3362,139 +3395,146 @@ Order of values MUST be y,x,t with reference to PloltyJS surface plot.
 base_plot defines the layout and type of plots (example in SeasonalThermalStorage and 
 GeothermalHeatCollector)
 
+# Arguments
+- `output_path::AbstractString`: Target path of the generated HTML file.
+- `values_y_x_t::AbstractArray`: 3D data array with dimensions `(y, x, t) with reference to 
+                                 PloltyJS surface plot`.
+- `base_plot::PlotlyJS.Plot`: Base PlotlyJS plot defining the visual style, layout, and
+                              trace type.
+- `sim_params::Dict{String,Any}`: Simulation parameters
+- `digits::Int=2`: Number of decimal places used for rounding data.
+- `render_time_ms::Number=40`: Approximate render time per frame in milliseconds.
+- `play_time_ms::Number=20_000`: Target total playback duration for the slider animation.
 """
-function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArray, 
-                          base_plot::PlotlyJS.Plot, sim_params::Dict{String,Any}; digits::Int=2, render_time_ms::Number=40, 
-                          play_time_ms::Number=20_000, max_steps=30_000)
-    
-    if nt > max_steps
-        jumped_steps = ceil(nt / max_steps)
-        values_y_x_t = values_y_x_t[:, :, 1:jumped_steps:end]
-    end
-    
+function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArray,
+                          base_plot::PlotlyJS.Plot, sim_params::Dict{String,Any};
+                          digits::Int=2, render_time_ms::Number=40,
+                          play_time_ms::Number=20_000)
+    values_y_x_t, decimation_factor = downsampling_for_plots(values_y_x_t, 3)
     ny, nx, nt = size(values_y_x_t)
-    jumped_frames = ceil((nt * render_time_ms) / play_time_ms)
+
+    jumped_frames = ceil(Int, (nt * render_time_ms) / play_time_ms)
     values_int = round.(Int, vec(values_y_x_t) .* 10 ^ digits)
     plot_json = JSON.lower(base_plot)
-    
-    time_step = sim_params["time_step_seconds"]
-    dt_start = sim_params[""]
-    timestamps = Array{String, nt}()
-    for (i, t) in enumerate(1:jumped_steps:nt)
-        timestamps[i] = string(add_ignoring_leap_days(dt_start, 
-                                                      Dates.Second((t - 1) * time_step)))
+
+    time_step = sim_params["time_step_seconds"] * decimation_factor
+    timestamps = Array{String}(undef, nt)
+    for i in 1:nt
+        timestamps[i] = string(add_ignoring_leap_days(sim_params["start_date_output"],
+                                                      Dates.Second((i - 1) * time_step)))
     end
+    timestamps = replace.(timestamps, 'T' => ' ')
 
     open(output_path, "w") do io
-        print(io, 
-            """
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <meta charset="utf-8" />
-            <script src="$(PlotlyJS.PlotlyBase.cdn_url())"></script>
-            <style>
-                html, body { height: 100%; margin: 0; font-family: sans-serif; }
-                body { display: flex; flex-direction: column; }
-                #plot { flex: 1 1 auto; min-height: 0; }
-                #controls { display: flex; align-items: center; gap: 12px; padding: 8px 16px; }
-                #slider { flex: 1 1 auto; }
-                #label { min-width: 110px; }
-            </style>
-            </head>
-            <body>
-            <div id="plot"></div>
-            <div id="controls">
-                <button id="play" type="button">Play</button>
-                <input id="slider" type="range" min="0" max="$(nt - 1)" step="1" value="0" />
-                <span id="label">Time: 1</span>
-            </div>
-            <script type="application/json" id="temps">[""")
+        print(io,
+              """
+              <!DOCTYPE html>
+              <html>
+              <head>
+              <meta charset="utf-8" />
+              <script src="$(PlotlyJS.PlotlyBase.cdn_url())"></script>
+              <style>
+                  html, body { height: 100%; margin: 0; font-family: sans-serif; }
+                  body { display: flex; flex-direction: column; }
+                  #plot { flex: 1 1 auto; min-height: 0; }
+                  #controls { display: flex; align-items: center; gap: 12px; padding: 8px 16px; }
+                  #slider { flex: 1 1 auto; }
+                  #label { min-width: 110px; }
+              </style>
+              </head>
+              <body>
+              <div id="plot"></div>
+              <div id="controls">
+                  <button id="play" type="button">Play</button>
+                  <input id="slider" type="range" min="0" max="$(nt - 1)" step="1" value="0" />
+                  <span id="label">Time: 1</span>
+              </div>
+              <script type="application/json" id="temps">[""")
         join(io, values_int, ',')
-        print(io, 
-            """]</script>
-            "<script>const timestamps = $(JSON.json(timestamps));</script>"
-            <script type="text/javascript">
-            (function () {
-                const NX = $(nx), NY = $(ny), NT = $(nt), N = NX * NY;
-                const raw = JSON.parse(document.getElementById("temps").textContent);
-                const T = new Float64Array(raw.length);
-                for (let i = 0; i < raw.length; i++) T[i] = raw[i] / $(10 ^ digits);
+        print(io,
+              """]</script>
+              <script>const timestamps = $(JSON.json(timestamps));</script>
+              <script type="text/javascript">
+              (function () {
+                  const NX = $(nx), NY = $(ny), NT = $(nt), N = NX * NY;
+                  const raw = JSON.parse(document.getElementById("temps").textContent);
+                  const T = new Float64Array(raw.length);
+                  for (let i = 0; i < raw.length; i++) T[i] = raw[i] / $(10 ^ digits);
 
-                const gd = document.getElementById("plot");
-                const slider = document.getElementById("slider");
-                const label = document.getElementById("label");
-                const playBtn = document.getElementById("play");
+                  const gd = document.getElementById("plot");
+                  const slider = document.getElementById("slider");
+                  const label = document.getElementById("label");
+                  const playBtn = document.getElementById("play");
 
-                function zData(step) {
-                    const off = step * N;
-                    const surf = new Array(NY);
-                    for (let j = 0; j < NY; j++) {
-                        const row = new Array(NX);
-                        for (let i = 0; i < NX; i++) row[i] = T[off + i * NY + j];
-                        surf[j] = row;
-                    }
-                    return [surf, Array.from(T.subarray(off, off + N))];
-                }
+                  function zData(step) {
+                      const off = step * N;
+                      const surf = new Array(NY);
+                      for (let j = 0; j < NY; j++) {
+                          const row = new Array(NX);
+                          for (let i = 0; i < NX; i++) row[i] = T[off + i * NY + j];
+                          surf[j] = row;
+                      }
+                      return [surf, Array.from(T.subarray(off, off + N))];
+                  }
 
-                // render only the latest requested step and never queue up redraws
-                let busy = false, pending = null, playing = false, lastStepTime = 0;
-                function requestStep(step) {
-                    pending = step;
-                    label.textContent = timestamps[step];
-                    if (!busy) flush();
-                }
-                function flush() {
-                    if (pending === null) { busy = false; return; }
-                    const step = pending;
-                    pending = null;
-                    busy = true;
-                    Plotly.restyle(gd, { z: zData(step) }, [0, 1])
-                        .then(function () { requestAnimationFrame(flush); });
-                }
-                function tick(timestamp) {
-                    if (!playing) return;
-                    if (!busy && timestamp - lastStepTime >= $(render_time_ms)) {
-                        lastStepTime = timestamp
-                        const step = (parseInt(slider.value) + $(jumped_frames)) % NT;
-                        slider.value = step;
-                        requestStep(step);
-                    }
-                    requestAnimationFrame(tick);
-                }
+                  // render only the latest requested step and never queue up redraws
+                  let busy = false, pending = null, playing = false, lastStepTime = 0;
+                  function requestStep(step) {
+                      pending = step;
+                      label.textContent = timestamps[step];
+                      if (!busy) flush();
+                  }
+                  function flush() {
+                      if (pending === null) { busy = false; return; }
+                      const step = pending;
+                      pending = null;
+                      busy = true;
+                      Plotly.restyle(gd, { z: zData(step) }, [0, 1])
+                          .then(function () { requestAnimationFrame(flush); });
+                  }
+                  function tick(timestamp) {
+                      if (!playing) return;
+                      if (!busy && timestamp - lastStepTime >= $(render_time_ms)) {
+                          lastStepTime = timestamp
+                          const step = (parseInt(slider.value) + $(jumped_frames)) % NT;
+                          slider.value = step;
+                          requestStep(step);
+                      }
+                      requestAnimationFrame(tick);
+                  }
 
-                // Plotly upsamples surfaces on non-uniform grids (up to 720 points per axis)
-                // on every update, which dominates the redraw time. The colors are
-                // interpolated on the GPU anyway, so the refinement is switched off.
-                function disableSurfaceRefinement() {
-                    const scene = gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene._scene;
-                    if (!scene || !scene.traces) return;
-                    Object.values(scene.traces).forEach(function (trace) {
-                        if (trace.data && trace.data.type === "surface") {
-                            trace.refineData = false;
-                            trace.dataScaleX = 1;
-                            trace.dataScaleY = 1;
-                        }
-                    });
-                }
+                  // Plotly upsamples surfaces on non-uniform grids (up to 720 points per axis)
+                  // on every update, which dominates the redraw time. The colors are
+                  // interpolated on the GPU anyway, so the refinement is switched off.
+                  function disableSurfaceRefinement() {
+                      const scene = gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene._scene;
+                      if (!scene || !scene.traces) return;
+                      Object.values(scene.traces).forEach(function (trace) {
+                          if (trace.data && trace.data.type === "surface") {
+                              trace.refineData = false;
+                              trace.dataScaleX = 1;
+                              trace.dataScaleY = 1;
+                          }
+                      });
+                  }
 
-                const fig = $(JSON.json(plot_json));
-                Plotly.newPlot(gd, fig.data, fig.layout, { responsive: true, displaylogo: false })
-                    .then(function () {
-                        disableSurfaceRefinement();
-                        requestStep(0);
-                        slider.addEventListener("input", function () { requestStep(parseInt(slider.value)); });
-                        playBtn.addEventListener("click", function () {
-                            playing = !playing;
-                            playBtn.textContent = playing ? "Pause" : "Play";
-                            if (playing) requestAnimationFrame(tick);
-                        });
-                    });
-            })();
-            </script>
-            </body>
-            </html>
-            """)  
+                  const fig = $(JSON.json(plot_json));
+                  Plotly.newPlot(gd, fig.data, fig.layout, { responsive: true, displaylogo: false })
+                      .then(function () {
+                          disableSurfaceRefinement();
+                          requestStep(0);
+                          slider.addEventListener("input", function () { requestStep(parseInt(slider.value)); });
+                          playBtn.addEventListener("click", function () {
+                              playing = !playing;
+                              playBtn.textContent = playing ? "Pause" : "Play";
+                              if (playing) requestAnimationFrame(tick);
+                          });
+                      });
+              })();
+              </script>
+              </body>
+              </html>
+              """)
     end
 end
 
