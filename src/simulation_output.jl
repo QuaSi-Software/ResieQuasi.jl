@@ -4,6 +4,26 @@ using Random
 using CSV
 
 """
+    prepare_output_path(path::AbstractString)::String
+
+Create the parent directory of an output file when the file is about to be written.
+The file path itself is returned unchanged; the output file is not created here.
+"""
+function prepare_output_path(path::AbstractString)::String
+    if isempty(strip(path))
+        throw(InputError("Invalid empty output file path."))
+    end
+
+    try
+        mkpath(dirname(path))
+    catch err
+        throw(InputError("Could not create output directory for `$path`: " * sprint(showerror, err)))
+    end
+
+    return String(path)
+end
+
+"""
     get_output_keys(io_settings, economic_parameters, emissions_parameters, parameter_study,
                     components, suppress_all_output)
 
@@ -624,7 +644,7 @@ function dump_auxiliary_outputs(io_settings::Dict{String,Any},
     # export order of operations
     if io_settings["auxiliary_info"]
         aux_info_file_path = io_settings["auxiliary_info_file_path"]
-        open(sim_params["run_path"](aux_info_file_path), "w") do file_handle
+        open(prepare_output_path(sim_params["run_path"](aux_info_file_path)), "w") do file_handle
             # write base order (from input or calculated)
             write(file_handle, "# Order of operations\n")
             write(file_handle, listify_operations(order_of_operations))
@@ -653,6 +673,7 @@ function dump_auxiliary_outputs(io_settings::Dict{String,Any},
     # plot additional figures potentially available from components after initialisation
     if io_settings["auxiliary_plots"]
         aux_plots_output_path = sim_params["run_path"](io_settings["auxiliary_plots_directory"])
+        mkpath(aux_plots_output_path)
         aux_plots_formats = io_settings["auxiliary_plots_formats"]
         aux_plots_formats = Vector{String}(aux_plots_formats)
         component_list = []
@@ -866,7 +887,7 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
 
     p = plot(traces, layout)
     file_path = sim_params["run_path"](io_settings["output_plot_file_path"])
-    savefig(p, file_path)
+    savefig(p, prepare_output_path(file_path))
 end
 
 """
@@ -1038,7 +1059,7 @@ function create_sankey(output_all_sourcenames::Vector{Any},
 
     # save plot
     file_path = sim_params["run_path"](io_settings["sankey_plot_file_path"])
-    savefig(p, file_path)
+    savefig(p, prepare_output_path(file_path))
 end
 
 """
@@ -1216,7 +1237,7 @@ function aggregate_csv(input_path::AbstractString,
 
     sort!(data_indices; by=j -> lowercase(headers[j]))
 
-    open(output_path, "w") do io
+    open(prepare_output_path(output_path), "w") do io
         write_csv_row(io,
                       ["Parameter",
                        "Type",

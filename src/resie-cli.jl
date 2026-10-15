@@ -166,6 +166,9 @@ function run(arguments::Array{String})::Tuple{Bool,Bool}
     general_logfile_path = abspath(joinpath(dirname(@__FILE__), "..", "output", "logfile_general.log"))
     balanceWarn_logfile_path = abspath(joinpath(dirname(@__FILE__), "..", "output", "logfile_balanceWarn.log"))
     min_log_level = Resie_Logger.Logging.Info
+    # Log files are opened before loading project output settings.
+    Resie.prepare_output_path(general_logfile_path)
+    Resie.prepare_output_path(balanceWarn_logfile_path)
     logger = Resie_Logger.start_logger(log_to_console,
                                        log_to_file,
                                        general_logfile_path,

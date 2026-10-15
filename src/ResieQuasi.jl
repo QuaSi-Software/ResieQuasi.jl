@@ -166,7 +166,7 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     if do_write_CSV
         header = get_output_header(output_keys_to_CSV, weather_CSV_keys, csv_time_unit)
         # Reset the output file and add headers for the given outputs.
-        open(sim_params["run_path"](csv_file_path), "w") do file_handle
+        open(prepare_output_path(sim_params["run_path"](csv_file_path)), "w") do file_handle
             write(file_handle, join(header, ';') * "\n")
         end
     end
@@ -401,6 +401,7 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     if io_settings["auxiliary_plots"] && !suppress_all_output
         component_list = []
         output_path = sim_params["run_path"](io_settings["auxiliary_plots_directory"])
+        mkpath(output_path)
         for component in components
             if plot_optional_figures_end(component[2], sim_params, output_path)
                 push!(component_list, component[2].uac)
@@ -667,7 +668,7 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
             # create header if file is empty
             if filesize(parameter_study_results_path) == 0
                 header = join(collect(keys(results)), ';') * "\n"
-                open(parameter_study_results_path, "w") do file_handle
+                open(prepare_output_path(parameter_study_results_path), "w") do file_handle
                     write(file_handle, header)
                 end
             end

@@ -1106,7 +1106,7 @@ end
 
 function write_parameter_study_results(parameter_study_results_path::String,
                                        evaluated_parameter_sets::Vector{Any})
-    open(parameter_study_results_path, "w") do file_handle
+    open(prepare_output_path(parameter_study_results_path), "w") do file_handle
         # write header
         header = join(collect(keys(evaluated_parameter_sets[1])), ';') * "\n"
         write(file_handle, header)
@@ -1149,7 +1149,7 @@ function perform_parameter_study(io_settings::Dict{String,Any},
     results_lock = ReentrantLock()
 
     parameter_study_results_path = parameter_study_csv_path(sim_params, io_settings, "all_results")
-    open(parameter_study_results_path, "w") do file_handle
+    open(prepare_output_path(parameter_study_results_path), "w") do file_handle
     end
 
     parameter_study = sim_params["parameter_study"]

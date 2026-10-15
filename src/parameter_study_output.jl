@@ -60,10 +60,7 @@ end
 function write_sensitivity_csv(file_path::String,
                                header::Vector{String},
                                rows::Vector{<:AbstractVector})::String
-    directory = dirname(file_path)
-    isempty(directory) || mkpath(directory)
-
-    open(file_path, "w") do io
+    open(prepare_output_path(file_path), "w") do io
         println(io, join(sensitivity_csv_escape.(header), ';'))
         for row in rows
             println(io, join(sensitivity_csv_escape.(row), ';'))
@@ -261,8 +258,7 @@ function create_global_sensitivity_plot(parameter_keys::Vector{String},
     file_path = parameter_study_plot_path(sim_params,
                                           io_settings,
                                           "global_sensitivity")
-    mkpath(dirname(file_path))
-    savefig(plot_object, file_path)
+    savefig(plot_object, prepare_output_path(file_path))
     return file_path
 end
 
@@ -470,8 +466,7 @@ function create_local_sensitivity_response_overview_plot(sensitivity_results::Ve
     file_path = parameter_study_plot_path(sim_params,
                                           io_settings,
                                           "local_sensitivity_response_overview")
-    mkpath(dirname(file_path))
-    savefig(plot_object, file_path)
+    savefig(plot_object, prepare_output_path(file_path))
 
     return file_path
 end
@@ -722,8 +717,7 @@ function create_local_sensitivity_response_trends_plot(sensitivity_results::Vect
     file_path = parameter_study_plot_path(sim_params,
                                           io_settings,
                                           "local_sensitivity_response_trends")
-    mkpath(dirname(file_path))
-    savefig(plot_object, file_path)
+    savefig(plot_object, prepare_output_path(file_path))
     return file_path
 end
 
@@ -1292,7 +1286,7 @@ function create_matrix_plot(results::Vector{Any},
     file_path = parameter_study_plot_path(sim_params,
                                           io_settings,
                                           "matrix_plot")
-    savefig(p, file_path)
+    savefig(p, prepare_output_path(file_path))
 
     # Add the same toolbar style used by the other interactive parameter-study
     # plots. The graph occupies the viewport space remaining below the toolbar.
@@ -1857,7 +1851,7 @@ function create_objective_convergence_plot(results::Vector{Any},
                                           io_settings,
                                           "convergence")
 
-    savefig(plot_object, file_path)
+    savefig(plot_object, prepare_output_path(file_path))
 
     if spec.is_multiobjective &&
        length(available_objective_keys) > 1
@@ -2220,8 +2214,7 @@ function create_objective_parameter_plots(results::Vector{Any},
         return ""
     end
 
-    mkpath(dirname(file_path))
-    savefig(p, file_path)
+    savefig(p, prepare_output_path(file_path))
 
     explorer_sense_keys = unique(vcat(spec.objective_keys,
                                       configured_objective_params))
@@ -2438,7 +2431,7 @@ function create_parallel_coordinates_plot(results::Vector{Any},
     file_path = parameter_study_plot_path(sim_params,
                                           io_settings,
                                           "parallel_coordinates")
-    savefig(p, file_path)
+    savefig(p, prepare_output_path(file_path))
     inject_parallel_axis_zoom_controls!(file_path,
                                         param_names,
                                         spec.objective_keys,
@@ -2811,8 +2804,7 @@ function create_interactive_3d_parameter_study_plot(results::Vector{Any},
         return ""
     end
 
-    mkpath(dirname(file_path))
-    savefig(p, file_path)
+    savefig(p, prepare_output_path(file_path))
 
     inject_3d_axis_selection_controls!(file_path,
                                        axis_data,
