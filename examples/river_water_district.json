@@ -6,7 +6,7 @@
         "csv_output_weather": false,
         "write_csv_continuously": false,
         "auxiliary_info": true,
-        "auxiliary_info_file": "./output/auxiliary_info.md",
+        "auxiliary_info_file_path": "./output/auxiliary_info.md",
         "auxiliary_plots": false,
         "sankey_plot_file_path": "./output/output_sankey.html",
         "sankey_plot": "default",

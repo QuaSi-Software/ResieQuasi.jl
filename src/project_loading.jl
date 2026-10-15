@@ -264,10 +264,10 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="boolean",
         unit="-"
     ),
-    "auxiliary_info_file" => (
+    "auxiliary_info_file_path" => (
         default="./output/auxiliary_info.md",
         description="File path to where the auxiliary information will be written",
-        display_name="Auxiliary info file",
+        display_name="Auxiliary info file path",
         required=false,
         type=String,
         json_type="string",
@@ -283,10 +283,10 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="boolean",
         unit="-"
     ),
-    "auxiliary_plots_path" => (
+    "auxiliary_plots_directory" => (
         default="./output/",
         description="Directory path to where the additional plots will be saved",
-        display_name="Auxiliary plots path",
+        display_name="Directory for auxiliary plots",
         required=false,
         type=String,
         json_type="string",
@@ -518,10 +518,11 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="boolean",
         unit="-"
     ),
-    "parameter_study_csv_path" => (
+    "parameter_study_csv_path_prefix" => (
         default="./output/parameter_study",
-        description="Directory path to where the parameter-study CSV result files are written to",
-        display_name="Parameter-study CSV directory path",
+        description="Path including a filename prefix used to generate parameter-study CSV files. " *
+                    "An output-specific suffix and the file extension are appended automatically.",
+        display_name="Parameter-study CSV directory path with prefix",
         required=false,
         type=String,
         json_type="string",
@@ -550,10 +551,11 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="boolean",
         unit="-"
     ),
-    "parameter_study_plots_path" => (
+    "parameter_study_plots_path_prefix" => (
         default="./output/parameter_study_plots",
-        description="Directory path to where the parameter-study result plots will be written",
-        display_name="Parameter-study plots directory path",
+        description="Path including a filename prefix used to generate parameter-study result plots. " *
+                    "An output-specific suffix and the file extension are appended automatically.",
+        display_name="Parameter-study plots directory path with prefix",
         required=false,
         type=String,
         json_type="string",

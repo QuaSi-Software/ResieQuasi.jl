@@ -6,7 +6,7 @@
         "output_plot": "all_incl_flows",
         "output_plot_file_path": "./test/scenarios/low_ex_district_heating/output_plot.html",
         "auxiliary_info": true,
-        "auxiliary_info_file": "./test/scenarios/low_ex_district_heating/auxiliary_info.md",
+        "auxiliary_info_file_path": "./test/scenarios/low_ex_district_heating/auxiliary_info.md",
         "csv_output": "nothing"
     },
     "simulation_parameters": {

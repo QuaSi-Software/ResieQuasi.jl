@@ -2,7 +2,7 @@
     "io_settings": {
         "csv_output_file_path": "./output/out.csv",
         "auxiliary_info": true,
-        "auxiliary_info_file": "./output/auxiliary_info.md",
+        "auxiliary_info_file_path": "./output/auxiliary_info.md",
         "sankey_plot_file_path": "./output/output_sankey.html",
         "sankey_plot": "default",
         "csv_output": "nothing",

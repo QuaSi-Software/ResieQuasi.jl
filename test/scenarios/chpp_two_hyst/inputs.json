@@ -1,7 +1,7 @@
 {
     "io_settings": {
         "auxiliary_info": true,
-        "auxiliary_info_file": "./test/scenarios/chpp_two_hyst//auxiliary_info.md",
+        "auxiliary_info_file_path": "./test/scenarios/chpp_two_hyst//auxiliary_info.md",
         "fixed_output_precision": 10,
         "sankey_plot_file_path": "./test/scenarios/chpp_two_hyst/sankey_plot.html",
         "sankey_plot": "default",

@@ -3,7 +3,7 @@
         "csv_output_file_path": "./output/out.csv",
         "auxiliary_info": true,
         "auxiliary_plots": false,
-        "auxiliary_info_file": "./output/auxiliary_info.md",
+        "auxiliary_info_file_path": "./output/auxiliary_info.md",
         "sankey_plot": "default",
         "csv_output": "custom",
         "csv_output_keys": {

@@ -6,7 +6,7 @@
         "csv_output_weather": false,
         "write_csv_continuously": false,
         "auxiliary_info": true,
-        "auxiliary_info_file": "./test/scenarios/multi_family_house_economy_emissions/auxiliary_info.md",
+        "auxiliary_info_file_path": "./test/scenarios/multi_family_house_economy_emissions/auxiliary_info.md",
         "auxiliary_plots": false,
         "sankey_plot_file_path": "./test/scenarios/multi_family_house_economy_emissions/sankey_plot.html",
         "sankey_plot": "default",

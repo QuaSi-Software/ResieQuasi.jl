@@ -400,7 +400,7 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     # plot additional figures potentially available from components after simulation
     if io_settings["auxiliary_plots"] && !suppress_all_output
         component_list = []
-        output_path = sim_params["run_path"](io_settings["auxiliary_plots_path"])
+        output_path = sim_params["run_path"](io_settings["auxiliary_plots_directory"])
         for component in components
             if plot_optional_figures_end(component[2], sim_params, output_path)
                 push!(component_list, component[2].uac)

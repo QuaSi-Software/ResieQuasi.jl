@@ -623,7 +623,7 @@ function dump_auxiliary_outputs(io_settings::Dict{String,Any},
     end
     # export order of operations
     if io_settings["auxiliary_info"]
-        aux_info_file_path = io_settings["auxiliary_info_file"]
+        aux_info_file_path = io_settings["auxiliary_info_file_path"]
         open(sim_params["run_path"](aux_info_file_path), "w") do file_handle
             # write base order (from input or calculated)
             write(file_handle, "# Order of operations\n")
@@ -652,7 +652,7 @@ function dump_auxiliary_outputs(io_settings::Dict{String,Any},
 
     # plot additional figures potentially available from components after initialisation
     if io_settings["auxiliary_plots"]
-        aux_plots_output_path = sim_params["run_path"](io_settings["auxiliary_plots_path"])
+        aux_plots_output_path = sim_params["run_path"](io_settings["auxiliary_plots_directory"])
         aux_plots_formats = io_settings["auxiliary_plots_formats"]
         aux_plots_formats = Vector{String}(aux_plots_formats)
         component_list = []

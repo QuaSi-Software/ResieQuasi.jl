@@ -22,10 +22,10 @@
         "plot_price_and_emission_profiles": false,
         "price_and_emission_profile_file_path": "./test/scenarios/multi_family_house_optim/price_and_emissions_profiles.html",
         "output_parameter_study_csv": true,
-        "parameter_study_csv_path": "./test/scenarios/multi_family_house_optim/parameter_study",
+        "parameter_study_csv_path_prefix": "./test/scenarios/multi_family_house_optim/parameter_study",
         "write_parameter_study_csv_continuously": false,
         "output_parameter_study_plots": true,
-        "parameter_study_plots_path": "./test/scenarios/multi_family_house_optim/parameter_study_plots"
+        "parameter_study_plots_path_prefix": "./test/scenarios/multi_family_house_optim/parameter_study_plots"
     },
     "simulation_parameters": {
         "start": "01.01.2024 00:00",

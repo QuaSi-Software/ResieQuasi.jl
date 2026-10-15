@@ -36,7 +36,7 @@ Create a CSV path derived from `parameter_study_csv_path`.
 function parameter_study_csv_path(sim_params::Dict{String,Any},
                                   io_settings::Dict{String,Any},
                                   suffix::String)::String
-    base_path = sim_params["run_path"](io_settings["parameter_study_csv_path"])
+    base_path = sim_params["run_path"](io_settings["parameter_study_csv_path_prefix"])
     directory, filename = splitdir(base_path)
     root, _ = splitext(filename)
     return joinpath(directory, "$(root)_$(suffix).csv")
@@ -1380,12 +1380,12 @@ is_finite_number(value)::Bool = value isa Real && isfinite(Float64(value))
 """
     parameter_study_plot_path(sim_params, io_settings, suffix)
 
-Create a plot path derived from `parameter_study_plots_path`.
+Create a plot path derived from `parameter_study_plots_path_prefix`.
 """
 function parameter_study_plot_path(sim_params::Dict{String,Any},
                                    io_settings::Dict{String,Any},
                                    suffix::String)::String
-    base_path = sim_params["run_path"](io_settings["parameter_study_plots_path"])
+    base_path = sim_params["run_path"](io_settings["parameter_study_plots_path_prefix"])
     dir, filename = splitdir(base_path)
     root, _ = splitext(filename)
     ext = ".html"
