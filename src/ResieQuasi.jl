@@ -590,8 +590,10 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
                                cancel_flag::Union{Nothing,Threads.Atomic{Bool}}=nothing,
                                preparation_cache::Union{Nothing,PreparationCache}=nothing)::OrderedDict{String,Any}
     start = now()
+    output_filename_prefix = ""
     if !isnothing(parameter_set)
-        project_config = create_parameter_variant(io_settings, sim_params, project_config, parameter_set)
+        project_config, output_filename_prefix = create_parameter_variant(io_settings, sim_params,
+                                                                          project_config, parameter_set)
     end
 
     results = OrderedDict{String,Any}()
@@ -605,6 +607,7 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
     try
         sim_params, io_settings, components, operations = prepare_inputs(project_config, run_ID;
                                                                          preparation_cache=preparation_cache)
+        sim_params["output_filename_prefix"] = output_filename_prefix
         @info "-- Simulation setup complete in $(seconds(now() - start)) s"
 
         lock(run_lock) do

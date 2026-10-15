@@ -1332,7 +1332,7 @@ function plot_optional_figures_begin(unit::SeasonalThermalStorage, output_path::
                 margin=15Plots.mm)
     fig_name = "STES_cross_section_$(unit.uac)"
     for output_format in output_formats
-        Plots.savefig(p, output_path * "/" * fig_name * "." * output_format)
+        Plots.savefig(p, auxiliary_plot_path(output_path, fig_name * "." * output_format, sim_params))
     end
 
     # Plot geometry of STES: 3D
@@ -1461,7 +1461,7 @@ function plot_optional_figures_begin(unit::SeasonalThermalStorage, output_path::
                 camera=(45, 20),
                 title="3D shape of the STES $(unit.uac) (cross-section: $(unit.shape))")
     fig_name = "STES_3D_shape_$(unit.uac)"
-    Plots.savefig(p, output_path * "/" * fig_name * ".html")
+    Plots.savefig(p, auxiliary_plot_path(output_path, fig_name * ".html", sim_params))
 
     return true
 end
@@ -1501,7 +1501,7 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     p = PlotlyJS.plot(traces, layout)
 
     fig_name = "temperature_distribution_STES_$(unit.uac).html"
-    PlotlyJS.savefig(p, output_path * "/" * fig_name)
+    PlotlyJS.savefig(p, auxiliary_plot_path(output_path, fig_name, sim_params))
 
     # ====================================
     # Plot temperature differences to surrounding over time    
@@ -1541,7 +1541,7 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     p = PlotlyJS.plot(traces, layout)
 
     fig_name = "temperature_difference_surrounding_STES_$(unit.uac).html"
-    PlotlyJS.savefig(p, output_path * "/" * fig_name)
+    PlotlyJS.savefig(p, auxiliary_plot_path(output_path, fig_name, sim_params))
 
     if unit.ground_model == "FVM"
         # ====================================

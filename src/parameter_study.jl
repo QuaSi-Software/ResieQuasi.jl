@@ -21,11 +21,11 @@ Create a variant of the input file for the simulation run
 - `project_config::OrderedDict{String,Any}`: The project config read from the input file
 - `parameter_set::Dict{String,Any}`: The parameters that get changed for the simulation run
 # Returns
-- `OrderedDict{String,Any}`: Modified project_config
+- `Tuple{OrderedDict{String,Any},String}`: Modified project config and output filename prefix
 """
 function create_parameter_variant(io_settings::Dict{String,Any}, sim_params::Dict{String,Any},
                                   project_config::OrderedDict{String,Any},
-                                  parameter_set::Dict{String,Any})::OrderedDict{String,Any}
+                                  parameter_set::Dict{String,Any})::Tuple{OrderedDict{String,Any},String}
     # helper function to shorten parameter values for output file naming
     function compact_value(value)
         if abs(value) >= 100
@@ -60,7 +60,7 @@ function create_parameter_variant(io_settings::Dict{String,Any}, sim_params::Dic
         end
     end
 
-    return cfg
+    return cfg, run_name * "_"
 end
 
 """

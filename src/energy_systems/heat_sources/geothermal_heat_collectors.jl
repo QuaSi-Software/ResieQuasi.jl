@@ -1597,7 +1597,7 @@ function plot_optional_figures_begin(unit::GeothermalHeatCollector,
 
     fig_name = "collector_simulation_mesh_$(unit.uac)"
     for output_format in output_formats
-        savefig(plt, output_path * "/" * fig_name * "." * output_format)
+        savefig(plt, auxiliary_plot_path(output_path, fig_name * "." * output_format, sim_params))
     end
 
     return true

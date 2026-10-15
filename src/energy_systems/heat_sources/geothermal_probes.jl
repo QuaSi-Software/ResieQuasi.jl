@@ -913,7 +913,7 @@ function plot_optional_figures_begin(unit::GeothermalProbes, output_path::String
              margin=15Plots.mm)
     fig_name = "probe_field_g_funcion_$(unit.uac)"
     for output_format in output_formats
-        savefig(p, output_path * "/" * fig_name * "." * output_format)
+        savefig(p, auxiliary_plot_path(output_path, fig_name * "." * output_format, sim_params))
     end
 
     if unit.probe_coordinates !== nothing
@@ -938,7 +938,7 @@ function plot_optional_figures_begin(unit::GeothermalProbes, output_path::String
                     margin=10Plots.mm)
         fig_name = "probe_field_geometry_$(unit.uac)"
         for output_format in output_formats
-            savefig(p, output_path * "/" * fig_name * "." * output_format)
+            savefig(p, auxiliary_plot_path(output_path, fig_name * "." * output_format, sim_params))
         end
         # throw not needed values away
         unit.probe_coordinates = nothing

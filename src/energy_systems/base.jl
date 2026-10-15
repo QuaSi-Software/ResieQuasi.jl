@@ -1487,6 +1487,19 @@ function distribute!(unit::Component)
 end
 
 """
+    auxiliary_plot_path(output_directory, filename, sim_params)
+
+Return an auxiliary-plot file path in the configured output directory. During parameter
+studies, use the same filename prefix as the other per-variant simulation outputs.
+"""
+function auxiliary_plot_path(output_directory::AbstractString,
+                             filename::AbstractString,
+                             sim_params::Dict{String,Any})::String
+    prefix = get(sim_params, "output_filename_prefix", "")
+    return joinpath(output_directory, prefix * filename)
+end
+
+"""
     plot_optional_figures_begin(unit, output_path, output_formats, sim_params)
 
 Plot optional figures that are potentially created after initialisation of each 
