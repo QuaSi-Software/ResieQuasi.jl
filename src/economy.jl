@@ -788,13 +788,10 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     round_for_plot(v) = fixed_output_precision > 0 ? round.(v; sigdigits=fixed_output_precision) : v
 
     traces = PlotlyJS.AbstractTrace[]
-
-    function timestep_axis(n::Int)
-        step_ms = round(Int, sim_params["time_step_seconds"] * 1000)
-        return [sim_params["start_date_output"] + Millisecond((i - 1) * step_ms) for i in 1:n]
-    end
-
-    # Price profiles: left y-axis
+            
+    # gather data centrally to be able to downsample
+    economic_profiles = []
+    economic_profile_names = []
     if economic_result !== nothing
         for (uac, component_results) in sort(collect(economic_result.breakdown); by=first)
             component_results isa AbstractDict || continue
@@ -808,22 +805,18 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
                 isempty(profile) && continue
 
                 profile_name_string = String(profile_name)
-
-                line_attr = attr()
-
-                push!(traces,
-                      scatter(;
-                              x=timestep_axis(length(profile)),
-                              y=round_for_plot(price_factor .* Float64.(profile)),
-                              mode="lines",
-                              name="$(uac) | $(profile_name_string)",
-                              yaxis="y",
-                              line=line_attr))
+                if isempty(economic_profiles)
+                    economic_profiles = round_for_plot(price_factor .* Float64.(profile))
+                else
+                    economic_profiles = hcat(economic_profiles, round_for_plot(price_factor .* Float64.(profile)))
+                end
+                push!(economic_profile_names, "$(uac) | $(profile_name_string)")
             end
         end
     end
 
-    # Emissions profiles: right y-axis
+    emissions_profiles = []
+    emissions_profile_names = []
     if emissions_result !== nothing
         for (uac, component_results) in sort(collect(emissions_result.breakdown); by=first)
             component_results isa AbstractDict || continue
@@ -838,17 +831,54 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
 
                 profile_name_string = String(profile_name)
 
-                line_attr = attr()
-
-                push!(traces,
-                      scatter(;
-                              x=timestep_axis(length(profile)),
-                              y=round_for_plot(emissions_factor .* Float64.(profile)),
-                              mode="lines",
-                              name="$(uac) | $(profile_name_string)",
-                              yaxis="y2",
-                              line=line_attr))
+                if isempty(emissions_profiles)
+                    emissions_profiles = round_for_plot(emissions_factor .* Float64.(profile))
+                else
+                    emissions_profiles = hcat(emissions_profiles, round_for_plot(emissions_factor .* Float64.(profile)))
+                end
+                push!(emissions_profile_names, "$(uac) | $(profile_name_string)")
             end
+        end
+    end
+
+    # downsamle profiles and timestamps to reduce file size with long simulations
+    max_n_vals = 8_000_000 - prod(size(emissions_profiles))
+    economic_profiles, dec_f = EnergySystems.downsampling_for_plots(economic_profiles, 1;
+                                                                    max_n_values=max_n_vals)
+    emissions_profiles, _ = EnergySystems.downsampling_for_plots(emissions_profiles, 1; 
+                                                                 decimation_factor=dec_f)
+    x_emissions = [add_ignoring_leap_days(sim_params["start_date_output"],
+                                          Second((s - 1) * sim_params["time_step_seconds"]))
+                   for s in 1:dec_f:size(emissions_profiles, 1)]
+    x_econcomic = [add_ignoring_leap_days(sim_params["start_date_output"],
+                                          Second((s - 1) * sim_params["time_step_seconds"]))
+                   for s in 1:dec_f:size(economic_profiles, 1)]
+    
+    if economic_result !== nothing
+        for (idx, profile) in enumerate(eachcol(economic_profiles))
+                name = economic_profile_names[idx]
+                push!(traces,
+                    scatter(;
+                            x=x_econcomic,
+                            y=profile,
+                            mode="lines",
+                            name=name,
+                            yaxis="y",
+                            line=attr()))
+        end
+    end
+
+    if emissions_result !== nothing
+        for (idx, profile) in enumerate(eachcol(emissions_profiles))
+                name = emissions_profile_names[idx]
+                push!(traces,
+                    scatter(;
+                            x=x_emissions,
+                            y=profile,
+                            mode="lines",
+                            name=name,
+                            yaxis="y2",
+                            line=attr()))
         end
     end
 
