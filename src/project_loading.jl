@@ -1854,7 +1854,16 @@ function get_timesteps(simulation_parameters::AbstractDict{String,Any})
         throw(InputError())
     end
     if start_date_output < start_date
-        @error "The start date of the output cannot be prior to the start date of the simulation!"
+        @error "Simulation parameter `start_output` ($start_date_output) must not be earlier than `start` ($start_date)."
+        throw(InputError())
+    end
+    if end_date < start_date
+        @error "Simulation parameter `end` ($end_date) must not be earlier than `start` ($start_date)."
+        throw(InputError())
+    end
+    if start_date_output > end_date
+        @error "Simulation parameter `start_output` ($start_date_output) " *
+               "must not be later than the effective simulation end ($end_date)."
         throw(InputError())
     end
 
