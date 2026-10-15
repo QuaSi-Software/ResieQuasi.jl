@@ -2104,6 +2104,129 @@ function load_parameter_study_parameters(parameter_study_config::AbstractDict{St
     return prepare_parameter_study!(parameter_study, sim_params, project_config)
 end
 
+"""
+    parameter_study_target_type(project_config, uac, parameter_path)
+
+Resolve the numeric type of a varied parameter from its SSOT definition, including
+component economic/emissions parameters. A numeric value in an unregistered section
+is supported as a compatibility fallback, with a warning.
+"""
+function parameter_study_target_type(project_config::AbstractDict{String,Any},
+                                     uac::String, parameter_path::String)::Type
+    component_config = haskey(project_config["components"], uac) ?
+                       project_config["components"][uac] : nothing
+    config = component_config === nothing ? get(project_config, uac, nothing) : component_config
+    location = resolve_parameter_path(config, parameter_path)
+    location === nothing && throw(InputError())
+    container, leaf = location
+
+    definitions = nothing
+    if component_config !== nothing
+        class_name = Symbol(String(component_config["type"]))
+        if !isdefined(EnergySystems, class_name)
+            @error "Unknown component type for parameter-study target $uac $parameter_path."
+            throw(InputError())
+        end
+        component_type = getproperty(EnergySystems, class_name)
+        if startswith(parameter_path, "economic_parameters.")
+            definitions = EnergySystems.economic_parameters(component_type)
+        elseif startswith(parameter_path, "emissions_parameters.")
+            definitions = EnergySystems.emissions_parameters(component_type)
+        elseif startswith(parameter_path, "control_parameters.")
+            definitions = EnergySystems.CONTROL_PARAMS_DEF
+        else
+            definitions = EnergySystems.component_parameters(component_type)
+        end
+    elseif uac == "simulation_parameters"
+        definitions = SIMULATION_PARAMETERS_DEF
+    elseif uac == "io_settings"
+        definitions = IO_SETTINGS_DEF
+    elseif uac == "economic_parameters"
+        definitions = ECONOMIC_PARAMETERS_DEF
+    elseif uac == "emissions_parameters"
+        definitions = EMISSIONS_PARAMATERS_DEF
+    end
+
+    if definitions !== nothing && haskey(definitions, leaf)
+        declared_type = definitions[leaf].type
+        variants = filter(T -> T !== Nothing && T !== Missing, Base.uniontypes(declared_type))
+        if length(variants) == 1
+            numeric_type = only(variants)
+            if numeric_type === Bool
+                @error "Parameter $uac $parameter_path is Boolean. Only numeric (non-Boolean) study parameters are supported."
+                throw(InputError())
+            elseif numeric_type <: Integer
+                return Int
+            elseif numeric_type <: AbstractFloat || numeric_type <: Real
+                return Float64
+            end
+        end
+        @error "Parameter $uac $parameter_path has SSOT type $declared_type; only numeric parameters are supported."
+        throw(InputError())
+    end
+
+    # Maintain support for numeric user-defined parameters not registered in SSOT.
+    # Do not mistake Bool (a subtype of Integer in Julia) for an integer parameter.
+    value = container[leaf]
+    if value isa Bool || !(value isa Real)
+        @error "Parameter $uac $parameter_path has no numeric SSOT definition or numeric configuration value."
+        throw(InputError())
+    end
+    @warn "No SSOT definition found for parameter-study target $uac $parameter_path; " *
+          "inferring its type from the project configuration."
+    return value isa Integer ? Int : Float64
+end
+
+"""Convert an explicitly supplied study value, rejecting fractions for integer targets."""
+function explicit_study_number(value::Real, target_type::Type, key::String)::Float64
+    number = Float64(value)
+    if !isfinite(number) || (target_type <: Integer && !isinteger(number))
+        @error "In the parameter study, the parameter '$key' requires a finite " *
+               "$(target_type <: Integer ? "integer" : "numeric") value; got $value."
+        throw(InputError())
+    end
+    if target_type <: Integer && !(typemin(Int) <= number <= typemax(Int))
+        @error "In the parameter study, the integer parameter '$key' is outside the supported integer range: $number."
+        throw(InputError())
+    end
+    return number
+end
+
+"""Round generated/optimizer values to the admissible integer lattice."""
+function canonical_study_number(value::Real, target_type::Type, parameter_name::AbstractString;
+                                lower::Real=(-Inf), upper::Real=Inf)::Real
+    v = Float64(value)
+    isfinite(v) || throw(ArgumentError("Parameter \"$parameter_name\": non-finite parameter-study value $value."))
+    if target_type <: Integer
+        lo = isfinite(lower) ? ceil(Int, lower) : typemin(Int)
+        hi = isfinite(upper) ? floor(Int, upper) : typemax(Int)
+        lo <= hi ||
+            throw(ArgumentError("Parameter \"$parameter_name\": integer bounds [$lower, $upper] contain no valid integers."))
+        return clamp(round(Int, clamp(v, Float64(lo), Float64(hi))), lo, hi)
+    end
+    return clamp(v, Float64(lower), Float64(upper))
+end
+
+"""Canonicalise all values before simulation, lookup, caching and result output."""
+function canonical_study_values(values, runtime::Dict{String,Any};
+                                enforce_bounds::Bool=false)::Vector{Any}
+    input = values isa Real ? [values] : collect(values)
+    types = runtime["parameter_types"]
+    length(input) == length(types) || throw(ArgumentError("Wrong number of parameter-study values."))
+    bounds = runtime["parameter_bounds"]
+    canonical_values = Any[]
+    for (i, value) in enumerate(input)
+        canonical_value = if enforce_bounds
+            canonical_study_number(value, types[i], runtime["parameter_keys"][i];
+                                   lower=bounds[i, 1], upper=bounds[i, 2])
+        else
+            canonical_study_number(value, types[i], runtime["parameter_keys"][i])
+        end
+        push!(canonical_values, canonical_value)
+    end
+    return canonical_values
+end
+
 function prepare_parameter_study!(parameter_study::Dict{String,Any},
                                   sim_params::Dict{String,Any},
                                   project_config::AbstractDict{String,Any})::Dict{String,Any}
@@ -2115,6 +2238,7 @@ function prepare_parameter_study!(parameter_study::Dict{String,Any},
     runtime["iterator"] = [1]
     runtime["parameter_keys"] = String[]
     runtime["parameter_values"] = Vector{Vector{Float64}}()
+    runtime["parameter_types"] = Type[]
     runtime["objective_output_spec"] = Dict{String,Any}()
     runtime["objective_params_keys"] = String[]
 
@@ -2140,7 +2264,7 @@ function prepare_parameter_study!(parameter_study::Dict{String,Any},
             end
 
             if !(raw_def isa AbstractDict)
-                @error "The definition of parameter $key has to be an object."
+                @error "The definition of parameter '$key' has to be an object."
                 throw(InputError())
             end
 
@@ -2148,7 +2272,7 @@ function prepare_parameter_study!(parameter_study::Dict{String,Any},
             allowed_keys = Set(keys(PARAMETER_STUDY_PARAMETER_DEF))
             unsupported_keys = sort(collect(setdiff(Set(keys(def)), allowed_keys)); by=lowercase)
             if !isempty(unsupported_keys)
-                @error "Unsupported parameter definition keys for $key: " *
+                @error "Unsupported parameter definition keys for '$key': " *
                        join(unsupported_keys, ", ")
                 throw(InputError())
             end
@@ -2165,6 +2289,8 @@ function prepare_parameter_study!(parameter_study::Dict{String,Any},
             end
             parameter_study["parameters"][uac][key_param] = def
             push!(runtime["parameter_keys"], key)
+            target_type = parameter_study_target_type(project_config, String(uac), String(key_param))
+            push!(runtime["parameter_types"], target_type)
 
             lower_bound = NaN
             upper_bound = NaN
@@ -2172,26 +2298,46 @@ function prepare_parameter_study!(parameter_study::Dict{String,Any},
             values = Float64[]
 
             if haskey(def, "start") && !isfinite(start_value)
-                @error "The start value of parameter $key must be finite."
+                @error "The start value of parameter '$key' must be finite."
                 throw(InputError())
             end
 
             has_bounds_min = haskey(def, "bounds_min")
             has_bounds_max = haskey(def, "bounds_max")
             if has_bounds_min != has_bounds_max
-                @error "Parameter $key must define both bounds_min and bounds_max."
+                @error "Parameter '$key' must define both bounds_min and bounds_max."
                 throw(InputError())
             end
             if has_bounds_min
                 lower_bound = Float64(def["bounds_min"])
                 upper_bound = Float64(def["bounds_max"])
                 if !(isfinite(lower_bound) && isfinite(upper_bound))
-                    @error "The bounds_min and bounds_max of parameter $key must be finite."
+                    @error "The bounds_min and bounds_max of parameter '$key' must be finite."
                     throw(InputError())
                 end
                 if lower_bound >= upper_bound
-                    @error "The bounds_max of parameter $key must be greater than bounds_min."
+                    @error "The bounds_max of parameter '$key' must be greater than bounds_min."
                     throw(InputError())
+                end
+            end
+
+            if target_type <: Integer && has_bounds_min
+                integer_lower = ceil(Int, lower_bound)
+                integer_upper = floor(Int, upper_bound)
+                if integer_lower >= integer_upper
+                    @error "Integer parameter '$key' requires at least two distinct integers inside its " *
+                           "optimisation/sensitivity bounds."
+                    throw(InputError())
+                end
+                lower_bound = Float64(integer_lower)
+                upper_bound = Float64(integer_upper)
+            end
+            if target_type <: Integer && isfinite(start_value)
+                original_start = start_value
+                start_value = Float64(canonical_study_number(start_value, target_type, key;
+                                                             lower=lower_bound, upper=upper_bound))
+                if start_value != original_start
+                    @warn "Integer parameter '$key': start value $original_start is adjusted to $start_value."
                 end
             end
 
@@ -2199,58 +2345,54 @@ function prepare_parameter_study!(parameter_study::Dict{String,Any},
             range_keys = ["range_start", "range_stop", "range_step", "range_length"]
             has_range = any(haskey(def, range_key) for range_key in range_keys)
             if has_values && has_range
-                @error "Parameter $key cannot define values and a range definition at the same time."
+                @error "Parameter '$key' cannot define values and a range definition at the same time."
                 throw(InputError())
             end
 
             if has_values
                 raw_values = collect(def["values"])
                 if isempty(raw_values)
-                    @error "The values list of parameter $key must not be empty."
+                    @error "The values list of parameter '$key' must not be empty."
                     throw(InputError())
                 end
                 if !all(value -> value isa Real, raw_values)
-                    @error "The values list of parameter $key must contain only numbers."
+                    @error "The values list of parameter '$key' must contain only numbers."
                     throw(InputError())
                 end
-                values = Float64.(raw_values)
-                if any(.!isfinite.(values))
-                    @error "The values list of parameter $key must contain only finite numbers."
-                    throw(InputError())
-                end
+                values = [explicit_study_number(value, target_type, key) for value in raw_values]
             elseif has_range
                 has_range_start = haskey(def, "range_start")
                 has_range_stop = haskey(def, "range_stop")
                 has_range_step = haskey(def, "range_step")
                 has_range_length = haskey(def, "range_length")
                 if !(has_range_start && has_range_stop)
-                    @error "Parameter $key must define both range_start and range_stop."
+                    @error "Parameter '$key' must define both range_start and range_stop."
                     throw(InputError())
                 end
                 if has_range_step == has_range_length
-                    @error "Parameter $key must define exactly one of range_step and range_length."
+                    @error "Parameter '$key' must define exactly one of range_step and range_length."
                     throw(InputError())
                 end
 
                 range_start = Float64(def["range_start"])
                 range_stop = Float64(def["range_stop"])
                 if !(isfinite(range_start) && isfinite(range_stop))
-                    @error "The range_start and range_stop of parameter $key must be finite."
+                    @error "The range_start and range_stop of parameter '$key' must be finite."
                     throw(InputError())
                 end
                 if range_start >= range_stop
-                    @error "The range_stop of parameter $key must be greater than range_start."
+                    @error "The range_stop of parameter '$key' must be greater than range_start."
                     throw(InputError())
                 end
 
                 if has_range_step
                     range_step = Float64(def["range_step"])
                     if !isfinite(range_step)
-                        @error "The range_step of parameter $key must be finite."
+                        @error "The range_step of parameter '$key' must be finite."
                         throw(InputError())
                     end
                     if range_step <= 0.0
-                        @error "The range_step of parameter $key must be greater than zero."
+                        @error "The range_step of parameter '$key' must be greater than zero."
                         throw(InputError())
                     end
                     values = Float64.(collect(range(; start=range_start,
@@ -2259,30 +2401,39 @@ function prepare_parameter_study!(parameter_study::Dict{String,Any},
                 else
                     range_length = Int(def["range_length"])
                     if range_length < 2
-                        @error "The range_length of parameter $key must be at least 2."
+                        @error "The range_length of parameter '$key' must be at least 2."
                         throw(InputError())
                     end
                     values = Float64.(collect(range(; start=range_start,
                                                     stop=range_stop,
                                                     length=range_length)))
                 end
+                if target_type <: Integer
+                    rounded_values = unique(Float64[canonical_study_number(value, target_type, key)
+                                                    for value in values])
+                    if length(rounded_values) < length(values)
+                        @warn "Integer parameter '$key': generated range has $(length(values)) values, but " *
+                              "only $(length(rounded_values)) distinct integer values remain after rounding."
+                    end
+                    values = rounded_values
+                end
             end
 
             has_lower = haskey(def, "sensitivity_lower")
             has_upper = haskey(def, "sensitivity_upper")
             if has_lower != has_upper
-                @error "Parameter $key must define both sensitivity_lower and sensitivity_upper."
+                @error "Parameter '$key' must define both sensitivity_lower and sensitivity_upper."
                 throw(InputError())
             end
 
-            local_lower = has_lower ? Float64(def["sensitivity_lower"]) : NaN
-            local_upper = has_upper ? Float64(def["sensitivity_upper"]) : NaN
+            local_lower = has_lower ? explicit_study_number(def["sensitivity_lower"], target_type, key) : NaN
+            local_upper = has_upper ? explicit_study_number(def["sensitivity_upper"], target_type, key) : NaN
             if has_lower && !(isfinite(local_lower) && isfinite(local_upper))
-                @error "The sensitivity_lower and sensitivity_upper of parameter $key must be finite."
+                @error "The sensitivity_lower and sensitivity_upper of parameter '$key' must be finite."
                 throw(InputError())
             end
             if has_lower && local_lower >= local_upper
-                @error "The sensitivity_lower of parameter $key must be smaller than sensitivity_upper."
+                @error "The sensitivity_lower of parameter '$key' must be smaller than sensitivity_upper."
                 throw(InputError())
             end
 
@@ -2344,7 +2495,7 @@ function prepare_parameter_study!(parameter_study::Dict{String,Any},
             upper_value = sensitivity_upper_values[i]
             if isfinite(lower_value) &&
                !(lower_value < parameter_bounds[i, 3] < upper_value)
-                @error "Parameter $key must satisfy sensitivity_lower < start < sensitivity_upper."
+                @error "Parameter '$key' must satisfy sensitivity_lower < start < sensitivity_upper."
                 throw(InputError())
             end
         end

@@ -166,6 +166,9 @@ function write_local_sensitivity_csv(file_path::String,
     return write_sensitivity_csv(file_path, header, rows)
 end
 
+# Local-sensitivity plots use the actual post-canonicalisation lower/reference/upper
+# values. For integer parameters the displayed Δp may therefore differ from the
+# configured local_variation (for example +/-20% instead of +/-10%).
 # Format percentages consistently in plot labels. A decimal comma is used to keep
 # compact labels such as `+2,34 %` easy to read.
 function format_plot_percent(value::Real; signed::Bool=false)::String
@@ -437,7 +440,7 @@ function create_local_sensitivity_response_overview_plot(sensitivity_results::Ve
     layout = Layout(;
                     title=attr(;
                                text="Local sensitivity responses overview" *
-                                    "<br><sup>Δp = parameter change; Δo = objective change. " *
+                                    "<br><sup>Δp = actual parameter change (after integer rounding); Δo = objective change. " *
                                     "Objective reference: " *
                                     "$(round(reference_objective; sigdigits=8)).</sup>",
                                x=0.5,
@@ -700,7 +703,7 @@ function create_local_sensitivity_response_trends_plot(sensitivity_results::Vect
     layout_values[:title] = attr(;
                                  text="Trend of local sensitivity responses" *
                                       "<br><sup>Parameter changes share one percentage scale; " *
-                                      "tick labels show parameter change and absolute value. " *
+                                      "tick labels show actual parameter change and absolute value (after integer rounding). " *
                                       "The dotted line marks the reference objective.</sup>",
                                  x=0.5,
                                  xanchor="center")
