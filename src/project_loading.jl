@@ -593,10 +593,10 @@ const SIMULATION_PARAMETERS_DEF = Dict{String,Any}(
         json_type="string",
         unit="-"
     ),
-    "start_end_unit" => (
+    "start_date_format" => (
         description="Datetime format specifier for parameters `start`, `start_output` " *
-                    "and `end`",
-        display_name="Start/end format",
+                    "and `end`.",
+        display_name="Start/end date format",
         required=true,
         type=String,
         json_type="string",
@@ -1412,7 +1412,7 @@ function get_simulation_params(project_config::AbstractDict{String,Any},
     # (even though we are not checking components...)
     sim_params = Dict{String,Any}()
     for (name, param_def) in pairs(SIMULATION_PARAMETERS_DEF)
-        if name in ["start", "start_output", "end", "start_end_unit", "time_step", "time_step_unit"]
+        if name in ["start", "start_output", "end", "start_date_format", "time_step", "time_step_unit"]
             continue
         end
         sim_params[name] = EnergySystems.extract_parameter(EnergySystems.Component,
@@ -1799,48 +1799,74 @@ function reorder_interfaces_of_bus!(bus::EnergySystems.Bus)
 end
 
 """
-get_timesteps(simulation_parameters)
+    get_timesteps(simulation_parameters)
 
-Function to read in the time step information from the input file.
-If no information is given in the input file, the following defaults 
-will be set:
-time_step = 900 s
+Extract and validate the time-related simulation parameters against their SSOT
+specifications, then derive the simulation dates and timestep counts.
+
+If omitted, `time_step` defaults to 900 and `time_step_unit` to "seconds".
+`start_date_format` replaces `start_end_unit`; the latter remains a legacy alias.
 """
 function get_timesteps(simulation_parameters::AbstractDict{String,Any})
-    start_date = DateTime(0)
-    start_date_output = DateTime(0)
-    end_date = DateTime(0)
-    try
-        start_date = Dates.DateTime(simulation_parameters["start"], simulation_parameters["start_end_unit"])
-        end_date = Dates.DateTime(simulation_parameters["end"], simulation_parameters["start_end_unit"])
-        if haskey(simulation_parameters, "start_output")
-            start_date_output = Dates.DateTime(simulation_parameters["start_output"],
-                                               simulation_parameters["start_end_unit"])
-        else
-            start_date_output = start_date
+    # Normalise the former name before extracting the SSOT parameters. Work on
+    # a copy so the original project configuration is not modified.
+    config = Dict{String,Any}(pairs(simulation_parameters))
+    if haskey(config, "start_end_unit")
+        if haskey(config, "start_date_format")
+            @error "Simulation parameters `start_date_format` and its legacy name " *
+                   "`start_end_unit` cannot both be specified. Use `start_date_format`."
+            throw(InputError())
         end
+        config["start_date_format"] = pop!(config, "start_end_unit")
+    end
+
+    time_parameter_names = ("start", "start_output", "end", "start_date_format", "time_step", "time_step_unit")
+    definitions = Dict{String,Any}(name => SIMULATION_PARAMETERS_DEF[name]
+                                   for name in time_parameter_names)
+    extracted = Dict{String,Any}()
+    for name in time_parameter_names
+        extracted[name] = EnergySystems.extract_parameter(EnergySystems.Component,
+                                                          config, name, definitions[name],
+                                                          Dict{String,Any}(), "Sim params")
+    end
+
+    # Applying the general SSOT validations
+    EnergySystems.validate_config(EnergySystems.Component, extracted, "Sim params",
+                                  Dict{String,Any}(), definitions)
+
+    # Use the extracted format for all three dates. `start_output` defaults to
+    # nothing in the SSOT and therefore falls back to `start`.
+    date_format = extracted["start_date_format"]
+    local start_date, start_date_output, end_date
+    try
+        start_date = Dates.DateTime(extracted["start"], date_format)
+        end_date = Dates.DateTime(extracted["end"], date_format)
+        start_date_output = extracted["start_output"] === nothing ?
+                            start_date : Dates.DateTime(extracted["start_output"], date_format)
     catch e
-        @error("Time given 'start_end_unit' of the simulation parameters does not fit to the data.\n" *
-               "'start_end_unit' has to be a daytime format, e.g. 'dd-mm-yyyy HH:MM:SS'.\n" *
-               "'start_end_unit' is `$(simulation_parameters["start_end_unit"])` which does not fit to the start" *
-               "and end time given: `$(simulation_parameters["start"])` and `$(simulation_parameters["end"])`.\n" *
-               "The following error occurred: $e")
+        @error "Invalid simulation date or `start_date_format` '$date_format'. " *
+               "Expected all provided dates (`start`, `start_output`, `end`) to match " *
+               "the given format, e.g. 'dd-mm-yyyy HH:MM:SS'. start=$(repr(extracted["start"])), " *
+               "start_output=$(repr(extracted["start_output"])), " *
+               "end=$(repr(extracted["end"])). Error: $e"
         throw(InputError())
     end
     if start_date_output < start_date
-        @error "The start date of the output can not be prior to the start date of the simulation!"
+        @error "The start date of the output cannot be prior to the start date of the simulation!"
         throw(InputError())
     end
-    if simulation_parameters["time_step_unit"] == "seconds"
-        time_step = simulation_parameters["time_step"]
-    elseif simulation_parameters["time_step_unit"] == "minutes"
-        time_step = simulation_parameters["time_step"] * 60
-    elseif simulation_parameters["time_step_unit"] == "hours"
-        time_step = simulation_parameters["time_step"] * 60 * 60
-    else
-        time_step = 900
-        @info("The simulation time step is set to 900 s as default, as it could not be found in the input file" *
-              "(`time_step` and `time_step_unit` have to be given!).")
+
+    # SSOT validation guarantees a positive integral `time_step`.
+    multiplier = extracted["time_step_unit"] == "seconds" ? 1 : extracted["time_step_unit"] == "minutes" ? 60 : 3600
+    time_step = try
+        Base.checked_mul(Int(extracted["time_step"]), multiplier)
+    catch e
+        if e isa OverflowError || e isa InexactError
+            @error "Simulation parameter `time_step` ($(extracted["time_step"])) " *
+                   "is too large when converted from '$(extracted["time_step_unit"]))' to seconds."
+            throw(InputError())
+        end
+        rethrow()
     end
 
     nr_of_steps = UInt(max(0, floor(Dates.value(Second(sub_ignoring_leap_days(end_date, start_date))) / time_step)) + 1)
@@ -1854,7 +1880,7 @@ function get_timesteps(simulation_parameters::AbstractDict{String,Any})
     if (month(start_date) == 2 && day(start_date) == 29) ||
        (month(end_date) == 2 && day(end_date) == 29) ||
        (month(start_date_output) == 2 && day(start_date_output) == 29)
-        @error "The simulation start and end date and the start date of the output can not be at a leap day!"
+        @error "The simulation start and end date and the start date of the output cannot be on a leap day!"
         throw(InputError())
     end
     return UInt(time_step), start_date, start_date_output, end_date, nr_of_steps, nr_of_steps_output

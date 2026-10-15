@@ -15,7 +15,7 @@
     "simulation_parameters": {
         "start": "01.01.2024 00:00",
         "end": "07.01.2024 23:30",
-        "start_end_unit": "dd.mm.yyyy HH:MM",
+        "start_date_format": "dd.mm.yyyy HH:MM",
         "time_step": 15,
         "time_step_unit": "minutes"
     },
