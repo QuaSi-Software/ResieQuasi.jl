@@ -1470,7 +1470,7 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     # ====================================
     # Plot temperature distribution over time    
     # ====================================
-    
+
     # downsamle y and x to reduce file size with long simulations
     y, dec_f = downsampling_for_plots(unit.temp_difference_to_surrounding_output, 1)
     x_vals_datetime = [add_ignoring_leap_days(sim_params["start_date_output"],
@@ -1509,13 +1509,13 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     # ====================================
     # Plot temperature differences to surrounding over time    
     # ====================================
-    
+
     # downsamle y and x to reduce file size with long simulations
     y, dec_f = downsampling_for_plots(unit.temp_difference_to_surrounding_output, 1)
     x_vals_datetime = [add_ignoring_leap_days(sim_params["start_date_output"],
                                               Dates.Second((s - 1) * sim_params["time_step_seconds"]))
                        for s in 1:dec_f:sim_params["number_of_time_steps_output"]]
-    
+
     layers_to_plot = (unit.number_of_layer_total + 2):-1:1
     traces = PlotlyJS.GenericTrace[]
     for i in layers_to_plot
@@ -1616,22 +1616,22 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
 
         scene = PlotlyJS.attr(; xaxis=PlotlyJS.attr(; title="Depth z [m]",
                                                     range=[zmin, zmax]),
-                                yaxis=PlotlyJS.attr(; title="Radius r [m]",
-                                                    range=[rmin, rmax]),
-                                zaxis=PlotlyJS.attr(; title="Temperature [°C]",
-                                                    range=[Tmin, Tmax]),
-                                aspectmode="manual",
-                                aspectratio=PlotlyJS.attr(; x=aspect_x, y=aspect_y, z=aspect_z))
+                              yaxis=PlotlyJS.attr(; title="Radius r [m]",
+                                                  range=[rmin, rmax]),
+                              zaxis=PlotlyJS.attr(; title="Temperature [°C]",
+                                                  range=[Tmin, Tmax]),
+                              aspectmode="manual",
+                              aspectratio=PlotlyJS.attr(; x=aspect_x, y=aspect_y, z=aspect_z))
 
-        layout = PlotlyJS.Layout(; title_text="Soil temperature around STES $(unit.uac)" ,
-                                scene=scene,
-                                template=PlotlyJS.templates.plotly_white)
+        layout = PlotlyJS.Layout(; title_text="Soil temperature around STES $(unit.uac)",
+                                 scene=scene,
+                                 template=PlotlyJS.templates.plotly_white)
 
         base_plot = PlotlyJS.Plot([surface_trace, scatter_trace], layout)
 
         fig_name = "soil_temperature_distribution_STES_$(unit.uac).html"
-        save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot, 
-                         sim_params; render_time_ms=50)       
+        save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot,
+                         sim_params; render_time_ms=50)
     end
 
     return true

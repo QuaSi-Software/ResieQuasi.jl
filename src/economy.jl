@@ -788,7 +788,7 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     round_for_plot(v) = fixed_output_precision > 0 ? round.(v; sigdigits=fixed_output_precision) : v
 
     traces = PlotlyJS.AbstractTrace[]
-            
+
     # gather data centrally to be able to downsample
     economic_profiles = []
     economic_profile_names = []
@@ -845,7 +845,7 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     max_n_vals = 8_000_000 - prod(size(emissions_profiles))
     economic_profiles, dec_f = EnergySystems.downsampling_for_plots(economic_profiles, 1;
                                                                     max_n_values=max_n_vals)
-    emissions_profiles, _ = EnergySystems.downsampling_for_plots(emissions_profiles, 1; 
+    emissions_profiles, _ = EnergySystems.downsampling_for_plots(emissions_profiles, 1;
                                                                  decimation_factor=dec_f)
     x_emissions = [add_ignoring_leap_days(sim_params["start_date_output"],
                                           Second((s - 1) * sim_params["time_step_seconds"]))
@@ -853,32 +853,32 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     x_econcomic = [add_ignoring_leap_days(sim_params["start_date_output"],
                                           Second((s - 1) * sim_params["time_step_seconds"]))
                    for s in 1:dec_f:size(economic_profiles, 1)]
-    
+
     if economic_result !== nothing
         for (idx, profile) in enumerate(eachcol(economic_profiles))
-                name = economic_profile_names[idx]
-                push!(traces,
-                    scatter(;
-                            x=x_econcomic,
-                            y=profile,
-                            mode="lines",
-                            name=name,
-                            yaxis="y",
-                            line=attr()))
+            name = economic_profile_names[idx]
+            push!(traces,
+                  scatter(;
+                          x=x_econcomic,
+                          y=profile,
+                          mode="lines",
+                          name=name,
+                          yaxis="y",
+                          line=attr()))
         end
     end
 
     if emissions_result !== nothing
         for (idx, profile) in enumerate(eachcol(emissions_profiles))
-                name = emissions_profile_names[idx]
-                push!(traces,
-                    scatter(;
-                            x=x_emissions,
-                            y=profile,
-                            mode="lines",
-                            name=name,
-                            yaxis="y2",
-                            line=attr()))
+            name = emissions_profile_names[idx]
+            push!(traces,
+                  scatter(;
+                          x=x_emissions,
+                          y=profile,
+                          mode="lines",
+                          name=name,
+                          yaxis="y2",
+                          line=attr()))
         end
     end
 
