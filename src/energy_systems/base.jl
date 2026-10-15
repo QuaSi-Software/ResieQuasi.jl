@@ -2067,7 +2067,7 @@ function validate_config(x::Type{Component}, extracted::Dict{String,Any}, uac::S
         if name in keys(type_def) && isdefined(type_def[name], :options)
             items = isa(value, Vector) ? value : [value]
             for item in items
-                if !any(occursin.(type_def[name].options, item))
+                if !(item in type_def[name].options)
                     options_str = join(("`$option`" for option in type_def[name].options), ", ")
                     throw(InputError("Given value `$item` is not in the allowed options " *
                                      "for parameter `$name` of component `$uac`. " *
