@@ -822,6 +822,10 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
     y = hcat(plot_data ? outputs_plot_data[:, 2:end] : zeros(Float64, size(outputs_plot_weather, 1), 0),
              plot_weather ? outputs_plot_weather[:, 2:end] : zeros(Float64, size(outputs_plot_data, 1), 0))
 
+    # downsamle y and x to reduce file size with long simulations
+    y, dec_f = EnergySystems.downsampling_for_plots(y, 1)
+    x, _ = EnergySystems.downsampling_for_plots(x, 1; decimation_factor=dec_f)
+
     if io_settings["fixed_output_precision"] > 0
         y = round.(y; sigdigits=io_settings["fixed_output_precision"])
     end

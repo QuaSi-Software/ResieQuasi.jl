@@ -1570,7 +1570,6 @@ keys are checked first.
 - `Union{Tuple{AbstractDict,String},Nothing}`: The dictionary containing the parameter
   and its final key, or `nothing` if the path does not exist.
 """
-
 function resolve_parameter_path(config::AbstractDict, parameter_path::AbstractString)
     haskey(config, parameter_path) && return config, String(parameter_path)
 

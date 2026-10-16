@@ -1,4 +1,4 @@
-using GLMakie
+using PlotlyJS: PlotlyJS
 using Roots
 using Plots: plot, savefig
 using Plots: Plots
@@ -1605,40 +1605,50 @@ end
 
 function plot_optional_figures_end(unit::GeothermalHeatCollector, sim_params::Dict{String,Any}, output_path::String)
     # plot temperature field as 3D mesh with time-slider
-    @info "Plotting time-shiftable temperature distribution of geothermal collector $(unit.uac). " *
-          "Close figure to continue..."
-
-    f = Figure()
-    ax = Axis3(f[1, 1])
-
-    ax.zlabel = "Temperature [°C]"
-    ax.xlabel = "Vertical expansion (depth) [m]"
-    ax.ylabel = "Horizontal expansion [m]"
     min_temp = minimum(unit.temp_field_output)
     min_temp = min_temp < 0.0 ? 1.1 * min_temp : 0.9 * min_temp
     max_temp = maximum(unit.temp_field_output)
     max_temp = max_temp < 0.0 ? 0.9 * max_temp : 1.1 * max_temp
-    Makie.zlims!(ax, min_temp, max_temp)
 
-    x_abs = [0; cumsum(unit.dx_mesh)]               # Absolute x coordinates
-    y_abs = [unit.dy[1] / 2; cumsum(unit.dy_mesh)]  # Absolute y coordinates
+    x_abs = round.([0; cumsum(unit.dx_mesh)]; digits=2)              # Absolute x coordinates
+    y_abs = round.([unit.dy[1] / 2; cumsum(unit.dy_mesh)]; digits=2) # Absolute y coordinates
 
-    ## activate for equal axis ratio
-    # xlims!(ax, 0, max(x_abs[end], y_abs[end]))
-    # ylims!(ax, 0, max(x_abs[end], y_abs[end]))
+    nt = sim_params["number_of_time_steps_output"]
 
-    time = Observable(1)
-    surfdata = @lift(unit.temp_field_output[$time, :, :])
-    GLMakie.surface!(ax, y_abs, x_abs, surfdata)
-    GLMakie.scatter!(ax, y_abs, x_abs, surfdata)
-    slg = SliderGrid(f[2, 1], (; range=1:1:sim_params["number_of_time_steps_output"], label="Time"))
+    # the values are ordered with y as first index, x second and time last
+    temps_sorted = permutedims(unit.temp_field_output[1:nt, :, :], (2, 3, 1))
 
-    on(slg.sliders[1].value) do v
-        time[] = v
-    end
-    wait(display(f))
+    surface_trace = PlotlyJS.surface(; x=x_abs,
+                                     y=y_abs,
+                                     z=temps_sorted[:, :, 1],
+                                     cmin=min_temp,
+                                     cmax=max_temp,
+                                     colorscale="RdBu",
+                                     showscale=true,
+                                     colorbar=PlotlyJS.attr(; title="Temperature [°C]"))
+    scatter_trace = PlotlyJS.scatter3d(; x=vec(repeat(x_abs', length(y_abs), 1)),
+                                       y=vec(repeat(y_abs, 1, length(x_abs))),
+                                       z=vec(unit.temp_field_output[1, :, :]),
+                                       mode="markers",
+                                       marker=PlotlyJS.attr(; size=4, color="black"))
 
-    return false
+    scene = PlotlyJS.attr(; xaxis=PlotlyJS.attr(; range=[0.0, maximum(x_abs)],
+                                                title="Vertical expansion (depth) [m]"),
+                          yaxis=PlotlyJS.attr(; range=[0.0, unit.considered_soil_depth],
+                                              title="Horizontal expansion [m]"),
+                          zaxis=PlotlyJS.attr(; range=[min_temp, max_temp],
+                                              title="Temperature [°C]"))
+
+    layout = PlotlyJS.Layout(; title_text="Temperature distribution of geothermal collector $(unit.uac)",
+                             scene=scene,
+                             template=PlotlyJS.templates.plotly_white)
+
+    base_plot = PlotlyJS.Plot([surface_trace, scatter_trace], layout)
+
+    fig_name = "geothermal_collector_temperature_distribution_$(unit.uac).html"
+    save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot, sim_params)
+
+    return true
 end
 
 # function to calculate heat transfer coefficient alpha.

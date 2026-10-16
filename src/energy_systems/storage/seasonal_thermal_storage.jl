@@ -1,3 +1,11 @@
+using Plots: Plots
+using Dates
+using PlotlyJS: PlotlyJS
+using SparseArrays
+using LinearAlgebra
+
+#! format: off
+
 """
 Implementation of a ground-coupled stratified thermal storage component.
 
@@ -5,15 +13,6 @@ This can be a detailed model when FVM is enabled to simulate the ground-coupling
 stratified storage. It has been validated against IEA ES Task 39 results for the following
 test cases: "PTES-1-C", "PTES-1-P", "TTES-1-AG", "TTES-1-UG".
 """
-
-using Plots: Plots
-using Dates
-using PlotlyJS: PlotlyJS
-using SparseArrays
-using LinearAlgebra
-using GLMakie
-
-#! format: off
 const SEASONAL_THERMAL_STORAGE_COMPONENT_PARAMETERS = Dict(
     "m_heat_in" => (
         default="m_h_w_ht1",
@@ -1471,9 +1470,13 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     # ====================================
     # Plot temperature distribution over time    
     # ====================================
+
+    # downsamle y and x to reduce file size with long simulations
+    y, dec_f = downsampling_for_plots(unit.temp_difference_to_surrounding_output, 1)
     x_vals_datetime = [add_ignoring_leap_days(sim_params["start_date_output"],
                                               Dates.Second((s - 1) * sim_params["time_step_seconds"]))
-                       for s in 1:sim_params["number_of_time_steps_output"]]
+                       for s in 1:dec_f:sim_params["number_of_time_steps_output"]]
+
     layers_to_plot = (unit.number_of_layer_total):-1:1
     traces = PlotlyJS.GenericTrace[]
     for i in layers_to_plot
@@ -1483,7 +1486,7 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
         elseif i == unit.number_of_layer_total
             plot_label = "Top layer"
         end
-        trace = PlotlyJS.scatter(; x=x_vals_datetime, y=unit.temp_distribution_output[:, i], mode="lines",
+        trace = PlotlyJS.scatter(; x=x_vals_datetime, y=y[:, i], mode="lines",
                                  name=plot_label)
         push!(traces, trace)
     end
@@ -1506,9 +1509,13 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     # ====================================
     # Plot temperature differences to surrounding over time    
     # ====================================
+
+    # downsamle y and x to reduce file size with long simulations
+    y, dec_f = downsampling_for_plots(unit.temp_difference_to_surrounding_output, 1)
     x_vals_datetime = [add_ignoring_leap_days(sim_params["start_date_output"],
                                               Dates.Second((s - 1) * sim_params["time_step_seconds"]))
-                       for s in 1:sim_params["number_of_time_steps_output"]]
+                       for s in 1:dec_f:sim_params["number_of_time_steps_output"]]
+
     layers_to_plot = (unit.number_of_layer_total + 2):-1:1
     traces = PlotlyJS.GenericTrace[]
     for i in layers_to_plot
@@ -1522,7 +1529,7 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
         elseif i == (unit.number_of_layer_total + 2)
             plot_label = "Above storage"
         end
-        trace = PlotlyJS.scatter(; x=x_vals_datetime, y=unit.temp_difference_to_surrounding_output[:, i], mode="lines",
+        trace = PlotlyJS.scatter(; x=x_vals_datetime, y=y[:, i], mode="lines",
                                  name=plot_label)
         push!(traces, trace)
     end
@@ -1584,36 +1591,47 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
             mirror_domain ? hcat(reverse(A; dims=2), A) : A
         end
 
-        # ================= GLMakie live viewer =================
-        try
-            GLMakie.activate!()
-
-            time_idx = Observable(1)
-            surf_obs = @lift(temp_slice($time_idx))
-
-            f_gl = Figure(; size=(1000, 800))
-            ax_gl = Axis3(f_gl[1, 1];
-                          xlabel="Depth z [m]",
-                          ylabel="Radius r [m]",
-                          zlabel="Temperature [°C]")
-
-            ax_gl.limits = ((zmin, zmax), (rmin, rmax), (Tmin, Tmax))
-            ax_gl.aspect = (aspect_x, aspect_y, aspect_z)
-
-            # surface!(ax_gl, z_abs, r_abs, surf_obs)
-            scatter!(ax_gl, z_abs, r_abs, surf_obs; markersize=3.5)
-
-            # Simple slider instead of SliderGrid (more robust across Makie versions)
-            slider_gl = GLMakie.Slider(f_gl[2, 1]; range=1:nt, startvalue=1, horizontal=true)
-
-            on(slider_gl.value) do v
-                time_idx[] = v
-            end
-
-            display(f_gl)
-        catch e
-            @warn "Error while building GLMakie soil/STES figure for $(unit.uac): $(e)"
+        temps = unit.soil_temperature_field_output[1:nt, :, :]
+        if mirror_domain
+            temps = cat(reverse(temps; dims=3), temps; dims=3)
         end
+
+        # the values are ordered with y (radius) as first index, x (depth) second, time last
+        temps_sorted = permutedims(temps, (3, 2, 1))
+
+        # ================= PlotlyJS soil viewer =================
+        surface_trace = PlotlyJS.surface(; x=z_abs,
+                                         y=r_abs,
+                                         z=temps[1, :, :],
+                                         cmin=Tmin,
+                                         cmax=Tmax,
+                                         colorscale="RdYlBu_r",
+                                         showscale=true,
+                                         colorbar=PlotlyJS.attr(; title="Temperature [°C]"))
+        scatter_trace = PlotlyJS.scatter3d(; x=vec(repeat(z_abs', length(r_abs), 1)),
+                                           y=vec(repeat(r_abs, 1, length(z_abs))),
+                                           z=vec(temps_sorted[:, :, 1]),
+                                           mode="markers",
+                                           marker=PlotlyJS.attr(; size=3, color="black"))
+
+        scene = PlotlyJS.attr(; xaxis=PlotlyJS.attr(; title="Depth z [m]",
+                                                    range=[zmin, zmax]),
+                              yaxis=PlotlyJS.attr(; title="Radius r [m]",
+                                                  range=[rmin, rmax]),
+                              zaxis=PlotlyJS.attr(; title="Temperature [°C]",
+                                                  range=[Tmin, Tmax]),
+                              aspectmode="manual",
+                              aspectratio=PlotlyJS.attr(; x=aspect_x, y=aspect_y, z=aspect_z))
+
+        layout = PlotlyJS.Layout(; title_text="Soil temperature around STES $(unit.uac)",
+                                 scene=scene,
+                                 template=PlotlyJS.templates.plotly_white)
+
+        base_plot = PlotlyJS.Plot([surface_trace, scatter_trace], layout)
+
+        fig_name = "soil_temperature_distribution_STES_$(unit.uac).html"
+        save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot,
+                         sim_params; render_time_ms=50)
     end
 
     return true
