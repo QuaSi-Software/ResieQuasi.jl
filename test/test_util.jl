@@ -1,6 +1,7 @@
 using Dates
 using UUIDs
 import ResieQuasi as Resie
+using OrderedCollections: OrderedDict
 
 """
     pwc_units_astr(expected, actual)
@@ -125,7 +126,7 @@ code under test.
 - `io_settings::Dict{String,Any}`: (Optional) The simulation parameters
 - `ooo::Vector{Any}`: (Optional) The order of operations. Defaults to an empty vector.
 """
-function setup_mock_run!(components::Dict{String,<:Any}, sim_params::Dict{String,Any};
+function setup_mock_run!(components::AbstractDict{String,<:Any}, sim_params::Dict{String,Any};
                          io_settings::Dict{String,Any}=Dict{String,Any}(), ooo::Vector{Any}=[])
     Resie.current_runs[sim_params["run_ID"]] = Resie.SimulationRun(sim_params, io_settings, components, ooo)
 end

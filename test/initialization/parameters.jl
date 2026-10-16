@@ -6,7 +6,7 @@ using ResieQuasi.EnergySystems
 include("../test_util.jl")
 
 function test_mutex_parameters()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_GRI_01" => Dict{String,Any}(
             "type" => "GridSupply",
             "output_refs" => ["TST_DEM_01"],
@@ -40,7 +40,7 @@ end
 end
 
 function test_mutex_with_default()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_STES_01" => Dict{String,Any}(
             "type" => "SeasonalThermalStorage",
             "m_heat_in" => "m_h_w_lt1",
@@ -108,7 +108,7 @@ end
 end
 
 function test_at_least_one_parameter()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_SRC_01" => Dict{String,Any}(
             "type" => "GenericHeatSource",
             "output_refs" => ["TST_DEM_01"],
@@ -152,7 +152,7 @@ end
 end
 
 function test_parameter_with_options()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_GRI_01" => Dict{String,Any}(
             "type" => "GridSupply",
             "output_refs" => ["TST_HP_01"],
@@ -197,7 +197,7 @@ end
 end
 
 function test_validations_fail()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_GRI_01" => Dict{String,Any}(
             "type" => "FlexibleSupply",
             "output_refs" => ["TST_BUS_01"],
@@ -242,7 +242,7 @@ function test_validations_fail()
         msg = sprint(showerror, e)
     end
     @assert construction_errored
-    @assert occursin("Can't construct component TST_STO_01", msg)
+    @assert occursin("Can't construct component TST_GRI_01", msg)
 end
 
 @testset "validations_fail" begin
@@ -250,7 +250,7 @@ end
 end
 
 function test_required_with_conditional()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_GRI_01" => Dict{String,Any}(
             "type" => "GridSupply",
             "output_refs" => ["TST_BUS_01"],

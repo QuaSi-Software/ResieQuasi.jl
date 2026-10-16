@@ -1,10 +1,11 @@
 module ResieQuasi
 
 using Printf
-using Dates: now, seconds
+using Dates: now, seconds, Second
 using UUIDs
 using Base.Threads
 using Logging
+using OrderedCollections: OrderedDict
 
 """
 Contains the parameters, instantiated components and the order of operations for a simulation run.
@@ -97,7 +98,6 @@ using ColorSchemes
 using Colors
 using Interpolations
 using JSON
-using Dates
 
 """
     run_simulation_loop(sim_params, io_settings, components, operations)

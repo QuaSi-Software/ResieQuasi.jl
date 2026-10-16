@@ -5,7 +5,7 @@ using ResieQuasi.EnergySystems
 include("../test_util.jl")
 
 function get_energy_system_fuel_boiler_direct()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_GRI_01" => Dict{String,Any}(
             "type" => "GridSupply",
             "output_refs" => ["TST_FB_01"],
@@ -102,7 +102,7 @@ end
 end
 
 function get_energy_system_heat_pump_cascade()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_SRC_01" => Dict{String,Any}(
             "type" => "FlexibleSupply",
             "output_refs" => ["TST_HP_01"],

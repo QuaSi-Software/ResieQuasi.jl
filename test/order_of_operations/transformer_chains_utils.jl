@@ -4,7 +4,7 @@ import ResieQuasi as Resie
 using ResieQuasi.EnergySystems
 
 function test_distance_from_sink()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_BUS_01" => Dict{String,Any}(
             "type" => "Bus",
             "medium" => "m_h_w_ht1",
@@ -72,7 +72,7 @@ end
 end
 
 function test_iteration_order()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_BUS_01" => Dict{String,Any}(
             "type" => "Bus",
             "medium" => "m_h_w_ht1",
@@ -150,7 +150,7 @@ end
 end
 
 function test_find_chains()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_BUS_01" => Dict{String,Any}(
             "type" => "Bus",
             "medium" => "m_h_w_lt1",
@@ -230,7 +230,7 @@ function test_find_chains()
 end
 
 function test_find_indirect_chains()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -424,7 +424,7 @@ function test_find_indirect_chains_denied()
     # This is the same energy system as in test_find_indirect_chains(), but the connection matrix
     # of the two busses denies the connection to and from HP1/HP1b to other transformers. 
     # Therefore, here two independent transformer chains are detected instead of one.
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -561,33 +561,88 @@ function test_find_indirect_chains_denied()
                                   [1, 1, 1]],
             ),
         ),
-    )
+    );
 
-    simulation_parameters = get_default_sim_params()
+    simulation_parameters = get_default_sim_params();
 
-    components = Resie.load_components(components_config, simulation_parameters)
+    components = Resie.load_components(components_config, simulation_parameters);
 
-    expected_bus1 = Set([components["TST_BUS_00"]])
-    expected_bus2 = Set([components["TST_BUS_01"]])
+    expected_bus1 = Set([components["TST_BUS_00"]]);
+    expected_bus2 = Set([components["TST_BUS_01"]]);
     expected_transformer1 = Set([components["TST_HP_02"],
                                  components["TST_HP_03"],
                                  components["TST_HP_04"],
-                                 components["TST_01_ELY_01"]])
+                                 components["TST_01_ELY_01"]]);
     expected_transformer2 = Set([components["TST_HP_01"],
-                                 components["TST_HP_01b"]])
+                                 components["TST_HP_01b"]]);
 
     chains_bus = Resie.find_chains([u for u in values(components) if !startswith(u.uac, "Proxy")],
-                                   EnergySystems.sf_bus)
+                                   EnergySystems.sf_bus);
 
     chains_transformer = Resie.find_chains([u for u in values(components) if !startswith(u.uac, "Proxy")],
                                            EnergySystems.sf_transformer;
-                                           direct_connection_only=false)
+                                           direct_connection_only=false);
+    # for c in chains_transformer
+    #     for comp in c
+    #         println(comp.uac)
+    #     end
+    #     println("")
+    # end
+    # before !direct_connection_only 1.12.6
+    # TST_HP_01
+    # TST_HP_01b
+
+    # TST_HP_03
+    # TST_01_ELY_01
+    # TST_HP_02
+
+    # TST_HP_03
+    # TST_01_ELY_01
+    # TST_HP_04
+    # TST_HP_02
+
+    # TST_01_ELY_01
+    # TST_HP_04
+    # TST_HP_02
+
+    # TST_HP_03
+    # TST_01_ELY_01
+    # TST_HP_04
+    # TST_HP_02
+
+    # TST_HP_01b
+    # TST_HP_01
+
+    # before !direct_connection_only 1.13.2
+    # TST_HP_02     
+    # TST_HP_03     
+    # TST_01_ELY_01     
+
+    # TST_HP_02 # This Set comes before the one below instead of afterwards like in 1.12.6 -> components are not ordered!!
+    # TST_HP_04
+    # TST_HP_03
+    # TST_01_ELY_01
+
+    # TST_HP_01
+    # TST_HP_01b
+
+    # TST_HP_02
+    # TST_HP_04
+    # TST_HP_03
+    # TST_01_ELY_01
+
+    # TST_HP_01
+    # TST_HP_01b
+
+    # TST_HP_02
+    # TST_HP_04
+    # TST_01_ELY_01
 
     @test length(chains_bus) == 2
     @test chains_bus[1] == expected_bus1
     @test chains_bus[2] == expected_bus2
     @test length(chains_transformer) == 2
-    @test chains_transformer[1] == expected_transformer2
+    @test chains_transformer[1] == expected_transformer2 #TODO transformer1 und transformer2 sind vertauscht; gefixed durch OrderedDict
     @test chains_transformer[2] == expected_transformer1
 
     # test distance to sink, considers energy flow matrix of bus
@@ -620,7 +675,7 @@ function test_find_indirect_chains_denied2()
     # of the two busses denies the connection to HP4 from other transformers. 
     # Therefore, here two independent transformer chains are detected instead of one. One chain
     # is only HP4.
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",

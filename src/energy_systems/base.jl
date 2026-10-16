@@ -29,6 +29,7 @@ export check_balances_of_components, check_balances_of_interfaces, Component, ea
 
 using ..Profiles
 using UUIDs
+using OrderedCollections: OrderedDict
 
 """
 Custom exception `InputError` used to signify that an input was not correctly set up,
@@ -101,7 +102,7 @@ abstract type Component end
 """
 Convenience alias to a dict mapping UAC keys to a component.
 """
-const Grouping = Dict{String,Component}
+const Grouping = OrderedDict{String,Component}
 
 """
 Convenience alias for temperatures which can be a number or "nothing".

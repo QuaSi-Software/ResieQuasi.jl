@@ -6,7 +6,7 @@ using ResieQuasi.EnergySystems
 include("../test_util.jl")
 
 function test_ooo_storage_loading_switch()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_GRI_01" => Dict{String,Any}(
             "type" => "GridSupply",
             "medium" => "m_c_g_natgas",
