@@ -300,7 +300,7 @@
             "output_refs": [
                 "TST_01_HZG_02_HTP"
             ],
-            "ambient_temperature_from_global_file": "temp_ambient_air",
+            "use_ambient_temperature_from_weather_file": true,
             "volume": 45.9,
             "hr_ratio": 2,
             "sidewall_angle": 90,

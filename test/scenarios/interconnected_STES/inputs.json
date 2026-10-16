@@ -137,11 +137,11 @@
                 "hysteresis_temp_off": 5
                 } 
             ],
-            "ambient_temperature_from_global_file": "temp_ambient_air",
-            "beam_solar_radiation_from_global_file": "beamHorIrr",
-            "diffuse_solar_radiation_from_global_file": "difHorIrr",
-            "infrared_sky_radiation_from_global_file": "longWaveIrr",
-            "wind_speed_from_global_file": "wind_speed",
+            "use_ambient_temperature_from_weather_file": true,
+            "use_beam_solar_radiation_from_weather_file": true,
+            "use_diffuse_solar_radiation_from_weather_file": true,
+            "use_infrared_sky_radiation_from_weather_file": true,
+            "use_wind_speed_from_weather_file": true,
             "collector_gross_area": 15000.0,
             "tilt_angle": 30,
             "azimuth_angle": 0,
@@ -363,7 +363,7 @@
             "output_refs": [
                 "TST_BUS_04"
             ],
-            "ambient_temperature_from_global_file": "temp_ambient_air",
+            "use_ambient_temperature_from_weather_file": true,
             "volume": 80000,
             "m_heat_out": "m_h_w_ht1",
             "m_heat_in": "m_h_w_ht1",

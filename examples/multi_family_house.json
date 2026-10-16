@@ -240,7 +240,7 @@
             },
             "medium": "m_h_w_lt1",
             "is_source": true,
-            "temperature_from_global_file": "temp_ambient_air",
+            "use_ambient_temperature_from_weather_file": true,
             "economic_parameters": {
                 "constant_energy_price": 0.0
             },

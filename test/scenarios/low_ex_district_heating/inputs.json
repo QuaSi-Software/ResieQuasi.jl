@@ -261,7 +261,7 @@
             "low_temperature": 10,
             "consider_losses": true,
             "h_to_r": 1,
-            "ambient_temperature_from_global_file": "temp_ambient_air",
+            "use_ambient_temperature_from_weather_file": true,
             "ground_temperature": 12,
             "thermal_transmission_lid": 0.8,
             "thermal_transmission_barrel": 1.0,

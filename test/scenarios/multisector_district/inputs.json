@@ -393,7 +393,7 @@
             "output_refs": [
                 "TST_HTP_01"
             ],
-            "ambient_temperature_from_global_file": "temp_ambient_air",
+            "use_ambient_temperature_from_weather_file": true,
             "volume": 7655.5,
             "hr_ratio": 2,
             "sidewall_angle": 90,

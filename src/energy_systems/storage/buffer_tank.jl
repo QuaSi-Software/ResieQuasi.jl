@@ -35,22 +35,22 @@ const BUFFER_TANK_COMPONENT_PARAMETERS = Dict(
         required=false,
         conditionals=[
             ("consider_losses", "is_true"),
-            ("ambient_temperature_from_global_file", "mutex"),
+            ("use_ambient_temperature_from_weather_file", "mutex"),
             ("constant_ambient_temperature", "mutex")
         ],
         validations=[
             ("at_least_one", "ambient_temperature_profile_file_path",
-             "ambient_temperature_from_global_file", "constant_ambient_temperature")
+             "use_ambient_temperature_from_weather_file", "constant_ambient_temperature")
         ],
         type=String,
         json_type="string",
         unit="-"
     ),
-    "ambient_temperature_from_global_file" => (
-        default=nothing,
-        description="If given points to a key in the global weather data file with the " *
-                    "ambient temperature profile to be used. Use `temp_ambient_air` as key.",
-        display_name="Global file amb. temp. key",
+    "use_ambient_temperature_from_weather_file" => (
+        default=false,
+        description="If true, use the ambient air temperature from the project-wide weather file.",
+        weather_key="temp_ambient_air",
+        display_name="Use ambient air temperature from weather file?",
         required=false,
         conditionals=[
             ("consider_losses", "is_true"),
@@ -59,10 +59,10 @@ const BUFFER_TANK_COMPONENT_PARAMETERS = Dict(
         ],
         validations=[
             ("at_least_one", "ambient_temperature_profile_file_path",
-             "ambient_temperature_from_global_file", "constant_ambient_temperature")
+             "use_ambient_temperature_from_weather_file", "constant_ambient_temperature")
         ],
-        type=String,
-        json_type="string",
+        type=Bool,
+        json_type="boolean",
         unit="-"
     ),
     "constant_ambient_temperature" => (
@@ -73,11 +73,11 @@ const BUFFER_TANK_COMPONENT_PARAMETERS = Dict(
         conditionals=[
             ("consider_losses", "is_true"),
             ("ambient_temperature_profile_file_path", "mutex"),
-            ("ambient_temperature_from_global_file", "mutex")
+            ("use_ambient_temperature_from_weather_file", "mutex")
         ],
         validations=[
             ("at_least_one", "ambient_temperature_profile_file_path",
-             "ambient_temperature_from_global_file", "constant_ambient_temperature")
+             "use_ambient_temperature_from_weather_file", "constant_ambient_temperature")
         ],
         type=Float64,
         json_type="number",
@@ -385,8 +385,8 @@ end
 
 function extract_parameter(x::Type{BufferTank}, config::Dict{String,Any}, param_name::String, param_def::NamedTuple,
                            sim_params::Dict{String,Any}, uac::String)
-    if param_name == "ambient_temperature_from_global_file"
-        return load_profile_from_global_weather_file(config, param_name, sim_params, uac)
+    if param_name == "use_ambient_temperature_from_weather_file"
+        return load_profile_from_weather_file(config, param_name, param_def, sim_params, uac)
     elseif param_name == "ambient_temperature_profile_file_path"
         return load_optional_profile(config, param_name, sim_params)
     elseif param_name == "constant_ambient_temperature"
@@ -442,7 +442,7 @@ function init_from_params(x::Type{BufferTank}, uac::String, params::Dict{String,
             params["thermal_transmission_bottom"],
             params["consider_losses"] ?
             some_or_none(params["ambient_temperature_profile_file_path"],
-                         params["ambient_temperature_from_global_file"]) : nothing,
+                         params["use_ambient_temperature_from_weather_file"]) : nothing,
             params["consider_losses"] ? params["constant_ambient_temperature"] : nothing,
             params["ground_temperature"],
             params["switch_point"],

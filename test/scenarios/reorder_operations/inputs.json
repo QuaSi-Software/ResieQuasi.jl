@@ -171,7 +171,7 @@
             ],
             "medium": "m_heat_source",
             "constant_power": 1e8,
-            "temperature_from_global_file": "temp_ambient_air",
+            "use_ambient_temperature_from_weather_file": true,
             "scale": 1.0
         },
         "HeatPump": {
