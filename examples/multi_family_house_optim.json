@@ -151,7 +151,7 @@
             }
         },
         "Building_el_demand": {
-            "type": "Demand",
+            "type": "FixedSink",
             "output_refs": {},
             "medium": "m_e_ac_230v",
             "energy_profile_file_path": "./profiles/examples/district/demand_electricity_living_2690_square_meter.prf",
@@ -165,7 +165,7 @@
             }
         },
         "Building_heating_demand": {
-            "type": "Demand",
+            "type": "FixedSink",
             "output_refs": {},
             "medium": "m_h_w_ht1",
             "energy_profile_file_path": "./profiles/examples/district/demand_heating_EH55_living_2690_square_meter.prf",
@@ -180,7 +180,7 @@
             }
         },
         "Building_DHW_demand": {
-            "type": "Demand",
+            "type": "FixedSink",
             "output_refs": {},
             "medium": "m_h_w_ht1",
             "energy_profile_file_path": "./profiles/examples/district/demand_DHW_living_2690_square_meter.prf",

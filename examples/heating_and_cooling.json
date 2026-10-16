@@ -18,7 +18,7 @@
     },
     "components": {
         "TST_TH_DEM_01": {
-            "type": "Demand",
+            "type": "FixedSink",
             "medium": "m_h_w_ht1",
             "output_refs": [],
             "energy_profile_file_path": "./profiles/examples/general/dem_heat_nrg_var_hi-amp.prf",
@@ -61,7 +61,10 @@
                 "output_order": [
                     "TST_TH_HP_01",
                     "TST_TH_HP_02"
-                ]
+                ],
+				"energy_flow": [
+				  [1, 1 ]
+				]
             }
         },
         "TST_EL_BUS_01": {
@@ -74,8 +77,11 @@
                 "output_order": [
                     "TST_TH_HP_01",
                     "TST_TH_HP_02"
-                ]
-            }
+                ],
+				"energy_flow": [
+				  [1, 1]
+				]
+			}
         },
         "TST_TH_BFT_01": {
             "type": "BufferTank",

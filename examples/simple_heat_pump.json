@@ -71,7 +71,7 @@
     },
     "components": {
         "TST_DEM_01": {
-            "type": "Demand",
+            "type": "FixedSink",
             "medium": "m_h_w_ht1",
             "output_refs": [],
             "energy_profile_file_path": "./profiles/examples/general/dem_heat_nrg_var_hi-amp.prf",
