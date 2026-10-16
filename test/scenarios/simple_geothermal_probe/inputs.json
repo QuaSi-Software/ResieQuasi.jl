@@ -10,7 +10,7 @@
         "csv_output_keys": {
             "TST_STH_01": ["m_h_w_ht1:OUT"],
             "TST_DEM_01": ["m_h_w_ht1:IN"],
-            "TST_GTP_01": ["new_fluid_temperature","fluid_reynolds_number"]
+            "TST_GTP_01": ["mean_fluid_temperature","fluid_reynolds_number"]
         },
         "output_plot_file_path": "./test/scenarios/simple_geothermal_probe/output_plot.html",
         "output_plot": "custom",
@@ -34,7 +34,7 @@
                 "scale_factor": 0.001
             },
             "5": {
-                "key": {"TST_GTP_01": ["new_fluid_temperature"]},
+                "key": {"TST_GTP_01": ["mean_fluid_temperature"]},
                 "axis": "right",
                 "unit": "°C",
                 "scale_factor": 1
