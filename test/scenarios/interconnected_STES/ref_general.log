@@ -22,26 +22,26 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\interconnected_STES\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 438/8760 in 5.226 s. ETA: 99.2940 s
-[Info] Progress: 876/8760 in 1.954 s. ETA: 35.1720 s
-[Info] Progress: 1314/8760 in 1.747 s. ETA: 29.6990 s
-[Info] Progress: 1752/8760 in 1.985 s. ETA: 31.7600 s
-[Info] Progress: 2190/8760 in 1.769 s. ETA: 26.5350 s
-[Info] Progress: 2628/8760 in 2.122 s. ETA: 29.7080 s
-[Info] Progress: 3066/8760 in 2.194 s. ETA: 28.5220 s
-[Info] Progress: 3504/8760 in 2.15 s. ETA: 25.8000 s
-[Info] Progress: 3942/8760 in 2.896 s. ETA: 31.8560 s
-[Info] Progress: 4380/8760 in 2.444 s. ETA: 24.4400 s
-[Info] Progress: 4818/8760 in 2.253 s. ETA: 20.2770 s
-[Info] Progress: 5256/8760 in 2.067 s. ETA: 16.5360 s
-[Info] Progress: 5694/8760 in 2.013 s. ETA: 14.0910 s
-[Info] Progress: 6132/8760 in 2.084 s. ETA: 12.5040 s
-[Info] Progress: 6570/8760 in 1.851 s. ETA: 9.2550 s
-[Info] Progress: 7008/8760 in 1.898 s. ETA: 7.5920 s
-[Info] Progress: 7446/8760 in 1.718 s. ETA: 5.1540 s
-[Info] Progress: 7884/8760 in 1.632 s. ETA: 3.2640 s
-[Info] Progress: 8322/8760 in 1.599 s. ETA: 1.5990 s
-[Info] Progress: 8760/8760 in 1.735 s. ETA: 0.0000 s
+[Info] Progress: 438/8760 in 16.403 s. ETA: 311.6570 s
+[Info] Progress: 876/8760 in 4.935 s. ETA: 88.8300 s
+[Info] Progress: 1314/8760 in 2.62 s. ETA: 44.5400 s
+[Info] Progress: 1752/8760 in 2.556 s. ETA: 40.8960 s
+[Info] Progress: 2190/8760 in 2.529 s. ETA: 37.9350 s
+[Info] Progress: 2628/8760 in 2.392 s. ETA: 33.4880 s
+[Info] Progress: 3066/8760 in 2.383 s. ETA: 30.9790 s
+[Info] Progress: 3504/8760 in 2.447 s. ETA: 29.3640 s
+[Info] Progress: 3942/8760 in 2.47 s. ETA: 27.1700 s
+[Info] Progress: 4380/8760 in 2.394 s. ETA: 23.9400 s
+[Info] Progress: 4818/8760 in 3.267 s. ETA: 29.4030 s
+[Info] Progress: 5256/8760 in 4.019 s. ETA: 32.1520 s
+[Info] Progress: 5694/8760 in 3.133 s. ETA: 21.9310 s
+[Info] Progress: 6132/8760 in 2.529 s. ETA: 15.1740 s
+[Info] Progress: 6570/8760 in 2.423 s. ETA: 12.1150 s
+[Info] Progress: 7008/8760 in 2.296 s. ETA: 9.1840 s
+[Info] Progress: 7446/8760 in 2.324 s. ETA: 6.9720 s
+[Info] Progress: 7884/8760 in 4.136 s. ETA: 8.2720 s
+[Info] Progress: 8322/8760 in 4.143 s. ETA: 4.1430 s
+[Info] Progress: 8760/8760 in 4.562 s. ETA: 0.0000 s
 [Info] -- Finished time step loop
 [Info] Line plot created and saved to .\test\scenarios\interconnected_STES\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\interconnected_STES\sankey_plot.html
