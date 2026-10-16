@@ -266,7 +266,7 @@ const GEOTHERMAL_PROBES_COMPONENT_PARAMETERS = Dict(
     ),
     "max_probe_temperature_loading" => (
         default=nothing,
-        description="Maximum allowed probe temperature during loading",
+        description="Maximum allowed temperature of the probe during loading, limits also the input temperature.",
         display_name="Max probe temp (loading)",
         required=false,
         type=Temperature,
@@ -275,7 +275,7 @@ const GEOTHERMAL_PROBES_COMPONENT_PARAMETERS = Dict(
     ),
     "min_probe_temperature_unloading" => (
         default=nothing,
-        description="Minimum allowed probe temperature during unloading",
+        description="Minimum allowed output temperature during unloading at the beginning of the time step.",
         display_name="Min probe temp (unloading)",
         required=false,
         type=Temperature,
@@ -507,8 +507,10 @@ mutable struct GeothermalProbes <: Component
     max_input_energy::Float64
     # output temperature in current time step, calculated in control()
     current_max_output_temperature::Temperature
-    # input temperature in current time step, calculated in control()
+    # minimum temperature required at the warm probe inlet during loading, calculated in control()
     current_min_input_temperature::Temperature
+    # the actual delivered energy-weighted output temperature
+    current_mean_output_temperature::Temperature
     soil_undisturbed_ground_temperature::Temperature
     soil_heat_conductivity::Float64
     soil_density::Float64
@@ -573,11 +575,6 @@ mutable struct GeothermalProbes <: Component
     process_done::Bool
     # flag indicating if the load step has already been performed in the current time step
     load_done::Bool
-
-    # flag indicating if the conservative temperature estimation based on max_output_energy was used during the simulation
-    used_max_output_energy_temperature_estimation::Bool
-    # highest actual output energy delivered within one simulation time step
-    max_observed_output_energy::Float64
 
     # use Claesson-Javed load aggregation for temporal superposition of the g-function
     use_load_aggregation::Bool
@@ -654,6 +651,7 @@ function init_from_params(x::Type{GeothermalProbes}, uac::String, params::Dict{S
             0.0, # max_input_energy
             0.0, # current_max_output_temperature
             0.0, # current_max_input_temperature
+            0.0, # current_mean_output_temperature
             params["soil_undisturbed_ground_temperature"],
             params["soil_heat_conductivity"],
             params["soil_density"],
@@ -695,8 +693,6 @@ function init_from_params(x::Type{GeothermalProbes}, uac::String, params::Dict{S
             nothing, # probe_coordinates
             false,   # process_done
             false,   # load_done
-            false,   # used_max_output_energy_temperature_estimation
-            0.0,     # max_observed_output_energy
             params["use_load_aggregation"],
             params["load_aggregation_cells_per_level"],
             Int[],     # load_aggregation_cell_widths
@@ -1327,8 +1323,8 @@ end
                                          limit_max_output_energy_to_avoid_pulsing::Bool)
 
 Checks if a requested output temperature is within the allowed operational range for the geothermal probe.
-I no temperature is given, the function sets the temperature to the mean temperature that will be reached with maximum 
-energy draw during the whole time step.
+If no temperature is requested, the current probe outlet temperature at the beginning of
+the time step is communicated.
 The function also determines the maximum extractable energy for the given temperature. Here, the temperature is
 handled either as turn-on temperature (limit_max_output_energy_to_avoid_pulsing=false) or the max energy in the current
 time step is limited to avoid pulsing (limit_max_output_energy_to_avoid_pulsing=true).
@@ -1364,11 +1360,9 @@ function check_temperature_and_get_max_energy(unit::GeothermalProbes,
 
     # check temperatures and get the max_energy
     if temperature_output === nothing
-        # no temperature information is given, set temperature so that the maximum energy can be used
-        # The communicated temperature is conservatively estimated assuming full use of max_output_energy.
-        unit.used_max_output_energy_temperature_estimation = true
-        return (source_max_out_temperature + calculate_output_temp_after_max_energy(unit, sim_params)) / 2,
-               unit.max_output_energy
+        # no temperature information is given, set temperature to the temperature of the probe output
+        # at the beginning of the time step. This can be slightly optimistic, but should level out over time.
+        return source_max_out_temperature, unit.max_output_energy
     elseif source_min_out_temperature !== nothing && temperature_output < source_min_out_temperature ||
            temperature_output > source_max_out_temperature
         # the requested temperature is higher than the current output temperature or
@@ -1440,6 +1434,12 @@ function control(unit::GeothermalProbes,
                                                                                sim_params,
                                                                                exchange.temperature_min,
                                                                                unit.limit_max_output_energy_to_avoid_pulsing)
+            elseif temperature !== nothing &&
+                   unit.min_probe_temperature_unloading !== nothing &&
+                   temperature < unit.min_probe_temperature_unloading
+                # A controller-selected operating temperature must remain within the probe's bounds.
+                # In particular, constant-temperature negotiation does not clamp its configured value.
+                temperature, max_energy = nothing, 0.0
             end
         end
 
@@ -1464,15 +1464,18 @@ function control(unit::GeothermalProbes,
 
     # get input temperature for energy input (regeneration) and set temperature and max_energy to input interface
     if unit.regeneration
-        unit.current_min_input_temperature = unit.fluid_temperature - unit.loading_temperature_spread / 2 # of geothermal probe field 
+        # During regeneration, fluid enters the probe at the warm side of the temperature spread.
+        # Its inlet temperature must be at least this value to heat the probe field.
+        unit.current_min_input_temperature = unit.fluid_temperature + unit.loading_temperature_spread / 2
 
+        # Check the hottest fluid temperature at the beginning of the time step, not the cold outlet.
         if unit.max_probe_temperature_loading !== nothing &&
            unit.current_min_input_temperature > unit.max_probe_temperature_loading
             set_max_energy!(unit.input_interfaces[unit.m_heat_in], 0.0, unit.current_min_input_temperature, nothing)
             unit.current_max_input_energy = 0.0
         else
             set_max_energy!(unit.input_interfaces[unit.m_heat_in], unit.max_input_energy,
-                            unit.current_min_input_temperature, nothing)
+                            unit.current_min_input_temperature, unit.max_probe_temperature_loading)
             unit.current_max_input_energy = unit.max_input_energy
         end
     end
@@ -1488,8 +1491,8 @@ Returns a tuple containing the current minimum and maximum output temperatures f
 - `sim_params::Dict{String,Any}`: simulation parameters
 
 # Returns
-- `Tuple{Temperature, Temperature}`: A tuple where the first element is the minimum probe temperature during unloading, 
-                                     and the second element is the current maximum output temperature.
+- `Tuple{Temperature, Temperature}`: The minimum permitted probe outlet temperature
+                                     and the currently available source outlet temperature.
 """
 function get_output_temperature_bounds(unit::GeothermalProbes,
                                        sim_params::Dict{String,Any})::Tuple{Temperature,Temperature}
@@ -1769,11 +1772,13 @@ function process(unit::GeothermalProbes, sim_params::Dict{String,Any})
     if energy_demanded >= -sim_params["epsilon"]
         handle_component_update!(unit, "process", sim_params)
         set_max_energy!(unit.output_interfaces[unit.m_heat_out], 0.0)
+        unit.current_mean_output_temperature = 0.0
         return
     end
 
     unit.output_temperatures_last_timestep = temp_min_all_non_empty(exchanges)
     energy_delivered = 0.0
+    energy_weighted_output_temperature = 0.0
     for exchange in exchanges
         demanded_on_interface = exchange.balance + exchange.energy_potential
         if demanded_on_interface >= -sim_params["epsilon"]
@@ -1791,10 +1796,15 @@ function process(unit::GeothermalProbes, sim_params::Dict{String,Any})
         used_heat = abs(demanded_on_interface)
         add!(outface, used_heat, exchange.temperature_min, exchange.temperature_max, exchange.purpose_uac)
         energy_delivered -= used_heat
+        energy_weighted_output_temperature += used_heat * exchange.temperature_max
     end
 
-    # store the highest actual output energy observed in any simulation time step
-    unit.max_observed_output_energy = max(unit.max_observed_output_energy, abs(energy_delivered))
+    # set the current_mean_output_temperature
+    if energy_delivered == 0.0
+        unit.current_mean_output_temperature = 0.0
+    else
+        unit.current_mean_output_temperature = energy_weighted_output_temperature / abs(energy_delivered)
+    end
 
     # write output heat flux into vector
     unit.energy_in_out_per_probe_meter[unit.time_index] = energy_delivered / (unit.probe_depth * unit.number_of_probes) # from total energy to specific power of one single probe.
@@ -1842,8 +1852,8 @@ function load(unit::GeothermalProbes, sim_params::Dict{String,Any})
 
         if exchange.temperature_max !== nothing &&
            exchange.temperature_max < unit.current_min_input_temperature
-            # we can only take in energy if it's at a higher/equal temperature than the
-            # tank's upper limit for temperatures
+            # We can only accept heat when the source reaches the required warm
+            # inlet temperature of the geothermal probe.
             continue
         end
 
@@ -1876,9 +1886,10 @@ function output_values(unit::GeothermalProbes)::Vector{String}
 
     append!(output_vals,
             [string(unit.m_heat_out) * ":OUT",
-             "new_fluid_temperature",
+             "mean_fluid_temperature",
              "current_max_output_temperature",
              "current_min_input_temperature",
+             "current_mean_output_temperature",
              "fluid_reynolds_number"])
     return output_vals
 end
@@ -1888,54 +1899,18 @@ function output_value(unit::GeothermalProbes, key::OutputKey)::Float64
         return calculate_energy_flow(unit.input_interfaces[key.medium])
     elseif key.value_key == "OUT"
         return calculate_energy_flow(unit.output_interfaces[key.medium])
-    elseif key.value_key == "new_fluid_temperature"
+    elseif key.value_key == "mean_fluid_temperature"
         return unit.fluid_temperature
     elseif key.value_key == "current_max_output_temperature"
         return unit.current_max_output_temperature
     elseif key.value_key == "current_min_input_temperature"
         return unit.current_min_input_temperature
+    elseif key.value_key == "current_mean_output_temperature"
+        return unit.current_mean_output_temperature
     elseif key.value_key == "fluid_reynolds_number"
         return unit.fluid_reynolds_number
     end
     throw(KeyError(key.value_key))
-end
-
-function post_simulation_check(unit::GeothermalProbes, sim_params::Dict{String,Any}, suppress_all_output::Bool)
-
-    # Do not issue warnings for suppressed simulations, e.g. individual runs within parameter studies or optimisation.
-    if suppress_all_output
-        return nothing
-    end
-
-    # This warning is only relevant if the automatic conservative output-temperature estimation was actually used.
-    if !unit.used_max_output_energy_temperature_estimation
-        return nothing
-    end
-
-    # Avoid division by zero.
-    if unit.max_output_energy <= sim_params["epsilon"]
-        return nothing
-    end
-
-    # If the probe was never unloaded, the utilisation comparison is not useful.
-    if unit.max_observed_output_energy <= sim_params["epsilon"]
-        return nothing
-    end
-
-    max_utilisation = unit.max_observed_output_energy / unit.max_output_energy
-
-    if max_utilisation < 0.5
-        @warn "The geothermal probe field \"$(unit.uac)\" used at most " *
-              "$(round(100 * max_utilisation; digits=1)) % of its configured " *
-              "maximum output energy within a single time step during the simulation. " *
-              "For automatic output-temperature communication, the geothermal probe " *
-              "conservatively estimates its temperature assuming full use of " *
-              "\"max_output_energy\". The communicated source temperature may therefore " *
-              "be considerably underestimated. Consider checking whether " *
-              "\"max_output_power\" is set unnecessarily high."
-    end
-
-    return nothing
 end
 
 export GeothermalProbes
