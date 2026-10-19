@@ -5,26 +5,26 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\simple_heat_pump\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 4/96 in 0.001 s. ETA: 0.0230 s
-[Info] Progress: 8/96 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 4/96 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 8/96 in 0.001 s. ETA: 0.0220 s
 [Info] Progress: 12/96 in 0.0 s. ETA: 0.0000 s
-[Info] Progress: 16/96 in 0.001 s. ETA: 0.0200 s
+[Info] Progress: 16/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 20/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 24/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 28/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 32/96 in 0.0 s. ETA: 0.0000 s
-[Info] Progress: 36/96 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 36/96 in 0.001 s. ETA: 0.0150 s
 [Info] Progress: 40/96 in 0.0 s. ETA: 0.0000 s
-[Info] Progress: 44/96 in 0.004 s. ETA: 0.0000 s
+[Info] Progress: 44/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 48/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 52/96 in 0.0 s. ETA: 0.0000 s
-[Info] Progress: 56/96 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 56/96 in 0.001 s. ETA: 0.0100 s
 [Info] Progress: 60/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 64/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 68/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 72/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 76/96 in 0.0 s. ETA: 0.0000 s
-[Info] Progress: 80/96 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 80/96 in 0.001 s. ETA: 0.0040 s
 [Info] Progress: 84/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 88/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 92/96 in 0.0 s. ETA: 0.0000 s

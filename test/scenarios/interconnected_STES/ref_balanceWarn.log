@@ -146,7 +146,7 @@ This log file contains only balance warnings written by ReSiE.
 [BalanceWarning] In timestep 2024-03-24T08:00:00, the balance in interface TST_BUS_03 -> TST_DEM_01 was not zero: -298581.7211410529
 [BalanceWarning] In timestep 2024-03-25T07:00:00, the balance in interface TST_BUS_03 -> TST_DEM_01 was not zero: -135706.0929721545
 [BalanceWarning] In timestep 2024-03-26T06:00:00, the balance in interface TST_BUS_03 -> TST_DEM_01 was not zero: -42543.752322069835
-[BalanceWarning] In timestep 2024-12-08T06:00:00, the balance in interface TST_BUS_03 -> TST_DEM_01 was not zero: -300967.7388585836
-[BalanceWarning] In timestep 2024-12-08T08:00:00, the balance in interface TST_BUS_03 -> TST_DEM_01 was not zero: -173550.71724183368
-[BalanceWarning] In timestep 2024-12-11T06:00:00, the balance in interface TST_BUS_03 -> TST_DEM_01 was not zero: -233788.86250729347
-[BalanceWarning] In timestep 2024-12-11T08:00:00, the balance in interface TST_BUS_03 -> TST_DEM_01 was not zero: -98014.28486585733
+[BalanceWarning] In timestep 2024-12-08T06:00:00, the balance in interface TST_BUS_03 -> TST_DEM_01 was not zero: -300967.7388585834
+[BalanceWarning] In timestep 2024-12-08T08:00:00, the balance in interface TST_BUS_03 -> TST_DEM_01 was not zero: -173550.71724183275
+[BalanceWarning] In timestep 2024-12-11T06:00:00, the balance in interface TST_BUS_03 -> TST_DEM_01 was not zero: -233788.86250729323
+[BalanceWarning] In timestep 2024-12-11T08:00:00, the balance in interface TST_BUS_03 -> TST_DEM_01 was not zero: -98014.2848658571

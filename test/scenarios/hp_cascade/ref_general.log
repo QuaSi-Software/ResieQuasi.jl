@@ -5,26 +5,26 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\hp_cascade\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 33/672 in 0.097 s. ETA: 1.8783 s
-[Info] Progress: 66/672 in 0.005 s. ETA: 0.0918 s
-[Info] Progress: 99/672 in 0.03 s. ETA: 0.5209 s
+[Info] Progress: 33/672 in 0.068 s. ETA: 1.3167 s
+[Info] Progress: 66/672 in 0.01 s. ETA: 0.1836 s
+[Info] Progress: 99/672 in 0.006 s. ETA: 0.1042 s
 [Info] Progress: 132/672 in 0.016 s. ETA: 0.2618 s
 [Info] Progress: 165/672 in 0.012 s. ETA: 0.1844 s
-[Info] Progress: 198/672 in 0.009 s. ETA: 0.1293 s
-[Info] Progress: 231/672 in 0.026 s. ETA: 0.3475 s
-[Info] Progress: 264/672 in 0.007 s. ETA: 0.0865 s
+[Info] Progress: 198/672 in 0.004 s. ETA: 0.0575 s
+[Info] Progress: 231/672 in 0.016 s. ETA: 0.2138 s
+[Info] Progress: 264/672 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 297/672 in 0.016 s. ETA: 0.1818 s
-[Info] Progress: 330/672 in 0.017 s. ETA: 0.1762 s
-[Info] Progress: 363/672 in 0.039 s. ETA: 0.3652 s
-[Info] Progress: 396/672 in 0.017 s. ETA: 0.1422 s
-[Info] Progress: 429/672 in 0.02 s. ETA: 0.1473 s
-[Info] Progress: 462/672 in 0.008 s. ETA: 0.0509 s
-[Info] Progress: 495/672 in 0.015 s. ETA: 0.0805 s
-[Info] Progress: 528/672 in 0.025 s. ETA: 0.1091 s
-[Info] Progress: 561/672 in 0.008 s. ETA: 0.0269 s
-[Info] Progress: 594/672 in 0.017 s. ETA: 0.0402 s
-[Info] Progress: 627/672 in 0.024 s. ETA: 0.0327 s
-[Info] Progress: 660/672 in 0.023 s. ETA: 0.0084 s
+[Info] Progress: 330/672 in 0.016 s. ETA: 0.1658 s
+[Info] Progress: 363/672 in 0.01 s. ETA: 0.0936 s
+[Info] Progress: 396/672 in 0.006 s. ETA: 0.0502 s
+[Info] Progress: 429/672 in 0.015 s. ETA: 0.1105 s
+[Info] Progress: 462/672 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 495/672 in 0.017 s. ETA: 0.0912 s
+[Info] Progress: 528/672 in 0.015 s. ETA: 0.0655 s
+[Info] Progress: 561/672 in 0.02 s. ETA: 0.0673 s
+[Info] Progress: 594/672 in 0.015 s. ETA: 0.0355 s
+[Info] Progress: 627/672 in 0.017 s. ETA: 0.0232 s
+[Info] Progress: 660/672 in 0.013 s. ETA: 0.0047 s
 [Info] -- Finished time step loop
 [Info] CSV-file with outputs written to .\test\scenarios\hp_cascade\out.csv
 [Info] Summary CSV-file with outputs created and written to .\test\scenarios\hp_cascade\out_aggregated.csv

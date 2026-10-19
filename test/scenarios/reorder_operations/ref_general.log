@@ -20,26 +20,26 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\reorder_operations\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 33/672 in 0.333 s. ETA: 6.4481 s
-[Info] Progress: 66/672 in 0.38 s. ETA: 6.9782 s
-[Info] Progress: 99/672 in 0.394 s. ETA: 6.8413 s
-[Info] Progress: 132/672 in 0.436 s. ETA: 7.1345 s
-[Info] Progress: 165/672 in 0.307 s. ETA: 4.7166 s
-[Info] Progress: 198/672 in 0.274 s. ETA: 3.9356 s
-[Info] Progress: 231/672 in 0.272 s. ETA: 3.6349 s
-[Info] Progress: 264/672 in 0.361 s. ETA: 4.4633 s
-[Info] Progress: 297/672 in 0.267 s. ETA: 3.0341 s
-[Info] Progress: 330/672 in 0.27 s. ETA: 2.7982 s
-[Info] Progress: 363/672 in 0.336 s. ETA: 3.1462 s
-[Info] Progress: 396/672 in 0.257 s. ETA: 2.1495 s
-[Info] Progress: 429/672 in 0.251 s. ETA: 1.8483 s
-[Info] Progress: 462/672 in 0.278 s. ETA: 1.7691 s
-[Info] Progress: 495/672 in 0.293 s. ETA: 1.5715 s
-[Info] Progress: 528/672 in 0.268 s. ETA: 1.1695 s
-[Info] Progress: 561/672 in 0.269 s. ETA: 0.9048 s
-[Info] Progress: 594/672 in 0.272 s. ETA: 0.6429 s
-[Info] Progress: 627/672 in 0.239 s. ETA: 0.3259 s
-[Info] Progress: 660/672 in 0.242 s. ETA: 0.0880 s
+[Info] Progress: 33/672 in 0.226 s. ETA: 4.3762 s
+[Info] Progress: 66/672 in 0.181 s. ETA: 3.3238 s
+[Info] Progress: 99/672 in 0.247 s. ETA: 4.2888 s
+[Info] Progress: 132/672 in 0.191 s. ETA: 3.1255 s
+[Info] Progress: 165/672 in 0.192 s. ETA: 2.9498 s
+[Info] Progress: 198/672 in 0.2 s. ETA: 2.8727 s
+[Info] Progress: 231/672 in 0.174 s. ETA: 2.3253 s
+[Info] Progress: 264/672 in 0.16 s. ETA: 1.9782 s
+[Info] Progress: 297/672 in 0.199 s. ETA: 2.2614 s
+[Info] Progress: 330/672 in 0.173 s. ETA: 1.7929 s
+[Info] Progress: 363/672 in 0.215 s. ETA: 2.0132 s
+[Info] Progress: 396/672 in 0.179 s. ETA: 1.4971 s
+[Info] Progress: 429/672 in 0.187 s. ETA: 1.3770 s
+[Info] Progress: 462/672 in 0.168 s. ETA: 1.0691 s
+[Info] Progress: 495/672 in 0.192 s. ETA: 1.0298 s
+[Info] Progress: 528/672 in 0.208 s. ETA: 0.9076 s
+[Info] Progress: 561/672 in 0.248 s. ETA: 0.8241 s
+[Info] Progress: 594/672 in 0.222 s. ETA: 0.5247 s
+[Info] Progress: 627/672 in 0.207 s. ETA: 0.2823 s
+[Info] Progress: 660/672 in 0.185 s. ETA: 0.0673 s
 [Info] -- Finished time step loop
 [Info] Line plot created and saved to .\test\scenarios\reorder_operations\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\reorder_operations\sankey_plot.html

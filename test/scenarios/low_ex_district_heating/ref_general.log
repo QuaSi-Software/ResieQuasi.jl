@@ -13,45 +13,45 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] The timestamp of the profile at .\profiles\weather\TRY2015_Stuttgart.epw:WindSpeed was shifted by 1800 seconds.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:WindSpeed has been extended by one timestep at the begin by doubling the first value.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:WindSpeed was shifted using linear interpolation to fit the simulation start time. 
-[Info] The profile at .\profiles\examples\district\demand_electricity_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
+[Info] The profile at .\profiles\examples\district\demand_heating_and_water_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\district\demand_heating_and_water_25Living_75Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\general\dem_heat_nrg_var_hi-amp.prf was repeated 4 times to cover the simulation time.
 [Warn] The repeating of the profile at .\profiles\examples\general\dem_heat_nrg_var_hi-amp.prf was done even the profile parameter "repeat_profile" is not true! (.\src\profiles\base.jl:333)
 [Info] The profile at .\profiles\examples\general\dem_heat_nrg_var_hi-amp.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
+[Info] The profile at .\profiles\examples\general\dem_heat_nrg_var_hi-amp.prf was repeated 4 times to cover the simulation time.
+[Warn] The repeating of the profile at .\profiles\examples\general\dem_heat_nrg_var_hi-amp.prf was done even the profile parameter "repeat_profile" is not true! (.\src\profiles\base.jl:333)
+[Info] The profile at .\profiles\examples\general\dem_heat_nrg_var_hi-amp.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
+[Info] The profile at .\profiles\examples\district\demand_heating_and_water_25Living_75Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\district\PV_Stuttgart_30_south_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
+[Info] The profile at .\profiles\examples\district\PV_Stuttgart_10_east_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\district\ambient_temperature_TRY2015_Stuttgart.prf was shortened to a multiple of the simulation time (from 2024-12-07 23:00 to 2024-12-31 23:45)
 [Info] The profile at .\profiles\examples\district\ambient_temperature_TRY2015_Stuttgart.prf (intensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
-[Info] The profile at .\profiles\examples\general\dem_heat_nrg_var_hi-amp.prf was repeated 4 times to cover the simulation time.
-[Warn] The repeating of the profile at .\profiles\examples\general\dem_heat_nrg_var_hi-amp.prf was done even the profile parameter "repeat_profile" is not true! (.\src\profiles\base.jl:333)
-[Info] The profile at .\profiles\examples\general\dem_heat_nrg_var_hi-amp.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
-[Info] The profile at .\profiles\examples\district\demand_heating_and_water_25Living_75Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\district\demand_electricity_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
-[Info] The profile at .\profiles\examples\district\PV_Stuttgart_10_east_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
-[Info] The profile at .\profiles\examples\district\demand_heating_and_water_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
+[Info] The profile at .\profiles\examples\district\demand_electricity_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] In bus BUS_Power_Houses, a custom order in the energy flow matrix is used. Note that this feature may not perform as expected for all energy systems.
 [Info] Auxiliary info dumped to file .\test\scenarios\low_ex_district_heating\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 37/744 in 0.255 s. ETA: 4.8726 s
-[Info] Progress: 74/744 in 0.246 s. ETA: 4.4546 s
-[Info] Progress: 111/744 in 0.219 s. ETA: 3.7467 s
-[Info] Progress: 148/744 in 0.156 s. ETA: 2.5129 s
-[Info] Progress: 185/744 in 0.127 s. ETA: 1.9187 s
-[Info] Progress: 222/744 in 0.193 s. ETA: 2.7229 s
-[Info] Progress: 259/744 in 0.238 s. ETA: 3.1197 s
-[Info] Progress: 296/744 in 0.181 s. ETA: 2.1916 s
-[Info] Progress: 333/744 in 0.369 s. ETA: 4.0989 s
-[Info] Progress: 370/744 in 0.208 s. ETA: 2.1025 s
-[Info] Progress: 407/744 in 0.243 s. ETA: 2.2133 s
-[Info] Progress: 444/744 in 0.236 s. ETA: 1.9135 s
-[Info] Progress: 481/744 in 0.259 s. ETA: 1.8410 s
-[Info] Progress: 518/744 in 0.181 s. ETA: 1.1056 s
-[Info] Progress: 555/744 in 0.175 s. ETA: 0.8939 s
-[Info] Progress: 592/744 in 0.161 s. ETA: 0.6614 s
-[Info] Progress: 629/744 in 0.16 s. ETA: 0.4973 s
-[Info] Progress: 666/744 in 0.166 s. ETA: 0.3499 s
-[Info] Progress: 703/744 in 0.108 s. ETA: 0.1197 s
-[Info] Progress: 740/744 in 0.15 s. ETA: 0.0162 s
+[Info] Progress: 37/744 in 0.07 s. ETA: 1.3376 s
+[Info] Progress: 74/744 in 0.055 s. ETA: 0.9959 s
+[Info] Progress: 111/744 in 0.049 s. ETA: 0.8383 s
+[Info] Progress: 148/744 in 0.137 s. ETA: 2.2068 s
+[Info] Progress: 185/744 in 0.053 s. ETA: 0.8007 s
+[Info] Progress: 222/744 in 0.053 s. ETA: 0.7477 s
+[Info] Progress: 259/744 in 0.056 s. ETA: 0.7341 s
+[Info] Progress: 296/744 in 0.054 s. ETA: 0.6538 s
+[Info] Progress: 333/744 in 0.041 s. ETA: 0.4554 s
+[Info] Progress: 370/744 in 0.063 s. ETA: 0.6368 s
+[Info] Progress: 407/744 in 0.054 s. ETA: 0.4918 s
+[Info] Progress: 444/744 in 0.058 s. ETA: 0.4703 s
+[Info] Progress: 481/744 in 0.063 s. ETA: 0.4478 s
+[Info] Progress: 518/744 in 0.062 s. ETA: 0.3787 s
+[Info] Progress: 555/744 in 0.06 s. ETA: 0.3065 s
+[Info] Progress: 592/744 in 0.063 s. ETA: 0.2588 s
+[Info] Progress: 629/744 in 0.07 s. ETA: 0.2176 s
+[Info] Progress: 666/744 in 0.057 s. ETA: 0.1202 s
+[Info] Progress: 703/744 in 0.084 s. ETA: 0.0931 s
+[Info] Progress: 740/744 in 0.157 s. ETA: 0.0170 s
 [Info] -- Finished time step loop
 [Info] Line plot created and saved to .\test\scenarios\low_ex_district_heating\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\low_ex_district_heating\sankey_plot.html

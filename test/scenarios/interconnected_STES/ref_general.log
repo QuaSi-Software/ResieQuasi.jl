@@ -13,35 +13,35 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] The timestamp of the profile at .\profiles\weather\TRY2015_Stuttgart.epw:WindSpeed was shifted by 1800 seconds.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:WindSpeed has been extended by one timestep at the begin by doubling the first value.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:WindSpeed was shifted using linear interpolation to fit the simulation start time. 
+[Info] The profile at .\profiles\examples\district\4000hours_with_least_CO2_2022.prf (intensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\district\demand_heating_and_water_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
+[Info] The profile at .\profiles\examples\district\demand_heating_and_water_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
+[Info] The profile at .\profiles\examples\district\4000hours_with_least_CO2_2022.prf (intensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\district\demand_electricity_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
-[Info] The profile at .\profiles\examples\district\4000hours_with_least_CO2_2022.prf (intensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
-[Info] The profile at .\profiles\examples\district\demand_heating_and_water_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
-[Info] The profile at .\profiles\examples\district\4000hours_with_least_CO2_2022.prf (intensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] In STES TST_STS_01, the given `ground_layers_depths` has been extended to 33.86871234951769 m to cover the whole ground depth. The corresponding ground properties were copied from the last given depth.
 [Info] Auxiliary info dumped to file .\test\scenarios\interconnected_STES\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 438/8760 in 16.403 s. ETA: 311.6570 s
-[Info] Progress: 876/8760 in 4.935 s. ETA: 88.8300 s
-[Info] Progress: 1314/8760 in 2.62 s. ETA: 44.5400 s
-[Info] Progress: 1752/8760 in 2.556 s. ETA: 40.8960 s
-[Info] Progress: 2190/8760 in 2.529 s. ETA: 37.9350 s
-[Info] Progress: 2628/8760 in 2.392 s. ETA: 33.4880 s
-[Info] Progress: 3066/8760 in 2.383 s. ETA: 30.9790 s
-[Info] Progress: 3504/8760 in 2.447 s. ETA: 29.3640 s
-[Info] Progress: 3942/8760 in 2.47 s. ETA: 27.1700 s
-[Info] Progress: 4380/8760 in 2.394 s. ETA: 23.9400 s
-[Info] Progress: 4818/8760 in 3.267 s. ETA: 29.4030 s
-[Info] Progress: 5256/8760 in 4.019 s. ETA: 32.1520 s
-[Info] Progress: 5694/8760 in 3.133 s. ETA: 21.9310 s
-[Info] Progress: 6132/8760 in 2.529 s. ETA: 15.1740 s
-[Info] Progress: 6570/8760 in 2.423 s. ETA: 12.1150 s
-[Info] Progress: 7008/8760 in 2.296 s. ETA: 9.1840 s
-[Info] Progress: 7446/8760 in 2.324 s. ETA: 6.9720 s
-[Info] Progress: 7884/8760 in 4.136 s. ETA: 8.2720 s
-[Info] Progress: 8322/8760 in 4.143 s. ETA: 4.1430 s
-[Info] Progress: 8760/8760 in 4.562 s. ETA: 0.0000 s
+[Info] Progress: 438/8760 in 4.509 s. ETA: 85.6710 s
+[Info] Progress: 876/8760 in 1.715 s. ETA: 30.8700 s
+[Info] Progress: 1314/8760 in 1.709 s. ETA: 29.0530 s
+[Info] Progress: 1752/8760 in 1.759 s. ETA: 28.1440 s
+[Info] Progress: 2190/8760 in 1.78 s. ETA: 26.7000 s
+[Info] Progress: 2628/8760 in 1.83 s. ETA: 25.6200 s
+[Info] Progress: 3066/8760 in 1.948 s. ETA: 25.3240 s
+[Info] Progress: 3504/8760 in 1.814 s. ETA: 21.7680 s
+[Info] Progress: 3942/8760 in 1.686 s. ETA: 18.5460 s
+[Info] Progress: 4380/8760 in 1.684 s. ETA: 16.8400 s
+[Info] Progress: 4818/8760 in 1.668 s. ETA: 15.0120 s
+[Info] Progress: 5256/8760 in 1.665 s. ETA: 13.3200 s
+[Info] Progress: 5694/8760 in 1.633 s. ETA: 11.4310 s
+[Info] Progress: 6132/8760 in 1.671 s. ETA: 10.0260 s
+[Info] Progress: 6570/8760 in 1.642 s. ETA: 8.2100 s
+[Info] Progress: 7008/8760 in 1.654 s. ETA: 6.6160 s
+[Info] Progress: 7446/8760 in 1.639 s. ETA: 4.9170 s
+[Info] Progress: 7884/8760 in 1.58 s. ETA: 3.1600 s
+[Info] Progress: 8322/8760 in 1.555 s. ETA: 1.5550 s
+[Info] Progress: 8760/8760 in 1.609 s. ETA: 0.0000 s
 [Info] -- Finished time step loop
 [Info] Line plot created and saved to .\test\scenarios\interconnected_STES\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\interconnected_STES\sankey_plot.html
