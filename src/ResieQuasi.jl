@@ -282,11 +282,6 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     end
     @info "-- Finished time step loop"
 
-    # perform component-specific checks that require information from the complete simulation period
-    for (_, component) in components
-        post_simulation_check(component, sim_params, suppress_all_output)
-    end
-
     # Map each requested OutputKey to its column in output_data_all_requested.
     key_indexes = output_key_indexes(all_requested_output_keys)
 
