@@ -820,7 +820,7 @@ mutable struct GeothermalHeatCollector <: Component
     max_picard_iter::Int
     picard_tol::Float64
 
-    function GeothermalHeatCollector(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function GeothermalHeatCollector(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         new(SSOT_parameter_constructor(GeothermalHeatCollector, uac, config, sim_params)...)
     end
 end
@@ -837,7 +837,7 @@ function emissions_parameters(x::Type{GeothermalHeatCollector})::Dict{String,Any
     return deepcopy(GEOTHERMAL_HEAT_COLLECTOR_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{GeothermalHeatCollector}, config::Dict{String,Any}, param_name::String,
+function extract_parameter(x::Type{GeothermalHeatCollector}, config::AbstractDict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
     if param_name in ("ambient_temperature_from_global_file", "global_solar_radiation_from_global_file",
                       "infrared_sky_radiation_from_global_file")
@@ -857,7 +857,7 @@ function extract_parameter(x::Type{GeothermalHeatCollector}, config::Dict{String
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{GeothermalHeatCollector}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{GeothermalHeatCollector}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(GeothermalHeatCollector)

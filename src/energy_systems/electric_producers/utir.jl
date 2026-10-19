@@ -153,7 +153,7 @@ mutable struct UTIR <: Component
 
     losses::Float64
 
-    function UTIR(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function UTIR(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         return new(SSOT_parameter_constructor(UTIR, uac, config, sim_params)...)
     end
 end
@@ -170,12 +170,12 @@ function emissions_parameters(x::Type{UTIR})::Dict{String,Any}
     return deepcopy(UTIR_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{UTIR}, config::Dict{String,Any}, param_name::String,
+function extract_parameter(x::Type{UTIR}, config::AbstractDict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{UTIR}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{UTIR}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(UTIR)

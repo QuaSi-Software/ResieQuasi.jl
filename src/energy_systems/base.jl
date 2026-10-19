@@ -1709,18 +1709,18 @@ function extract_parameter(x::Type{Component}, config::AbstractDict{String,Any},
 end
 
 """
-    extract_control_parameters(x::Type{Component}, config::Dict{String,Any})::Dict{String,Any}
+    extract_control_parameters(x::Type{Component}, config::AbstractDict{String,Any})::Dict{String,Any}
 
 Extracts the control parameters from the config ready to be given to the `Controller` constructor.
 
 # Args
 - `x::Type{Component}`: Not a required input, instead used for leveraging multiple
     dispatch for type-specific methods that may invoke the base method.
-- `config::Dict{String,Any}`: The config with the raw parameters
+- `config::AbstractDict{String,Any}`: The config with the raw parameters
 # Returns
 - `Dict{String,Any}`: The extracted parameters
 """
-function extract_control_parameters(x::Type{Component}, config::Dict{String,Any})::Dict{String,Any}
+function extract_control_parameters(x::Type{Component}, config::AbstractDict{String,Any})::Dict{String,Any}
     # TODO: for now this just carries the subconfig, if any, over to the Controller
     # constructor. in the future we want to have those, as well as the control module,
     # parameters being handled the same as the component parameters via a SSOT approach
@@ -1979,18 +1979,18 @@ function conditionals_apply(name::String, extracted::Dict{String,Any}, type_def:
 end
 
 """
-    validate_mutex_params(config::Dict{String,Any}, uac::String, type_def::Dict{String,Any})
+    validate_mutex_params(config::AbstractDict{String,Any}, uac::String, type_def::Dict{String,Any})
 
 Validates the given component parameter config for mutex conditionals.
 
 If a mutex conditional is triggered, throws an InputError.
 
 # Arguments
-- `config::Dict{String,Any}`: The component parameter config
+- `config::AbstractDict{String,Any}`: The component parameter config
 - `uac::String`: The UAC of the component, mostly used in error messages
 - `type_def::Dict{String,Any}`: Parameter definitions for the type
 """
-function validate_mutex_params(config::Dict{String,Any}, uac::String, type_def::Dict{String,Any})
+function validate_mutex_params(config::AbstractDict{String,Any}, uac::String, type_def::Dict{String,Any})
     for (name, value) in pairs(config)
         if name in keys(type_def) && isdefined(type_def[name], :conditionals)
             for cond in type_def[name].conditionals
@@ -2088,7 +2088,7 @@ function init_from_params(x::Type{Component}, uac::String, params::Dict{String,A
 end
 
 """
-    SSOT_parameter_constructor(T::Type, uac::String, config::Dict{String,Any},
+    SSOT_parameter_constructor(T::Type, uac::String, config::AbstractDict{String,Any},
                                sim_params::Dict{String,Any})::Tuple
 
 Base implementation of a Component-Subtype constructor using the single-source-of-truth
@@ -2097,7 +2097,7 @@ functionality for parameter parsing and validation.
 This is used by being called inside a constructor function and will return a tuple ready to
 be unrolled into the default constructor method and/or `new`. E.g.:
 ```
-function HeatPump(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+function HeatPump(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
     return new(SSOT_parameter_constructor(HeatPump, uac, config, sim_params)...)
 end
 ```
@@ -2106,12 +2106,12 @@ end
 - `T::Type`: The type on which the constructor is called. This is used to call the subtype-
     specific parameter functions, e.g. `extract_parameter`
 - `uac::String`: The UAC of the component
-- `config::Dict{String,Any}`: The config dict with the parameter values
+- `config::AbstractDict{String,Any}`: The config dict with the parameter values
 - `sim_params::Dict{String,Any}`: Simulation parameters
 # Returns
 - `Tuple`: The extracted and validated parameter values ready to be unrolled into `new`
 """
-function SSOT_parameter_constructor(T::Type, uac::String, config::Dict{String,Any},
+function SSOT_parameter_constructor(T::Type, uac::String, config::AbstractDict{String,Any},
                                     sim_params::Dict{String,Any})::Tuple
     constructor_errored = false
 
@@ -3055,7 +3055,7 @@ Function to get specified data, either from a given constant value, a user-defin
 * If 'from_global_file_key' is set to a valid entry of the global weather file, this will be used.
 
 Inputs:
-- config::Dict{String, Any}: input file config
+- config::AbstractDict{String, Any}: input file config
 - sim_params::Dict{String, Any}: Project-wide simulation parameters
 - param_symbol::Union{Symbol, String}: will be used for info/warning messages (e.g., `:temperature`, `"temperature"`, etc.).
 - profile_file_key::String: The configuration key in `config` that points to a `.prf` file path (e.g. `"temperature_profile_file_path"`).
@@ -3069,7 +3069,7 @@ Returns:
 - profile_values::Union{Profile,Nothing}: If a profile is read out, it will be returned as second argument.
 
 """
-function get_parameter_profile_from_config(config::Dict{String,Any},
+function get_parameter_profile_from_config(config::AbstractDict{String,Any},
                                            sim_params::Dict{String,Any},
                                            param_symbol::Union{Symbol,String},
                                            profile_file_key::String,
@@ -3127,14 +3127,14 @@ function get_parameter_profile_from_config(config::Dict{String,Any},
 end
 
 """
-    load_profile_from_global_weather_file(config::Dict{String,Any}, from_global_file_key::String,
+    load_profile_from_global_weather_file(config::AbstractDict{String,Any}, from_global_file_key::String,
                                           sim_params::Dict{String,Any}, uac::String)
 
 Reads a profile file path from the given config and then loads and returns the profile from
 the global weather file.
 
 # Args
--`config::Dict{String,Any}`: The config from which to read the file path
+-`config::AbstractDict{String,Any}`: The config from which to read the file path
 -`from_global_file_key::String`: The key for the config containing the name of the profile
     in the global weather file
 -`sim_params::Dict{String,Any}`: Simulation parameters
@@ -3143,7 +3143,7 @@ the global weather file.
 -`Union{Nothing,Profile}`: The requested profile or nothing if the config does not contain
     the given key
 """
-function load_profile_from_global_weather_file(config::Dict{String,Any},
+function load_profile_from_global_weather_file(config::AbstractDict{String,Any},
                                                from_global_file_key::String,
                                                sim_params::Dict{String,Any},
                                                uac::String)
@@ -3169,21 +3169,21 @@ function load_profile_from_global_weather_file(config::Dict{String,Any},
 end
 
 """
-    load_optional_profile(config::Dict{String,Any}, parameter_name::String,
+    load_optional_profile(config::AbstractDict{String,Any}, parameter_name::String,
                           sim_params::Dict{String,Any})
 
 Reads the given config for the given key and then loads the profile or returns nothing if
 the key does not occur in the config.
 
 # Args
--`config::Dict{String,Any}`: The config that maybe contains the key
+-`config::AbstractDict{String,Any}`: The config that maybe contains the key
 -`parameter_name::String`: The key for the config with the profile file path
 -`sim_params::Dict{String,Any}`: Simulation parameters
 # Returns
 -`Union{Nothing,Profile}`: The requested profile or nothing if the config does not contain
     the given key
 """
-function load_optional_profile(config::Dict{String,Any}, parameter_name::String,
+function load_optional_profile(config::AbstractDict{String,Any}, parameter_name::String,
                                sim_params::Dict{String,Any})
     if haskey(config, parameter_name) && config[parameter_name] !== nothing
         path = config[parameter_name]
@@ -3207,7 +3207,7 @@ Function to determine the source of the solar diffuse radiation profile.
 The function also checks whether more than one temperature source is specified and throws a
 warning if this is the case.
 """
-function get_diff_solar_radiation_profile_from_config(config::Dict{String,Any}, sim_params::Dict{String,Any},
+function get_diff_solar_radiation_profile_from_config(config::AbstractDict{String,Any}, sim_params::Dict{String,Any},
                                                       uac::String)
     # check input
     if (haskey(config, "diffuse_solar_radiation_profile_file_path") +
@@ -3256,7 +3256,7 @@ and sources.
 The function also checks whether more than one wind speed source is specified and throws a
 warning if this is the case.
 """
-function get_wind_speed_profile_from_config(config::Dict{String,Any}, sim_params::Dict{String,Any}, uac::String)
+function get_wind_speed_profile_from_config(config::AbstractDict{String,Any}, sim_params::Dict{String,Any}, uac::String)
     # check input
     if (haskey(config, "wind_speed_profile_file_path") +
         haskey(config, "wind_speed_from_global_file") +

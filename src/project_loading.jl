@@ -1391,7 +1391,7 @@ end
 Constructs the dictionary of simulation parameters.
 
 # Arguments
--`project_config::Dict{String,Any}`: The project config
+-`project_config::AbstractDict{String,Any}`: The project config
 -`io_settings::Dict{String,Any}`: IO settings, already extracted from the project config
 # Returns
 -`Dict{String,Any}`: The simulation parameter dictionary
@@ -1864,7 +1864,7 @@ end
 Extract economic parameters form input file.
 
 Args:
--`project_config::Dict{String,Any}`: The project config data
+-`project_config::AbstractDict{String,Any}`: The project config data
 -`sim_params::Dict{String,Any}`: Simulation parameters, that have been extracted so far
 Return:
 -`Dict{String,Any}`: The economic parameters from the input file. If none are given,
@@ -1940,7 +1940,7 @@ end
 Extract emissions parameters form input file.
 
 Args:
--`project_config::Dict{String,Any}`: The project config data
+-`project_config::AbstractDict{String,Any}`: The project config data
 -`sim_params::Dict{String,Any}`: Simulation parameters, that have been extracted so far
 Return:
 -`Dict{String,Any}`: The emissions parameters from the input file. If none are given,
