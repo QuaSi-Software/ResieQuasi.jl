@@ -254,6 +254,24 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="boolean",
         unit="-"
     ),
+    "general_logfile_file_path" => (
+        default="./output/logfile_general.log",
+        description="File path to where the general log file will be written",
+        display_name="General logfile file path",
+        required=false,
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
+    "balance_warn_logfile_file_path" => (
+        default="./output/logfile_balanceWarn.log",
+        description="File path to where the balance warn log file will be written",
+        display_name="Balance warn logfile file path",
+        required=false,
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
     "auxiliary_info" => (
         default=false,
         description="Toggle if auxiliary info about the current run should be written to " *

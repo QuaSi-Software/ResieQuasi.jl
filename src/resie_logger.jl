@@ -251,25 +251,73 @@ function start_logger(log_to_console::Bool,
 end
 
 """
-    close_logger(logger)
+    close_logger(logger, io_settings=nothing, run_path=nothing,
+                 general_logfile_path=nothing, balanceWarn_logfile_path=nothing)
 
-Closes the given logger and prints final statements if file logging is activated.
+Closes the given logger and optionally moves its log files to the configured output paths.
 
-# Args:
+The log files are closed before being moved. Moving is only attempted if `io_settings`
+and `run_path` are provided, along with the respective original log file paths.
+Existing destination files are overwritten, and missing output directories are created.
+
+# Arguments
 - `logger::CustomLogger`: The logger to close
+- `io_settings`: Optional dictionary containing the configured log file output paths
+- `run_path`: Optional function resolving output paths relative to the configured base path
+- `general_logfile_path`: Optional original path of the general log file
+- `balanceWarn_logfile_path`: Optional original path of the balance warning log file
 """
-function close_logger(logger)
-    if logger.io_general !== nothing
-        @info "general log saved to $(match(r"<file (.*?)>", logger.io_general.name).captures[1])"
-    end
-    if logger.io_balanceWarnings !== nothing
-        @info "balanceWarn log saved to $(match(r"<file (.*?)>", logger.io_balanceWarnings.name).captures[1])"
-    end
-    if logger.io_general !== nothing
+function close_logger(logger, io_settings=nothing, run_path=nothing,
+                      general_logfile_path=nothing, balanceWarn_logfile_path=nothing)
+    has_general_log = logger.io_general !== nothing
+    has_balance_log = logger.io_balanceWarnings !== nothing
+
+    # close log files
+    if has_general_log
         close(logger.io_general)
     end
-    if logger.io_balanceWarnings !== nothing
+    if has_balance_log
         close(logger.io_balanceWarnings)
+    end
+
+    # output settings may not be available if project loading failed
+    if io_settings === nothing || run_path === nothing
+        if (has_general_log && general_logfile_path !== nothing) ||
+           (has_balance_log && balanceWarn_logfile_path !== nothing)
+            println("Info: Log files could not be moved because the project output settings " *
+                    "were not available. The files remain at their temporary locations:")
+
+            if has_general_log && general_logfile_path !== nothing
+                println("Info: General log saved to $general_logfile_path")
+            end
+
+            if has_balance_log && balanceWarn_logfile_path !== nothing
+                println("Info: Balance warning log saved to $balanceWarn_logfile_path")
+            end
+        end
+        return
+    end
+
+    # move log files to user-defined folder
+    if has_general_log && general_logfile_path !== nothing
+        try
+            destination = run_path(io_settings["general_logfile_file_path"])
+            mkpath(dirname(destination))
+            mv(general_logfile_path, destination; force=true)
+            println("Info: General log saved to $destination")
+        catch err
+            println(stderr, "Error while moving general log file: ", sprint(showerror, err))
+        end
+    end
+    if has_balance_log && balanceWarn_logfile_path !== nothing
+        try
+            destination = run_path(io_settings["balance_warn_logfile_file_path"])
+            mkpath(dirname(destination))
+            mv(balanceWarn_logfile_path, destination; force=true)
+            println("Info: Balance warning log saved to $destination")
+        catch err
+            println(stderr, "Error while moving balance warning log file: ", sprint(showerror, err))
+        end
     end
 end
 

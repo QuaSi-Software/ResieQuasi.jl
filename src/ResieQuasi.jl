@@ -486,10 +486,15 @@ Load a project from the given file and run the simulation with it.
 - `filepath::String`: Filepath to the project config file.
 - `run_ID::UUID`: The run ID used in the run registry
 - `logger::Union{Nothing,Resie_Logger.CustomLogger}`: Logger used for ReSiE
+- `log_output_info`: Optional `Ref` used to pass `io_settings` and `run_path` to the caller as soon as
+                     they are available, ensuring that log files can be moved even if the simulation fails later.
 # Returns
 - `Bool`: `true` if the simulation was successful, `false` otherwise.
 """
-function load_and_run(filepath::String, run_ID::UUID; logger::Union{Nothing,Resie_Logger.CustomLogger}=nothing)::Bool
+function load_and_run(filepath::String,
+                      run_ID::UUID;
+                      logger::Union{Nothing,Resie_Logger.CustomLogger}=nothing,
+                      log_output_info=nothing)::Bool
     start = now()
     success = true
     @globalInfo "---- Simulation setup ----"
@@ -527,6 +532,13 @@ function load_and_run(filepath::String, run_ID::UUID; logger::Union{Nothing,Resi
         Resie_Logger.set_min_log_level!(logger, get_min_log_level(project_config, logger))
     end
     io_settings = get_io_settings(project_config)
+
+    # save information to Ref in order to move log files later; simply returning them does not work if an error occurs
+    if log_output_info !== nothing
+        run_path = path -> isabspath(path) ? path : abspath(joinpath(io_settings["base_path"], path))
+        log_output_info[] = (io_settings, run_path)
+    end
+
     sim_params = get_simulation_params(project_config, io_settings; preparation_cache=preparation_cache)
 
     if sim_params["parameter_study"]["runtime"]["enabled"]

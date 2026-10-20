@@ -161,10 +161,14 @@ function run(arguments::Array{String})::Tuple{Bool,Bool}
         return false, exit_after_run
     end
 
+    run_ID = uuid1()
     log_to_console = true
     log_to_file = true
-    general_logfile_path = abspath(joinpath(dirname(@__FILE__), "..", "output", "logfile_general.log"))
-    balanceWarn_logfile_path = abspath(joinpath(dirname(@__FILE__), "..", "output", "logfile_balanceWarn.log"))
+    # generate temporary distinct log file paths
+    general_logfile_path = abspath(joinpath(dirname(@__FILE__), "..", "output",
+                                            "temp_logfile_general_$(run_ID).log"))
+    balanceWarn_logfile_path = abspath(joinpath(dirname(@__FILE__), "..", "output",
+                                                "temp_logfile_balanceWarn_$(run_ID).log"))
     min_log_level = Resie_Logger.Logging.Info
     # Log files are opened before loading project output settings.
     Resie.prepare_output_path(general_logfile_path)
@@ -178,9 +182,9 @@ function run(arguments::Array{String})::Tuple{Bool,Bool}
     global_logger(logger)
 
     success = false
-    run_ID = uuid1()
+    log_output_info = Ref{Any}(nothing)
     try
-        success = Resie.load_and_run(input_filepath, run_ID; logger=logger)
+        success = Resie.load_and_run(input_filepath, run_ID; logger=logger, log_output_info=log_output_info)
     catch exc
         # exceptions should just be rethrown, but the finally block should also make sure
         # that the logger is closed and the run removed from the run registry.
@@ -189,7 +193,8 @@ function run(arguments::Array{String})::Tuple{Bool,Bool}
         rethrow(exc)
     finally
         Resie.close_run(run_ID)
-        Resie_Logger.close_logger(logger)
+        io_settings, run_path = log_output_info[] === nothing ? (nothing, nothing) : log_output_info[]
+        Resie_Logger.close_logger(logger, io_settings, run_path, general_logfile_path, balanceWarn_logfile_path)
     end
 
     return success, exit_after_run
