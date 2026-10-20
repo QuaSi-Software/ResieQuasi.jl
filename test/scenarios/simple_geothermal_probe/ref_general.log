@@ -8,30 +8,28 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\simple_geothermal_probe\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 438/8760 in 0.033 s. ETA: 0.6270 s
-[Info] Progress: 876/8760 in 0.048 s. ETA: 0.8640 s
-[Info] Progress: 1314/8760 in 0.034 s. ETA: 0.5780 s
-[Info] Progress: 1752/8760 in 0.068 s. ETA: 1.0880 s
-[Info] Progress: 2190/8760 in 0.05 s. ETA: 0.7500 s
-[Info] Progress: 2628/8760 in 0.099 s. ETA: 1.3860 s
-[Info] Progress: 3066/8760 in 0.059 s. ETA: 0.7670 s
-[Info] Progress: 3504/8760 in 0.063 s. ETA: 0.6960 s
-[Info] Progress: 3942/8760 in 0.069 s. ETA: 0.7590 s
-[Info] Progress: 4380/8760 in 0.059 s. ETA: 0.5900 s
-[Info] Progress: 4818/8760 in 0.082 s. ETA: 0.7380 s
-[Info] Progress: 5256/8760 in 0.077 s. ETA: 0.6160 s
-[Info] Progress: 5694/8760 in 0.091 s. ETA: 0.6370 s
-[Info] Progress: 6132/8760 in 0.117 s. ETA: 0.7020 s
-[Info] Progress: 6570/8760 in 0.095 s. ETA: 0.4750 s
-[Info] Progress: 7008/8760 in 0.1 s. ETA: 0.4000 s
-[Info] Progress: 7446/8760 in 0.105 s. ETA: 0.3150 s
-[Info] Progress: 7884/8760 in 0.114 s. ETA: 0.2280 s
-[Info] Progress: 8322/8760 in 0.111 s. ETA: 0.1110 s
-[Info] Progress: 8760/8760 in 0.119 s. ETA: 0.0000 s
+[Info] Progress: 438/8760 in 0.03 s. ETA: 0.5700 s
+[Info] Progress: 876/8760 in 0.023 s. ETA: 0.4140 s
+[Info] Progress: 1314/8760 in 0.024 s. ETA: 0.4080 s
+[Info] Progress: 1752/8760 in 0.027 s. ETA: 0.4320 s
+[Info] Progress: 2190/8760 in 0.03 s. ETA: 0.4500 s
+[Info] Progress: 2628/8760 in 0.024 s. ETA: 0.3360 s
+[Info] Progress: 3066/8760 in 0.023 s. ETA: 0.2990 s
+[Info] Progress: 3504/8760 in 0.021 s. ETA: 0.2400 s
+[Info] Progress: 3942/8760 in 0.024 s. ETA: 0.2640 s
+[Info] Progress: 4380/8760 in 0.026 s. ETA: 0.2600 s
+[Info] Progress: 4818/8760 in 0.025 s. ETA: 0.2250 s
+[Info] Progress: 5256/8760 in 0.023 s. ETA: 0.1840 s
+[Info] Progress: 5694/8760 in 0.027 s. ETA: 0.1890 s
+[Info] Progress: 6132/8760 in 0.026 s. ETA: 0.1500 s
+[Info] Progress: 6570/8760 in 0.031 s. ETA: 0.1550 s
+[Info] Progress: 7008/8760 in 0.027 s. ETA: 0.1080 s
+[Info] Progress: 7446/8760 in 0.024 s. ETA: 0.0720 s
+[Info] Progress: 7884/8760 in 0.025 s. ETA: 0.0500 s
+[Info] Progress: 8322/8760 in 0.025 s. ETA: 0.0250 s
+[Info] Progress: 8760/8760 in 0.023 s. ETA: 0.0000 s
 [Info] -- Finished time step loop
 [Info] CSV-file with outputs written to .\test\scenarios\simple_geothermal_probe\out.csv
 [Info] Summary CSV-file with outputs created and written to .\test\scenarios\simple_geothermal_probe\out_aggregated.csv
 [Info] Line plot created and saved to .\test\scenarios\simple_geothermal_probe\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\simple_geothermal_probe\sankey_plot.html
-[Info] general log saved to .\test\scenarios\simple_geothermal_probe\general.log
-[Info] balanceWarn log saved to .\test\scenarios\simple_geothermal_probe\balanceWarn.log
