@@ -619,7 +619,7 @@ function cooling_input_temperature_exceeded(controller::Controller,
         if mod.parameters["target_uac"] !== target_uac
             continue
         end
-        components = get_run(sim_params["run_ID"]).components
+        components = Grouping(get_run(sim_params["run_ID"]).components)
         return cooling_input_temperature_exceeded(mod, components, target_uac)
     end
 

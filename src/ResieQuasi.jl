@@ -22,7 +22,7 @@ type.
 mutable struct SimulationRun
     parameters::Dict{String,Any}
     io_settings::Dict{String,Any}
-    components::Dict{String,Any}
+    components::OrderedDict{String,Any}
     order_of_operations::Vector{Any}
 end
 
