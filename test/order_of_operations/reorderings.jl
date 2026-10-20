@@ -180,26 +180,26 @@ end
     test_busses_distribution_no_change()
 end
 
-function test_busses_distribution_reorder_steps() 
-    components, by_function = test_data_busses_distribute() #TODO check -> numbers don't change anymore
+function test_busses_distribution_reorder_steps()
+    components, by_function = test_data_busses_distribute()
     steps = [[100, ("TST_BUS_01", EnergySystems.s_distribute)],
              [99, ("TST_BUS_02", EnergySystems.s_distribute)],
              [98, ("TST_BUS_03", EnergySystems.s_distribute)],
              [97,
-              ("Proxy-TST_BUS_01|TST_BUS_04|Proxy-TST_BUS_03|TST_BUS_05|TST_BUS_06|TST_BUS_02",
+              ("Proxy-TST_BUS_01|TST_BUS_02|Proxy-TST_BUS_03|TST_BUS_05|TST_BUS_06|TST_BUS_04",
                EnergySystems.s_distribute)],
              [96, ("TST_BUS_04", EnergySystems.s_distribute)],
              [95, ("TST_BUS_05", EnergySystems.s_distribute)],
              [94, ("TST_BUS_06", EnergySystems.s_distribute)]]
-    expected = [[100, ("TST_BUS_01", EnergySystems.s_distribute)],
-                [99, ("TST_BUS_02", EnergySystems.s_distribute)],
-                [98, ("TST_BUS_03", EnergySystems.s_distribute)],
-                [97,
-                 ("Proxy-TST_BUS_01|TST_BUS_04|Proxy-TST_BUS_03|TST_BUS_05|TST_BUS_06|TST_BUS_02",
-                  EnergySystems.s_distribute)],
-                [96, ("TST_BUS_04", EnergySystems.s_distribute)],
-                [95, ("TST_BUS_05", EnergySystems.s_distribute)],
-                [94, ("TST_BUS_06", EnergySystems.s_distribute)]]
+    expected = [[94, ("TST_BUS_01", ResieQuasi.EnergySystems.s_distribute)],
+                [95, ("TST_BUS_02", ResieQuasi.EnergySystems.s_distribute)],
+                [96, ("TST_BUS_03", ResieQuasi.EnergySystems.s_distribute)],
+                [97, 
+                 ("Proxy-TST_BUS_01|TST_BUS_02|Proxy-TST_BUS_03|TST_BUS_05|TST_BUS_06|TST_BUS_04", 
+                  ResieQuasi.EnergySystems.s_distribute)],
+                [93, ("TST_BUS_04", ResieQuasi.EnergySystems.s_distribute)],
+                [92, ("TST_BUS_05", ResieQuasi.EnergySystems.s_distribute)],
+                [91, ("TST_BUS_06", ResieQuasi.EnergySystems.s_distribute)]]
     Resie.reorder_distribution_of_busses(steps, components, by_function)
     @test pwc_steps_astr(expected, steps) == ""
 end

@@ -582,67 +582,12 @@ function test_find_indirect_chains_denied()
     chains_transformer = Resie.find_chains([u for u in values(components) if !startswith(u.uac, "Proxy")],
                                            EnergySystems.sf_transformer;
                                            direct_connection_only=false);
-    # for c in chains_transformer
-    #     for comp in c
-    #         println(comp.uac)
-    #     end
-    #     println("")
-    # end
-    # before !direct_connection_only 1.12.6
-    # TST_HP_01
-    # TST_HP_01b
-
-    # TST_HP_03
-    # TST_01_ELY_01
-    # TST_HP_02
-
-    # TST_HP_03
-    # TST_01_ELY_01
-    # TST_HP_04
-    # TST_HP_02
-
-    # TST_01_ELY_01
-    # TST_HP_04
-    # TST_HP_02
-
-    # TST_HP_03
-    # TST_01_ELY_01
-    # TST_HP_04
-    # TST_HP_02
-
-    # TST_HP_01b
-    # TST_HP_01
-
-    # before !direct_connection_only 1.13.2
-    # TST_HP_02     
-    # TST_HP_03     
-    # TST_01_ELY_01     
-
-    # TST_HP_02 # This Set comes before the one below instead of afterwards like in 1.12.6 -> components are not ordered!!
-    # TST_HP_04
-    # TST_HP_03
-    # TST_01_ELY_01
-
-    # TST_HP_01
-    # TST_HP_01b
-
-    # TST_HP_02
-    # TST_HP_04
-    # TST_HP_03
-    # TST_01_ELY_01
-
-    # TST_HP_01
-    # TST_HP_01b
-
-    # TST_HP_02
-    # TST_HP_04
-    # TST_01_ELY_01
 
     @test length(chains_bus) == 2
     @test chains_bus[1] == expected_bus1
     @test chains_bus[2] == expected_bus2
     @test length(chains_transformer) == 2
-    @test chains_transformer[1] == expected_transformer2 #TODO transformer1 und transformer2 sind vertauscht; gefixed durch OrderedDict
+    @test chains_transformer[1] == expected_transformer2
     @test chains_transformer[2] == expected_transformer1
 
     # test distance to sink, considers energy flow matrix of bus

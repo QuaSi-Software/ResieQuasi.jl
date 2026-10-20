@@ -1425,25 +1425,23 @@ function test_ooo_parallels_in_a_row()
                 "TST_BUS_TH2 s_process",
                 "TST_BUS_TH3 s_process",
                 "TST_HP_06 s_potential",
-                "TST_HP_05 s_potential", #TODO HP_05 bekommt zweiten Potential (evtl. notwendig weil 01 & 02 hochwandern)
-                "TST_HP_02 s_potential", #TODO HP_01 nur noch einen Potential, dafür hat HP_02 zwei Potential
-                "TST_HP_01 s_potential",
-                "TST_HP_02 s_potential",
                 "TST_HP_05 s_potential",
                 "TST_HP_06 s_potential",
                 "TST_HP_08 s_potential",
                 "TST_HP_07 s_potential",
-                "TST_HP_08 s_potential", #TODO HP_08 bekommt auch zweiten Potential
+                "TST_HP_01 s_potential",
+                "TST_HP_02 s_potential",
+                "TST_HP_01 s_potential",
+                "TST_HP_03 s_potential",
                 "TST_HP_04 s_potential",
-                "TST_HP_03 s_potential", #TODO HP_03 potential wandert leicht nach hinten
                 "TST_HP_01 s_process",
                 "TST_HP_02 s_process",
+                "TST_HP_03 s_process",
+                "TST_HP_04 s_process",
                 "TST_HP_05 s_process",
                 "TST_HP_06 s_process",
                 "TST_HP_07 s_process",
                 "TST_HP_08 s_process",
-                "TST_HP_03 s_process", #TODO process für HP_03 und HP_04 wandert nach hinten (nicht mehr sortiert)
-                "TST_HP_04 s_process",
                 "TST_SRC_01 s_process",
                 "TST_GRI_01 s_process",
                 "TST_BUS_EL s_distribute",
@@ -1459,7 +1457,7 @@ function test_ooo_parallels_in_a_row()
     for step in steps
         push!(ooo, "$(step[1]) $(step[2])")
     end
-    @test pwc_ooo_astr(expected, ooo) == "" #TODO check error
+    @test pwc_ooo_astr(expected, ooo) == ""
 end
 
 function test_ooo_connected_middle_busses()
