@@ -313,6 +313,12 @@ function run_simulation_loop(sim_params::Dict{String,Any},
                 elseif func == "last"
                     values = view(output_data, :, output_columns[spec])
                     res[key] = values[end]
+                elseif func == "min"
+                    values = view(output_data, :, output_columns[spec])
+                    res[key] = minimum(values)
+                elseif func == "max"
+                    values = view(output_data, :, output_columns[spec])
+                    res[key] = maximum(values)
                 elseif func == "economic"
                     res[key] = getfield(economic_result, Symbol(spec))
                 elseif func == "emissions"
