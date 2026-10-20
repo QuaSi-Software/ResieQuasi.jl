@@ -395,6 +395,7 @@ function wrapper_add_transformer_steps(components_by_function, simulation_order,
 
     if length(transformers) > 1 || is_circle_transformer || has_secondary_interface
         transformers_and_busses = vcat(components_by_function[4], components_by_function[3])
+        filter!(c -> !(c.sys_function === EnergySystems.sf_bus && c.proxy !== nothing), transformers_and_busses)
         # detect parallel branches in the current energy system
         parallel_branches = find_parallels(transformers_and_busses)
 
