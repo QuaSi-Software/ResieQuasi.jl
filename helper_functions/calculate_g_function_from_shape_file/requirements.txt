@@ -1,0 +1,6 @@
+# Python dependencies for the standalone g-function helper
+pygfunction
+geopandas
+numpy
+pandas
+matplotlib
