@@ -784,11 +784,9 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     price_unit = "€/kWh"
     # Optional fixed output precision for plotted values.
     # Round after unit conversion so precision applies to displayed units.
-    if io_settings["fixed_output_precision"] > 0
-        round_for_plot(v) = round.(v; sigdigits=io_settings["fixed_output_precision"])
-    else
-        round_for_plot(v) = v
-    end
+    round_for_plot(v) = ifelse(io_settings["fixed_output_precision"] > 0,
+                               round.(v; sigdigits=io_settings["fixed_output_precision"]),
+                               v)
 
     traces = PlotlyJS.AbstractTrace[]
 
