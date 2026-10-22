@@ -868,8 +868,8 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
             "within the simulation time step of $(Int(sim_params["time_step_seconds"])) s."
     if dec_f > 1
         title *= "<br>For plot performance reasons the plot got downsampled by factor " *
-                 "$dec_f. The values didn't get adjusted but just every $dec_f value got " *
-                 "dropped."
+                 "$dec_f. The values didn't get adjusted but just every $dec_f value gets" *
+                 " displayed."
     end
 
     if output_plot_time_unit == "date"

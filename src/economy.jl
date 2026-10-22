@@ -900,8 +900,8 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
             "<br><sup>Profiles utilized in calculation, including annual change rates.</sup>"
     if dec_f > 1
         title *= "<br>For plot performance reasons the plot got downsampled by factor " *
-                 "$dec_f. The values didn't get adjusted but just every $dec_f value got " *
-                 "dropped."
+                 "$dec_f. The values didn't get adjusted but just every $dec_f value gets" *
+                 " displayed."
     end
 
     leap_days_str = string.([Date(year, 2, 29)
