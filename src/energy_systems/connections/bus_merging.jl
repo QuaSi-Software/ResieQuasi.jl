@@ -326,6 +326,11 @@ function merge_busses(busses_to_merge::Grouping, components::Grouping)::Union{No
         if next !== nothing
             parent = next[2]
             child = next[3]
+            # Makeshift fix for a bug with circular busses
+            if startswith(child.uac, "Proxy-")
+                child = next[2]
+                parent = next[3]
+            end
 
             new_uac = get_new_uac(parent.uac, child.uac)
             new_node = merge(parent, child, new_uac)
