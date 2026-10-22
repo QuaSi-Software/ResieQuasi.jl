@@ -1,4 +1,4 @@
-"""Calculate and export the g-function of a borehole field from a shapefile.
+"""Calculate and export the g-function of a borehole field from a shapefile or x/y coordinates.
 
 Outputs in the 'output_g_function' folder:
     - g_function.csv
@@ -7,9 +7,9 @@ Outputs in the 'output_g_function' folder:
     - g_function_time.png
     - g_function_resie.png
 
-Requirement: The shapefile contains one point geometry per borehole and a
-correctly defined CRS file (.prj). Shapefile files are searched for relative to
-the location of this Python script.
+Shapefile mode requires one point geometry per borehole and a correctly
+defined CRS file (.prj). Shapefile paths are relative to this script.
+Coordinate mode takes (x, y) pairs in metres; no Shapefile is required.
 """
 
 from pathlib import Path
@@ -25,7 +25,20 @@ import pygfunction as gt
 # 1. Input parameters
 # --------------------------------------------------
 
+# Borehole position input: use a Shapefile or manual x/y coordinates
+input_mode = "shapefile"  # "shapefile" or "coordinates"
 shapefile = "probe_field_shape.shp"
+
+# Only used when input_mode = "coordinates".
+# One (x, y) pair per borehole, in metres in a common planar coordinate system.
+probe_coordinates = [
+    (0.0, 0.0),
+    (6.0, 0.0),
+    (12.0, 0.0),
+    (0.0, 6.0),
+    (6.0, 6.0),
+    (12.0, 6.0),
+]
 
 # Borehole
 probe_depth = 150.0                   # [m] Total depth below ground level
@@ -87,32 +100,50 @@ t_s = H**2 / (9.0 * alpha)          # [s] characteristic time according to Eskil
 seconds_per_year = 365.25 * 24 * 3600
 
 script_dir = Path(__file__).resolve().parent
-shapefile_path = script_dir / shapefile
 output_dir = script_dir / output_folder
 
-if not shapefile_path.is_file():
-    raise FileNotFoundError(f"Shapefile not found: {shapefile_path}")
+if input_mode not in ("shapefile", "coordinates"):
+    raise ValueError('input_mode must be "shapefile" or "coordinates".')
+if input_mode == "shapefile":
+    shapefile_path = script_dir / shapefile
+    if not shapefile_path.is_file():
+        raise FileNotFoundError(f"Shapefile not found: {shapefile_path}")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 
 # --------------------------------------------------
-# 3. Read shapefile and determine borehole positions
+# 3. Determine borehole positions
 # --------------------------------------------------
 
-gdf = gpd.read_file(shapefile_path)
-if gdf.empty:
-    raise ValueError("The shapefile contains no boreholes.")
-if gdf.crs is None:
-    raise ValueError("The coordinate reference system (CRS) is missing.")
-if not gdf.geom_type.eq("Point").all():
-    raise ValueError("The shapefile must contain only point geometries.")
-if gdf.geometry.is_empty.any() or gdf.geometry.isna().any():
-    raise ValueError("The shapefile contains empty or missing geometries.")
+if input_mode == "shapefile":
+    gdf = gpd.read_file(shapefile_path)
+    if gdf.empty:
+        raise ValueError("The shapefile contains no boreholes.")
+    if gdf.crs is None:
+        raise ValueError("The coordinate reference system (CRS) is missing.")
+    if not gdf.geom_type.eq("Point").all():
+        raise ValueError("The shapefile must contain only point geometries.")
+    if gdf.geometry.is_empty.any() or gdf.geometry.isna().any():
+        raise ValueError("The shapefile contains empty or missing geometries.")
 
-# UTM projection in meters, then shift to a local origin.
-gdf = gdf.to_crs(gdf.estimate_utm_crs())
-x = gdf.geometry.x.to_numpy()
-y = gdf.geometry.y.to_numpy()
+    # Reproject to a metric UTM CRS.
+    gdf = gdf.to_crs(gdf.estimate_utm_crs())
+    x = gdf.geometry.x.to_numpy()
+    y = gdf.geometry.y.to_numpy()
+else:
+    # Coordinates are already planar, in metres; do not transform the CRS.
+    try:
+        coordinates = np.asarray(probe_coordinates, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("probe_coordinates must contain numeric (x, y) pairs.") from exc
+    if coordinates.ndim != 2 or coordinates.shape[1] != 2 or len(coordinates) == 0:
+        raise ValueError("probe_coordinates must be a non-empty list of (x, y) pairs.")
+    if not np.all(np.isfinite(coordinates)):
+        raise ValueError("probe_coordinates must contain only finite numbers.")
+    x = coordinates[:, 0].copy()
+    y = coordinates[:, 1].copy()
+
+# Shift to a local origin without changing the borehole spacing.
 x = x - x.mean()
 y = y - y.mean()
 

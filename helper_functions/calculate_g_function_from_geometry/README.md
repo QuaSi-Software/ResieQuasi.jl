@@ -1,6 +1,6 @@
 # Geothermal borefield g-function helper
 
-This standalone Python script calculates the **g-function of a geothermal borehole field** from borehole coordinates stored in an ESRI Shapefile. It uses [pygfunction](https://pygfunction.readthedocs.io/) and exports a g-function file that can be imported by the **ReSiE `GeothermalProbes` component**.
+This standalone Python script calculates the **g-function of a geothermal borehole field** from borehole positions supplied either as an ESRI Shapefile or as a list of x/y coordinates. It uses [pygfunction](https://pygfunction.readthedocs.io/) and exports a g-function file that can be imported by the **ReSiE `GeothermalProbes` component**.
 
 The tool supports irregular borehole layouts. It is an **optional preprocessing utility**, not a required Python dependency of ReSiE, and does not need a running Julia environment.
 
@@ -16,6 +16,15 @@ Run this command from `helper_functions/calculate_g_function_from_shape_file/`, 
 
 ## Input: borehole coordinates
 
+Choose one of two input methods using `input_mode` near the top of the script. The default is `"shapefile"`, so existing Shapefile-based workflows remain unchanged.
+
+### Option 1: ESRI Shapefile (default)
+
+```python
+input_mode = "shapefile"
+shapefile = "probe_field_shape.shp"
+```
+
 Supply an ESRI Shapefile with **one point feature per borehole**. The following files must share the same base name and be placed alongside the Python script (unless `shapefile` is changed to a different relative or absolute path):
 
 | File | Purpose |
@@ -28,7 +37,25 @@ Supply an ESRI Shapefile with **one point feature per borehole**. The following 
 
 The Shapefile must have a valid coordinate reference system. The script estimates an appropriate UTM CRS, reprojects the points into metric coordinates, and shifts them to a local origin. It rejects empty or missing point geometries and overlapping/duplicate boreholes.
 
-All boreholes are currently assigned the **same depth, borehole diameter, and buried depth** from the script configuration; attributes in the Shapefile are not used to set individual borehole dimensions.
+### Option 2: Manually specified x/y coordinates
+
+If the coordinates are already available, no Shapefile is needed. Select `"coordinates"` and enter one `(x, y)` pair per borehole:
+
+```python
+input_mode = "coordinates"
+probe_coordinates = [
+    (0.0, 0.0),
+    (6.0, 0.0),
+    (12.0, 0.0),
+    (0.0, 6.0),
+    (6.0, 6.0),
+    (12.0, 6.0),
+]
+```
+
+Coordinates **must be in metres** in a common planar coordinate system (e.g. local metre coordinates or projected easting/northing). Do **not** use longitude/latitude in degrees; coordinate mode does not perform a CRS transformation. The script shifts all positions to a local origin while retaining their relative distances. Each pair represents one borehole; the number of boreholes is inferred from the list. An empty list, malformed pairs, or non-finite coordinates cause an error. Duplicate or overlapping boreholes are rejected in both modes.
+
+Both modes assign the **same depth, borehole diameter, and buried depth** to every borehole from the script configuration; Shapefile attributes are not used to set individual borehole dimensions.
 
 ## Configuration
 
@@ -36,7 +63,9 @@ Edit the input parameter block near the top of `calculate_g_function_from_shape_
 
 | Setting | Meaning | Included example |
 | --- | --- | --- |
-| `shapefile` | Shapefile name/path | `probe_field_shape.shp` |
+| `input_mode` | Borehole coordinate source (`shapefile` or `coordinates`) | `shapefile` |
+| `shapefile` | Shapefile name/path (Shapefile mode only) | `probe_field_shape.shp` |
+| `probe_coordinates` | `(x, y)` pairs in metres (coordinate mode only) | Six-borehole example above |
 | `probe_depth` | Total drilled depth below ground level, m | `150.0` |
 | `probe_head_depth` | Buried depth of borehole head, m | `0.0` |
 | `borehole_diameter` | Borehole diameter, m | `0.135` |
@@ -70,7 +99,7 @@ From the helper directory:
 python calculate_g_function_from_shape_file.py
 ```
 
-The script resolves `shapefile` and `output_folder` relative to its own file location, not the shell's current working directory. All outputs are written to `output_g_function/` (unless changed).
+In Shapefile mode, the script resolves `shapefile` relative to its own file location (absolute paths also work). In coordinate mode, the Shapefile is not read. `output_folder` is also relative to the script location. All outputs are written to `output_g_function/` (unless changed).
 
 ## Output files
 
@@ -93,7 +122,7 @@ number_of_probes: 42
 ...
 ```
 
-The **first column** is the dimensionless normalized logarithmic time `ln(t/t_s)`; the **second** is the dimensionless g-function value. The number of boreholes in the file header is inferred from the Shapefile.
+The **first column** is the dimensionless normalized logarithmic time `ln(t/t_s)`; the **second** is the dimensionless g-function value. The number of boreholes in the file header is inferred from the selected input (Shapefile points or coordinate pairs).
 
 ## Import into ReSiE
 
@@ -117,7 +146,7 @@ For an hourly simulation, the included `start_time_hours = 24.0` and `n_time_poi
 
 - A homogeneous ground with constant effective thermophysical properties is assumed.
 - All boreholes are modeled as vertical and assigned common geometry parameters.
-- The point locations must represent borehole heads in a valid CRS; check coordinates and distances before use.
+- The point locations must represent borehole heads. Shapefile input requires a valid CRS; manually entered x/y coordinates must already be in metres. Check all coordinates and distances before use.
 - The numerical output is sensitive to the boundary condition, time range, solver, and vertical discretization; refine `n_segments` and compare results when accuracy requirements are high.
 - This script only **generates** the g-function input; it does not run ReSiE or validate a geothermal system design.
 
