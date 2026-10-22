@@ -286,6 +286,10 @@ function bus_from_node(node::BusNode, template::Bus, components::Grouping)::Bus
 end
 
 function get_new_uac(parent_uac::String, child_uac::String)::String
+    #TODO Makeshift fix for a bug with circular busses
+    if startswith(child_uac, "Proxy-")
+        child_uac = child_uac[7:end]
+    end
     if startswith(parent_uac, "Proxy-")
         return parent_uac * "|" * child_uac
     else
@@ -326,11 +330,6 @@ function merge_busses(busses_to_merge::Grouping, components::Grouping)::Union{No
         if next !== nothing
             parent = next[2]
             child = next[3]
-            # Makeshift fix for a bug with circular busses
-            if startswith(child.uac, "Proxy-")
-                child = next[2]
-                parent = next[3]
-            end
 
             new_uac = get_new_uac(parent.uac, child.uac)
             new_node = merge(parent, child, new_uac)
