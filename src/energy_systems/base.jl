@@ -1517,7 +1517,7 @@ function plot_optional_figures_begin(unit::Component,
 end
 
 """
-    plot_optional_figures_end(unit, sim_params, output_path)
+    plot_optional_figures_end(unit, sim_params, output_path, io_settings)
 
 Plot optional figures that are potentially created at the end of the simulation for each 
 component.
@@ -1526,11 +1526,13 @@ component.
 - `unit::Component`: The unit that plots additional figures
 - `sim_params::Dict{String,Any}`: Simulation parameters of ReSiE
 - `output_path::String`: The output folder as string (absolute/relative) for the additional plots
+- `io_settings::Dict{String,Any}`: IO settings
  
 # Returns:
 - Bool: True if a figure was created, false if no figure was created
 """
-function plot_optional_figures_end(unit::Component, sim_params::Dict{String,Any}, output_path::String)
+function plot_optional_figures_end(unit::Component, sim_params::Dict{String,Any},
+                                   output_path::String, io_settings::Dict{String,Any})::Bool
     # default implementation is to do nothing
     return false
 end
@@ -2928,7 +2930,7 @@ function merge_bus_chains(chains::Vector{Set{Component}},
 end
 
 """
-    check_balances_of_components(components, epsilon, io_settings)
+    check_balances_of_components(components, epsilon)
 
 Check the energy balance of the given components and return warnings of any violations.
 Only transformer are checked for their energy balance in the current time step.
@@ -2957,7 +2959,7 @@ function check_balances_of_components(components::Grouping,
 end
 
 """
-    check_balances_of_interfaces(components, epsilon, io_settings)
+    check_balances_of_interfaces(components, epsilon)
 
 Check the energy balance of all interfaces returning warnings of any violations.
 
@@ -3368,6 +3370,9 @@ At least one of max_n_values or decimation_factor has to be given.
 function downsampling_for_plots(values::AbstractArray, time_dim::Int;
                                 max_n_values::Union{Int,Nothing}=50_000_000,
                                 decimation_factor::Union{Int,Nothing}=nothing)
+    if max_n_values <= 0
+        @error "max_n_values must be > 0 for downsampling"
+    end
     n_vals = prod(size(values))
     if isnothing(decimation_factor) && !isnothing(max_n_values)
         decimation_factor = ceil(Int, n_vals / max_n_values)
@@ -3378,8 +3383,8 @@ function downsampling_for_plots(values::AbstractArray, time_dim::Int;
 
     values = collect(selectdim(values, time_dim, 1:decimation_factor:size(values, time_dim)))
     if decimation_factor > 1
-        @info "Values for plot got downsampled by factor $decimation_factor to reduce file 
-               size."
+        @info "Values for plot got downsampled by factor $decimation_factor to reduce " *
+              "file size."
     end
     return values, decimation_factor
 end

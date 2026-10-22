@@ -1466,16 +1466,29 @@ function plot_optional_figures_begin(unit::SeasonalThermalStorage, output_path::
 end
 
 function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dict{String,Any},
-                                   output_path::String)::Bool
+                                   output_path::String, io_settings::Dict{String,Any})::Bool
     # ====================================
     # Plot temperature distribution over time    
     # ====================================
+    y = unit.temp_distribution_output
+    x0 = sim_params["start_date_output"]
+    dx = sim_params["time_step_seconds"] * 1000
+
+    dates = collect(sim_params["start_date_output"]:Second(sim_params["time_step_seconds"]):sim_params["end_date"])
+    leap_mask = (month.(dates) .== 2) .& (day.(dates) .== 29)
+    y_with_leap = fill(NaN, length(dates), size(y, 2))
+    y_with_leap[.!leap_mask, :] .= y
+    for i in reverse(findall(leap_mask))
+        y_with_leap[i, :] .= y_with_leap[i + 1, :]
+    end
+    y = y_with_leap
 
     # downsamle y and x to reduce file size with long simulations
-    y, dec_f = downsampling_for_plots(unit.temp_difference_to_surrounding_output, 1)
-    x_vals_datetime = [add_ignoring_leap_days(sim_params["start_date_output"],
-                                              Dates.Second((s - 1) * sim_params["time_step_seconds"]))
-                       for s in 1:dec_f:sim_params["number_of_time_steps_output"]]
+    if io_settings["enable_plot_downsampling"]
+        max_n_vals = io_settings["plot_downsampling_max_number_values"]
+        y, dec_f = downsampling_for_plots(y, 1; max_n_values=max_n_vals)
+        dx *= dec_f
+    end
 
     layers_to_plot = (unit.number_of_layer_total):-1:1
     traces = PlotlyJS.GenericTrace[]
@@ -1486,7 +1499,7 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
         elseif i == unit.number_of_layer_total
             plot_label = "Top layer"
         end
-        trace = PlotlyJS.scatter(; x=x_vals_datetime, y=y[:, i], mode="lines",
+        trace = PlotlyJS.scatter(; x0=x0, dx=dx, y=y[:, i], mode="lines",
                                  name=plot_label)
         push!(traces, trace)
     end
@@ -1510,11 +1523,25 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     # Plot temperature differences to surrounding over time    
     # ====================================
 
+    y = unit.temp_difference_to_surrounding_output
+    x0 = sim_params["start_date_output"]
+    dx = sim_params["time_step_seconds"] * 1000
+
+    dates = collect(sim_params["start_date_output"]:Second(sim_params["time_step_seconds"]):sim_params["end_date"])
+    leap_mask = (month.(dates) .== 2) .& (day.(dates) .== 29)
+    y_with_leap = fill(NaN, length(dates), size(y, 2))
+    y_with_leap[.!leap_mask, :] .= y
+    for i in reverse(findall(leap_mask))
+        y_with_leap[i, :] .= y_with_leap[i + 1, :]
+    end
+    y = y_with_leap
+
     # downsamle y and x to reduce file size with long simulations
-    y, dec_f = downsampling_for_plots(unit.temp_difference_to_surrounding_output, 1)
-    x_vals_datetime = [add_ignoring_leap_days(sim_params["start_date_output"],
-                                              Dates.Second((s - 1) * sim_params["time_step_seconds"]))
-                       for s in 1:dec_f:sim_params["number_of_time_steps_output"]]
+    if io_settings["enable_plot_downsampling"]
+        max_n_vals = io_settings["plot_downsampling_max_number_values"]
+        y, dec_f = downsampling_for_plots(y, 1; max_n_values=max_n_vals)
+        dx *= dec_f
+    end
 
     layers_to_plot = (unit.number_of_layer_total + 2):-1:1
     traces = PlotlyJS.GenericTrace[]
@@ -1529,7 +1556,7 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
         elseif i == (unit.number_of_layer_total + 2)
             plot_label = "Above storage"
         end
-        trace = PlotlyJS.scatter(; x=x_vals_datetime, y=y[:, i], mode="lines",
+        trace = PlotlyJS.scatter(; x0=x0, dx=dx, y=y[:, i], mode="lines",
                                  name=plot_label)
         push!(traces, trace)
     end

@@ -558,6 +558,26 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="string",
         unit="-"
     ),
+    "enable_plot_downsampling" => (
+        default=true,
+        description="Toggle if big plots should be downsampled to keep the size of the " *
+                    "html file low enough to handle.",
+        display_name="Enable plot downsampling?",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "plot_downsampling_max_number_values" => (
+        default=10_000_000,
+        description="Defines the maximum number of values that are allowed in a plot. " *
+                    "Works together with plot downsampling.",
+        display_name="Maximum number of values in a plot",
+        required=false,
+        type=Integer,
+        json_type="number",
+        unit="-"
+    )
 )
 
 const SIMULATION_PARAMETERS_DEF = Dict{String,Any}(

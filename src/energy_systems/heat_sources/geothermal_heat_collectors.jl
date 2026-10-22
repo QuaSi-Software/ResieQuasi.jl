@@ -857,7 +857,8 @@ function extract_parameter(x::Type{GeothermalHeatCollector}, config::AbstractDic
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{GeothermalHeatCollector}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{GeothermalHeatCollector}, config::AbstractDict{String,Any},
+                         extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(GeothermalHeatCollector)
@@ -1603,15 +1604,17 @@ function plot_optional_figures_begin(unit::GeothermalHeatCollector,
     return true
 end
 
-function plot_optional_figures_end(unit::GeothermalHeatCollector, sim_params::Dict{String,Any}, output_path::String)
+function plot_optional_figures_end(unit::GeothermalHeatCollector,
+                                   sim_params::Dict{String,Any}, output_path::String,
+                                   io_settings::Dict{String,Any})::Bool
     # plot temperature field as 3D mesh with time-slider
     min_temp = minimum(unit.temp_field_output)
     min_temp = min_temp < 0.0 ? 1.1 * min_temp : 0.9 * min_temp
     max_temp = maximum(unit.temp_field_output)
     max_temp = max_temp < 0.0 ? 0.9 * max_temp : 1.1 * max_temp
 
-    x_abs = round.([0; cumsum(unit.dx_mesh)]; digits=2)              # Absolute x coordinates
-    y_abs = round.([unit.dy[1] / 2; cumsum(unit.dy_mesh)]; digits=2) # Absolute y coordinates
+    x_abs = [0; cumsum(unit.dx_mesh)]               # Absolute x coordinates
+    y_abs = [unit.dy[1] / 2; cumsum(unit.dy_mesh)]  # Absolute y coordinates
 
     nt = sim_params["number_of_time_steps_output"]
 
