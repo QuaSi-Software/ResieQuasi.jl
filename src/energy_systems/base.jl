@@ -3452,6 +3452,7 @@ function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArr
               <div id="plot"></div>
               <div id="controls">
                   <button id="play" type="button">Play</button>
+                  <button id="fastplay" type="button">&gt;&gt;&gt;</button>
                   <input id="slider" type="range" min="0" max="$(nt - 1)" step="1" value="0" />
                   <span id="label">Time: 1</span>
               </div>
@@ -3471,6 +3472,7 @@ function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArr
                   const slider = document.getElementById("slider");
                   const label = document.getElementById("label");
                   const playBtn = document.getElementById("play");
+                  const fastplayBtn = document.getElementById("fastplay");
 
                   function zData(step) {
                       const off = step * N;
@@ -3508,6 +3510,16 @@ function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArr
                       }
                       requestAnimationFrame(tick);
                   }
+                  function slow_tick(timestamp) {
+                      if (!playing) return;
+                      if (!busy) {
+                          lastStepTime = timestamp
+                          const step = (parseInt(slider.value) + 1) % NT
+                          slider.value = step
+                          requestStep(step);
+                      }
+                      requestAnimationFrame(slow_tick);
+                  }
 
                   // Plotly upsamples surfaces on non-uniform grids (up to 720 points per axis)
                   // on every update, which dominates the redraw time. The colors are
@@ -3533,6 +3545,11 @@ function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArr
                           playBtn.addEventListener("click", function () {
                               playing = !playing;
                               playBtn.textContent = playing ? "Pause" : "Play";
+                              if (playing) requestAnimationFrame(slow_tick);
+                          });
+                          fastplayBtn.addEventListener("click", function () {
+                              playing = !playing;
+                              fastplayBtn.textContent = playing ? "Pause" : ">>>";
                               if (playing) requestAnimationFrame(tick);
                           });
                       });
@@ -3543,5 +3560,4 @@ function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArr
               """)
     end
 end
-
 end
