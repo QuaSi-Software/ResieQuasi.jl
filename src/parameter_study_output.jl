@@ -1,7 +1,9 @@
 # this file contains functionality for writing output and creating plots of the parameter-study results
 # including parameter variation, optimisation and sensitivity analysis.
 
-const PARAMETER_STUDY_PLOT_INSERTIONS_PATH = joinpath(@__DIR__, "parameter_study_plots_insertions")
+const PARAMETER_STUDY_PLOT_INSERTIONS_PATH = joinpath(@__DIR__,
+                                                      "plot_templates",
+                                                      "parameter_study_plots_insertions")
 
 """
     render_parameter_study_plot_insertion(file_name, replacements)
