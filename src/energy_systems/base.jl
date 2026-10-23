@@ -3431,133 +3431,150 @@ function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArr
     end
     timestamps = replace.(timestamps, 'T' => ' ')
 
-    open(output_path, "w") do io
-        print(io,
-              """
-              <!DOCTYPE html>
-              <html>
-              <head>
-              <meta charset="utf-8" />
-              <script src="$(PlotlyJS.PlotlyBase.cdn_url())"></script>
-              <style>
-                  html, body { height: 100%; margin: 0; font-family: sans-serif; }
-                  body { display: flex; flex-direction: column; }
-                  #plot { flex: 1 1 auto; min-height: 0; }
-                  #controls { display: flex; align-items: center; gap: 12px; padding: 8px 16px; }
-                  #slider { flex: 1 1 auto; }
-                  #label { min-width: 110px; }
-              </style>
-              </head>
-              <body>
-              <div id="plot"></div>
-              <div id="controls">
-                  <button id="play" type="button">Play</button>
-                  <button id="fastplay" type="button">&gt;&gt;&gt;</button>
-                  <input id="slider" type="range" min="0" max="$(nt - 1)" step="1" value="0" />
-                  <span id="label">Time: 1</span>
-              </div>
-              <script type="application/json" id="temps">[""")
-        join(io, values_int, ',')
-        print(io,
-              """]</script>
-              <script>const timestamps = $(JSON.json(timestamps));</script>
-              <script type="text/javascript">
-              (function () {
-                  const NX = $(nx), NY = $(ny), NT = $(nt), N = NX * NY;
-                  const raw = JSON.parse(document.getElementById("temps").textContent);
-                  const T = new Float64Array(raw.length);
-                  for (let i = 0; i < raw.length; i++) T[i] = raw[i] / $(10 ^ digits);
+    insertion_path = joinpath(@__DIR__, "plot_templates", "slider_plots_insertions",
+                              "3D_slider_plot_template")
+    insertion = read(insertion_path, String)
+    plotly_cdn_url = PlotlyJS.PlotlyBase.cdn_url()
+    replacements = Dict{String,Any}(
+        "PLOTLY_CDN_URL" => plotly_cdn_url,
+        "MAX_SLIDER" => nt - 1,
+        "TIMESTAMPS" => JSON.json(timestamps),
+        "N_X" => nx,
+        "N_Y" => ny,
+        "N_T" => nt,
+        "DIGITS" => digits,
+        "RENDER_TIME_MS" => render_time_ms,
+        "JUMPED_FRAMES" => jumped_frames,
+        "BASE_PLOT" => plot_json,
+    )
 
-                  const gd = document.getElementById("plot");
-                  const slider = document.getElementById("slider");
-                  const label = document.getElementById("label");
-                  const playBtn = document.getElementById("play");
-                  const fastplayBtn = document.getElementById("fastplay");
+    # open(output_path, "w") do io
+    #     print(io,
+    #           """
+    #           <!DOCTYPE html>
+    #           <html>
+    #           <head>
+    #           <meta charset="utf-8" />
+    #           <script src="$(PlotlyJS.PlotlyBase.cdn_url())"></script>
+    #           <style>
+    #               html, body { height: 100%; margin: 0; font-family: sans-serif; }
+    #               body { display: flex; flex-direction: column; }
+    #               #plot { flex: 1 1 auto; min-height: 0; }
+    #               #controls { display: flex; align-items: center; gap: 12px; padding: 8px 16px; }
+    #               #slider { flex: 1 1 auto; }
+    #               #label { min-width: 110px; }
+    #           </style>
+    #           </head>
+    #           <body>
+    #           <div id="plot"></div>
+    #           <div id="controls">
+    #               <button id="play" type="button">Play</button>
+    #               <button id="fastplay" type="button">&gt;&gt;&gt;</button>
+    #               <input id="slider" type="range" min="0" max="$(nt - 1)" step="1" value="0" />
+    #               <span id="label">Time: 1</span>
+    #           </div>
+    #           <script type="application/json" id="temps">[""")
+    #     join(io, values_int, ',')
+    #     print(io,
+    #           """]</script>
+    #           <script>const timestamps = $(JSON.json(timestamps));</script>
+    #           <script type="text/javascript">
+    #           (function () {
+    #               const NX = $(nx), NY = $(ny), NT = $(nt), N = NX * NY;
+    #               const raw = JSON.parse(document.getElementById("temps").textContent);
+    #               const T = new Float64Array(raw.length);
+    #               for (let i = 0; i < raw.length; i++) T[i] = raw[i] / $(10 ^ digits);
 
-                  function zData(step) {
-                      const off = step * N;
-                      const surf = new Array(NY);
-                      for (let j = 0; j < NY; j++) {
-                          const row = new Array(NX);
-                          for (let i = 0; i < NX; i++) row[i] = T[off + i * NY + j];
-                          surf[j] = row;
-                      }
-                      return [surf, Array.from(T.subarray(off, off + N))];
-                  }
+    #               const gd = document.getElementById("plot");
+    #               const slider = document.getElementById("slider");
+    #               const label = document.getElementById("label");
+    #               const playBtn = document.getElementById("play");
+    #               const fastplayBtn = document.getElementById("fastplay");
 
-                  // render only the latest requested step and never queue up redraws
-                  let busy = false, pending = null, playing = false, lastStepTime = 0;
-                  function requestStep(step) {
-                      pending = step;
-                      label.textContent = timestamps[step];
-                      if (!busy) flush();
-                  }
-                  function flush() {
-                      if (pending === null) { busy = false; return; }
-                      const step = pending;
-                      pending = null;
-                      busy = true;
-                      Plotly.restyle(gd, { z: zData(step) }, [0, 1])
-                          .then(function () { requestAnimationFrame(flush); });
-                  }
-                  function tick(timestamp) {
-                      if (!playing) return;
-                      if (!busy && timestamp - lastStepTime >= $(render_time_ms)) {
-                          lastStepTime = timestamp
-                          const step = (parseInt(slider.value) + $(jumped_frames)) % NT;
-                          slider.value = step;
-                          requestStep(step);
-                      }
-                      requestAnimationFrame(tick);
-                  }
-                  function slow_tick(timestamp) {
-                      if (!playing) return;
-                      if (!busy) {
-                          lastStepTime = timestamp
-                          const step = (parseInt(slider.value) + 1) % NT
-                          slider.value = step
-                          requestStep(step);
-                      }
-                      requestAnimationFrame(slow_tick);
-                  }
+    #               function zData(step) {
+    #                   const off = step * N;
+    #                   const surf = new Array(NY);
+    #                   for (let j = 0; j < NY; j++) {
+    #                       const row = new Array(NX);
+    #                       for (let i = 0; i < NX; i++) row[i] = T[off + i * NY + j];
+    #                       surf[j] = row;
+    #                   }
+    #                   return [surf, Array.from(T.subarray(off, off + N))];
+    #               }
 
-                  // Plotly upsamples surfaces on non-uniform grids (up to 720 points per axis)
-                  // on every update, which dominates the redraw time. The colors are
-                  // interpolated on the GPU anyway, so the refinement is switched off.
-                  function disableSurfaceRefinement() {
-                      const scene = gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene._scene;
-                      if (!scene || !scene.traces) return;
-                      Object.values(scene.traces).forEach(function (trace) {
-                          if (trace.data && trace.data.type === "surface") {
-                              trace.refineData = false;
-                              trace.dataScaleX = 1;
-                              trace.dataScaleY = 1;
-                          }
-                      });
-                  }
+    #               // render only the latest requested step and never queue up redraws
+    #               let busy = false, pending = null, playing = false, lastStepTime = 0;
+    #               function requestStep(step) {
+    #                   pending = step;
+    #                   label.textContent = timestamps[step];
+    #                   if (!busy) flush();
+    #               }
+    #               function flush() {
+    #                   if (pending === null) { busy = false; return; }
+    #                   const step = pending;
+    #                   pending = null;
+    #                   busy = true;
+    #                   Plotly.restyle(gd, { z: zData(step) }, [0, 1])
+    #                       .then(function () { requestAnimationFrame(flush); });
+    #               }
+    #               function tick(timestamp) {
+    #                   if (!playing) return;
+    #                   if (!busy && timestamp - lastStepTime >= $(render_time_ms)) {
+    #                       lastStepTime = timestamp
+    #                       const step = (parseInt(slider.value) + $(jumped_frames)) % NT;
+    #                       slider.value = step;
+    #                       requestStep(step);
+    #                   }
+    #                   requestAnimationFrame(tick);
+    #               }
+    #               function slow_tick(timestamp) {
+    #                   if (!playing) return;
+    #                   if (!busy) {
+    #                       lastStepTime = timestamp
+    #                       const step = (parseInt(slider.value) + 1) % NT
+    #                       slider.value = step
+    #                       requestStep(step);
+    #                   }
+    #                   requestAnimationFrame(slow_tick);
+    #               }
 
-                  const fig = $(JSON.json(plot_json));
-                  Plotly.newPlot(gd, fig.data, fig.layout, { responsive: true, displaylogo: false })
-                      .then(function () {
-                          disableSurfaceRefinement();
-                          requestStep(0);
-                          slider.addEventListener("input", function () { requestStep(parseInt(slider.value)); });
-                          playBtn.addEventListener("click", function () {
-                              playing = !playing;
-                              playBtn.textContent = playing ? "Pause" : "Play";
-                              if (playing) requestAnimationFrame(slow_tick);
-                          });
-                          fastplayBtn.addEventListener("click", function () {
-                              playing = !playing;
-                              fastplayBtn.textContent = playing ? "Pause" : ">>>";
-                              if (playing) requestAnimationFrame(tick);
-                          });
-                      });
-              })();
-              </script>
-              </body>
-              </html>
-              """)
-    end
+    #               // Plotly upsamples surfaces on non-uniform grids (up to 720 points per axis)
+    #               // on every update, which dominates the redraw time. The colors are
+    #               // interpolated on the GPU anyway, so the refinement is switched off.
+    #               function disableSurfaceRefinement() {
+    #                   const scene = gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene._scene;
+    #                   if (!scene || !scene.traces) return;
+    #                   Object.values(scene.traces).forEach(function (trace) {
+    #                       if (trace.data && trace.data.type === "surface") {
+    #                           trace.refineData = false;
+    #                           trace.dataScaleX = 1;
+    #                           trace.dataScaleY = 1;
+    #                       }
+    #                   });
+    #               }
+
+    #               const fig = $(JSON.json(plot_json));
+    #               Plotly.newPlot(gd, fig.data, fig.layout, { responsive: true, displaylogo: false })
+    #                   .then(function () {
+    #                       disableSurfaceRefinement();
+    #                       requestStep(0);
+    #                       slider.addEventListener("input", function () { requestStep(parseInt(slider.value)); });
+    #                       playBtn.addEventListener("click", function () {
+    #                           playing = !playing;
+    #                           playBtn.textContent = playing ? "Pause" : "Play";
+    #                           if (playing) requestAnimationFrame(slow_tick);
+    #                       });
+    #                       fastplayBtn.addEventListener("click", function () {
+    #                           playing = !playing;
+    #                           fastplayBtn.textContent = playing ? "Pause" : ">>>";
+    #                           if (playing) requestAnimationFrame(tick);
+    #                       });
+    #                   });
+    #           })();
+    #           </script>
+    #           </body>
+    #           </html>
+    #           """)
+    # end
 end
 end
