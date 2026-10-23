@@ -1508,12 +1508,19 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
         push!(traces, trace)
     end
 
+    title = "Temperature distribution over time in STES $(unit.uac)"
+    if dec_f > 1
+        title *= "<br>For plot performance reasons the plot got downsampled by factor " *
+                 "$dec_f. The values didn't get adjusted but just every $dec_f value gets" *
+                 " displayed."
+    end
+
     leap_days_str = string.([Date(year, 2, 29)
                              for year in
                                  Dates.value(Year(sim_params["start_date_output"])):Dates.value(Year(sim_params["end_date"]))
                              if isleapyear(year)])
 
-    layout = PlotlyJS.Layout(; title_text="Temperature distribution over time in STES $(unit.uac)",
+    layout = PlotlyJS.Layout(; title_text=title,
                              xaxis_title_text="Date",
                              yaxis_title_text="Temperature [°C]",
                              xaxis=PlotlyJS.attr(; type="date",
@@ -1556,13 +1563,21 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
         push!(traces, trace)
     end
 
+    title = "Temperature difference to surrounding over time in STES $(unit.uac) " *
+            "(positive: storage is colder than surrounding)"
+    if dec_f > 1
+        title *= "<br>For plot performance reasons the plot got downsampled by factor " *
+                 "$dec_f. The values didn't get adjusted but just every $dec_f value gets" *
+                 " displayed."
+    end
+
     leap_days_str = string.([Date(year, 2, 29)
                              for year in
                                  Dates.value(Year(sim_params["start_date_output"])):Dates.value(Year(sim_params["end_date"]))
                              if isleapyear(year)])
 
     layout = PlotlyJS.Layout(;
-                             title_text="Temperature difference to surrounding over time in STES $(unit.uac) (positive: storage is colder than surrounding)",
+                             title_text=title,
                              xaxis_title_text="Date",
                              yaxis_title_text="Temperature difference [K]",
                              xaxis=PlotlyJS.attr(; type="date",
