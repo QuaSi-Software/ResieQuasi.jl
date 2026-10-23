@@ -839,6 +839,7 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
     end
 
     # downsamle y and x to reduce file size with long simulations
+    dec_f = 1
     if io_settings["enable_plot_downsampling"]
         max_n_vals = io_settings["plot_downsampling_max_number_values"]
         y, dec_f = EnergySystems.downsampling_for_plots(y, 1; max_n_values=max_n_vals)
