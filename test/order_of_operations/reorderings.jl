@@ -6,31 +6,33 @@ using ResieQuasi.EnergySystems
 include("../test_util.jl")
 
 function test_data_input_priorities()
-    components_config = OrderedDict{String,Any}("TST_BUS_01" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => [],
-                                                                                         "output_order" => ["TST_BUS_03"],
-                                                                                     ),
-                                                                ),
-                                                "TST_BUS_02" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => [],
-                                                                                         "output_order" => ["TST_BUS_03"],
-                                                                                     ),
-                                                                ),
-                                                "TST_BUS_03" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => ["TST_BUS_02",
-                                                                                                           "TST_BUS_01"],
-                                                                                         "output_order" => [],
-                                                                                     ),
-                                                                ))
+    components_config = OrderedDict{String,Any}(
+        "TST_BUS_01" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => [],
+                "output_order" => ["TST_BUS_03"],
+            ),
+        ),
+        "TST_BUS_02" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => [],
+                "output_order" => ["TST_BUS_03"],
+            ),
+        ),
+        "TST_BUS_03" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => ["TST_BUS_02",
+                                  "TST_BUS_01"],
+                "output_order" => [],
+            ),
+        ),
+    )
 
     simulation_parameters = get_default_sim_params()
 
@@ -95,57 +97,59 @@ function test_data_busses_distribute()
     #                ------------   |   Bus 6  |
     #                |   Bus 4  |   ------------
     #                ------------
-    components_config = OrderedDict{String,Any}("TST_BUS_01" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => [],
-                                                                                         "output_order" => ["TST_BUS_04",
-                                                                                                            "TST_BUS_03",
-                                                                                                            "TST_BUS_02"],
-                                                                                     ),
-                                                                ),
-                                                "TST_BUS_02" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => ["TST_BUS_01"],
-                                                                                         "output_order" => [],
-                                                                                     ),
-                                                                ),
-                                                "TST_BUS_03" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => ["TST_BUS_01"],
-                                                                                         "output_order" => ["TST_BUS_06",
-                                                                                                            "TST_BUS_05"],
-                                                                                     ),
-                                                                ),
-                                                "TST_BUS_04" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => ["TST_BUS_01"],
-                                                                                         "output_order" => [],
-                                                                                     ),
-                                                                ),
-                                                "TST_BUS_05" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => ["TST_BUS_03"],
-                                                                                         "output_order" => [],
-                                                                                     ),
-                                                                ),
-                                                "TST_BUS_06" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => ["TST_BUS_03"],
-                                                                                         "output_order" => [],
-                                                                                     ),
-                                                                ))
+    components_config = OrderedDict{String,Any}(
+        "TST_BUS_01" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => [],
+                "output_order" => ["TST_BUS_04",
+                                   "TST_BUS_03",
+                                   "TST_BUS_02"],
+            ),
+        ),
+        "TST_BUS_02" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => ["TST_BUS_01"],
+                "output_order" => [],
+            ),
+        ),
+        "TST_BUS_03" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => ["TST_BUS_01"],
+                "output_order" => ["TST_BUS_06",
+                                   "TST_BUS_05"],
+            ),
+        ),
+        "TST_BUS_04" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => ["TST_BUS_01"],
+                "output_order" => [],
+            ),
+        ),
+        "TST_BUS_05" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => ["TST_BUS_03"],
+                "output_order" => [],
+            ),
+        ),
+        "TST_BUS_06" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => ["TST_BUS_03"],
+                "output_order" => [],
+            ),
+        ),
+    )
 
     simulation_parameters = get_default_sim_params()
 
@@ -205,55 +209,57 @@ end
 end
 
 function test_data_storage_loading()
-    components_config = OrderedDict{String,Any}("TST_BUS_01" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => ["TST_BFT_01"],
-                                                                                         "output_order" => ["TST_BUS_02",
-                                                                                                            "TST_BFT_01",
-                                                                                                            "TST_BUS_03"],
-                                                                                     ),
-                                                                ),
-                                                "TST_BUS_02" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => ["TST_BUS_01",
-                                                                                                           "TST_BFT_02"],
-                                                                                         "output_order" => ["TST_BFT_02"],
-                                                                                     ),
-                                                                ),
-                                                "TST_BUS_03" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => ["TST_BUS_01",
-                                                                                                           "TST_BFT_03"],
-                                                                                         "output_order" => ["TST_BFT_03"],
-                                                                                     ),
-                                                                ),
-                                                "TST_BFT_01" => Dict{String,Any}(
-                                                                    "type" => "BufferTank",
-                                                                    "output_refs" => ["TST_BUS_01"],
-                                                                    "model_type" => "ideally_stratified",
-                                                                    "capacity" => 40000,
-                                                                    "initial_load" => 0,
-                                                                ),
-                                                "TST_BFT_02" => Dict{String,Any}(
-                                                                    "type" => "BufferTank",
-                                                                    "output_refs" => ["TST_BUS_02"],
-                                                                    "model_type" => "ideally_stratified",
-                                                                    "capacity" => 40000,
-                                                                    "initial_load" => 0,
-                                                                ),
-                                                "TST_BFT_03" => Dict{String,Any}(
-                                                                    "type" => "BufferTank",
-                                                                    "output_refs" => ["TST_BUS_03"],
-                                                                    "model_type" => "ideally_stratified",
-                                                                    "capacity" => 40000,
-                                                                    "initial_load" => 0,
-                                                                ))
+    components_config = OrderedDict{String,Any}(
+        "TST_BUS_01" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => ["TST_BFT_01"],
+                "output_order" => ["TST_BUS_02",
+                                   "TST_BFT_01",
+                                   "TST_BUS_03"],
+            ),
+        ),
+        "TST_BUS_02" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => ["TST_BUS_01",
+                                  "TST_BFT_02"],
+                "output_order" => ["TST_BFT_02"],
+            ),
+        ),
+        "TST_BUS_03" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => ["TST_BUS_01",
+                                  "TST_BFT_03"],
+                "output_order" => ["TST_BFT_03"],
+            ),
+        ),
+        "TST_BFT_01" => Dict{String,Any}(
+            "type" => "BufferTank",
+            "output_refs" => ["TST_BUS_01"],
+            "model_type" => "ideally_stratified",
+            "capacity" => 40000,
+            "initial_load" => 0,
+        ),
+        "TST_BFT_02" => Dict{String,Any}(
+            "type" => "BufferTank",
+            "output_refs" => ["TST_BUS_02"],
+            "model_type" => "ideally_stratified",
+            "capacity" => 40000,
+            "initial_load" => 0,
+        ),
+        "TST_BFT_03" => Dict{String,Any}(
+            "type" => "BufferTank",
+            "output_refs" => ["TST_BUS_03"],
+            "model_type" => "ideally_stratified",
+            "capacity" => 40000,
+            "initial_load" => 0,
+        ),
+    )
 
     simulation_parameters = get_default_sim_params()
 
@@ -345,67 +351,69 @@ end
 end
 
 function test_data_storage_loading_with_matrix()
-    components_config = OrderedDict{String,Any}("TST_GRI_01" => Dict{String,Any}(
-                                                                    "type" => "GridSupply",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "output_refs" => ["TST_BUS_01"],
-                                                                ),
-                                                "TST_BUS_01" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => ["TST_BFT_01",
-                                                                                                           "TST_GRI_01"],
-                                                                                         "output_order" => ["TST_BUS_02",
-                                                                                                            "TST_BFT_01",
-                                                                                                            "TST_BUS_03"],
-                                                                                         "energy_flow" => [[1, 0, 1],
-                                                                                                           [1, 0, 1]],
-                                                                                     ),
-                                                                ),
-                                                "TST_BUS_02" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => ["TST_BFT_02",
-                                                                                                           "TST_BUS_01"],
-                                                                                         "output_order" => ["TST_BFT_02"],
-                                                                                         "energy_flow" => [[0],
-                                                                                                           [0]],
-                                                                                     ),
-                                                                ),
-                                                "TST_BUS_03" => Dict{String,Any}(
-                                                                    "type" => "Bus",
-                                                                    "medium" => "m_h_w_ht1",
-                                                                    "connections" => Dict{String,Any}(
-                                                                                         "input_order" => ["TST_BFT_03",
-                                                                                                           "TST_BUS_01"],
-                                                                                         "output_order" => ["TST_BFT_03"],
-                                                                                         "energy_flow" => [[0],
-                                                                                                           [1]],
-                                                                                     ),
-                                                                ),
-                                                "TST_BFT_01" => Dict{String,Any}(
-                                                                    "type" => "BufferTank",
-                                                                    "output_refs" => ["TST_BUS_01"],
-                                                                    "model_type" => "ideally_stratified",
-                                                                    "capacity" => 40000,
-                                                                    "initial_load" => 0,
-                                                                ),
-                                                "TST_BFT_02" => Dict{String,Any}(
-                                                                    "type" => "BufferTank",
-                                                                    "output_refs" => ["TST_BUS_02"],
-                                                                    "model_type" => "ideally_stratified",
-                                                                    "capacity" => 40000,
-                                                                    "initial_load" => 0,
-                                                                ),
-                                                "TST_BFT_03" => Dict{String,Any}(
-                                                                    "type" => "BufferTank",
-                                                                    "output_refs" => ["TST_BUS_03"],
-                                                                    "model_type" => "ideally_stratified",
-                                                                    "capacity" => 40000,
-                                                                    "initial_load" => 0,
-                                                                ))
+    components_config = OrderedDict{String,Any}(
+        "TST_GRI_01" => Dict{String,Any}(
+            "type" => "GridSupply",
+            "medium" => "m_h_w_ht1",
+            "output_refs" => ["TST_BUS_01"],
+        ),
+        "TST_BUS_01" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => ["TST_BFT_01",
+                                  "TST_GRI_01"],
+                "output_order" => ["TST_BUS_02",
+                                   "TST_BFT_01",
+                                   "TST_BUS_03"],
+                "energy_flow" => [[1, 0, 1],
+                                  [1, 0, 1]],
+            ),
+        ),
+        "TST_BUS_02" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => ["TST_BFT_02",
+                                  "TST_BUS_01"],
+                "output_order" => ["TST_BFT_02"],
+                "energy_flow" => [[0],
+                                  [0]],
+            ),
+        ),
+        "TST_BUS_03" => Dict{String,Any}(
+            "type" => "Bus",
+            "medium" => "m_h_w_ht1",
+            "connections" => Dict{String,Any}(
+                "input_order" => ["TST_BFT_03",
+                                  "TST_BUS_01"],
+                "output_order" => ["TST_BFT_03"],
+                "energy_flow" => [[0],
+                                  [1]],
+            ),
+        ),
+        "TST_BFT_01" => Dict{String,Any}(
+            "type" => "BufferTank",
+            "output_refs" => ["TST_BUS_01"],
+            "model_type" => "ideally_stratified",
+            "capacity" => 40000,
+            "initial_load" => 0,
+        ),
+        "TST_BFT_02" => Dict{String,Any}(
+            "type" => "BufferTank",
+            "output_refs" => ["TST_BUS_02"],
+            "model_type" => "ideally_stratified",
+            "capacity" => 40000,
+            "initial_load" => 0,
+        ),
+        "TST_BFT_03" => Dict{String,Any}(
+            "type" => "BufferTank",
+            "output_refs" => ["TST_BUS_03"],
+            "model_type" => "ideally_stratified",
+            "capacity" => 40000,
+            "initial_load" => 0,
+        ),
+    )
 
     simulation_parameters = get_default_sim_params()
 
