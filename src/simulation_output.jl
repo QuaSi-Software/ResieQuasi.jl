@@ -802,40 +802,24 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
             end
         end
     end
-    output_plot_time_unit = io_settings["output_plot_time_unit"]
-    if output_plot_time_unit == "seconds"
-        x0 = time_x[1]
-        dx = 1000
-    elseif output_plot_time_unit == "minutes"
-        x0 = time_x[1]
-        dx = 60000
-    elseif output_plot_time_unit == "hours"
-        x0 = time_x[1]
-        dx = 3.6e6
-    else
-        if sim_params["start_date"] === nothing
-            start_date = Dates.DateTime("2015/1/1 00:00:00", "yyyy/m/d HH:MM:SS")
-            @info ("Date of first data point in output line plot is set to 01-01-2015 00:00:00, as the simulation start time is not given as date.")
-        else
-            start_date = sim_params["start_date_output"]
-        end
-        x0 = start_date
-        dx = sim_params["time_step_seconds"] * 1000
-    end
 
     y = hcat(plot_data ? outputs_plot_data[:, 2:end] : zeros(Float64, size(outputs_plot_weather, 1), 0),
              plot_weather ? outputs_plot_weather[:, 2:end] : zeros(Float64, size(outputs_plot_data, 1), 0))
 
-    # add NaN values on leap_days so x0 and dx can be used in plots together with rangebreaks
-    if output_plot_time_unit == "date"
-        dates = collect(start_date:Second(sim_params["time_step_seconds"]):sim_params["end_date"])
-        leap_mask = (month.(dates) .== 2) .& (day.(dates) .== 29)
-        y_with_leap = fill(NaN, length(dates), size(y, 2))
-        y_with_leap[.!leap_mask, :] .= y
-        for i in reverse(findall(leap_mask))
-            y_with_leap[i, :] .= y_with_leap[i + 1, :]
-        end
-        y = y_with_leap
+    output_plot_time_unit = io_settings["output_plot_time_unit"]
+    if output_plot_time_unit == "seconds"
+        x0 = time_x[1]
+        dx = time_x[2] - x0
+    elseif output_plot_time_unit == "minutes"
+        x0 = time_x[1]
+        dx = (time_x[2] - x0) / 60
+    elseif output_plot_time_unit == "hours"
+        x0 = time_x[1]
+        dx = (time_x[2] - x0) / 60 / 60
+    else
+        x0 = sim_params["start_date_output"]
+        dx = sim_params["time_step_seconds"] * 1000
+        y = EnergySystems.add_leap_day_values(y, sim_params)
     end
 
     # downsamle y and x to reduce file size with long simulations

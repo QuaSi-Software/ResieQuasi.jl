@@ -3353,23 +3353,55 @@ function all_component_parameters()::Dict{String,Any}
 
     return all_parameters
 end
+
 """
-    downsampling_for_plots(values::AbstractArray, time_dim::Int; 
-                           max_n_values::Union{Int, Nothing}=50_000_000, 
-                           decimation_factor::Union{Int, Nothing}=nothing)
+    add_leap_day_values(values::AbstractArray, sim_params::Dict{String,Any})
+
+Add values for leap_days so x0 and dx can be used in plots together with rangebreaks.
+Added values are the same as the next real value.
+
+# Arguments
+- `values::AbstractArray`: Data array that leap day values get added too
+- `sim_params::Dict{String,Any}`: Simulation parameters
+
+# Returns
+- `AbstractArray`: values data array with added leap day values
+"""
+function add_leap_day_values(values::AbstractArray,
+                             sim_params::Dict{String,Any})::AbstractArray
+    dates = collect(sim_params["start_date_output"]:Second(sim_params["time_step_seconds"]):sim_params["end_date"])
+    leap_mask = (month.(dates) .== 2) .& (day.(dates) .== 29)
+    y_with_leap = fill(NaN, length(dates), size(values, 2))
+    y_with_leap[.!leap_mask, :] .= values
+    for i in reverse(findall(leap_mask))
+        y_with_leap[i, :] .= y_with_leap[i + 1, :]
+    end
+    return y_with_leap
+end
+
+"""
+    downsampling_for_plots(values::AbstractArray, time_dim::Int64; 
+                           max_n_values::Union{Int64, Nothing}=50_000_000, 
+                           decimation_factor::Union{Int64, Nothing}=nothing)::Tuple{AbstractArray,Int64}
 
 Downsamples an array 'values' on dimension 'time_dim' to reduce file size for plotting.
 If decimation_factor is given, it always takes priority of max_n_values.
 At least one of max_n_values or decimation_factor has to be given.
 
 # Arguments
-- `values::AbstractArray`: Data array to be downsampled.
-- `time_dim::Int`: Dimension of array that carries time steps & is going to be downsampled.
-- `max_n_values=50_000_000`: Maximum number of values in the array after downsampling.
+- `values::AbstractArray`: Data array to be downsampled
+- `time_dim::Int64`: Dimension of array that carries time steps & is going to be downsampled
+- `max_n_values::Union{Int64,Nothing}=50_000_000`: Maximum number of values in the array after 
+                                                 downsampling
+- `decimation_factor::Union{Int64,Nothing}=nothing`: Factor to be downsampled by
+
+# Returns
+- `AbstractArray`: Downsampled data array
+- `Int64`: decimation_factor
 """
-function downsampling_for_plots(values::AbstractArray, time_dim::Int;
-                                max_n_values::Union{Int,Nothing}=50_000_000,
-                                decimation_factor::Union{Int,Nothing}=nothing)
+function downsampling_for_plots(values::AbstractArray, time_dim::Int64;
+                                max_n_values::Union{Int64,Nothing}=50_000_000,
+                                decimation_factor::Union{Int64,Nothing}=nothing)::Tuple{AbstractArray,Int64}
     if max_n_values <= 0
         @error "max_n_values must be > 0 for downsampling"
     end

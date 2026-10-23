@@ -788,18 +788,6 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
                                round.(v; sigdigits=io_settings["fixed_output_precision"]),
                                v)
 
-    # add NaN values on leap_days so x0 and dx can be used in plots together with rangebreaks
-    function add_leap_day_values(values)
-        dates = collect(sim_params["start_date_output"]:Second(sim_params["time_step_seconds"]):sim_params["end_date"])
-        leap_mask = (month.(dates) .== 2) .& (day.(dates) .== 29)
-        y_with_leap = fill(NaN, length(dates), size(values, 2))
-        y_with_leap[.!leap_mask, :] .= values
-        for i in reverse(findall(leap_mask))
-            y_with_leap[i, :] .= y_with_leap[i + 1, :]
-        end
-        return y_with_leap
-    end
-
     traces = PlotlyJS.AbstractTrace[]
 
     # gather data centrally to be able to downsample
@@ -870,7 +858,7 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     end
 
     if economic_result !== nothing
-        economic_profiles = add_leap_day_values(economic_profiles)
+        economic_profiles = EnergySystems.add_leap_day_values(economic_profiles, sim_params)
         for (idx, profile) in enumerate(eachcol(economic_profiles))
             name = economic_profile_names[idx]
             push!(traces,
@@ -879,7 +867,7 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     end
 
     if emissions_result !== nothing
-        emissions_profiles = add_leap_day_values(emissions_profiles)
+        emissions_profiles = EnergySystems.add_leap_day_values(emissions_profiles, sim_params)
         for (idx, profile) in enumerate(eachcol(emissions_profiles))
             name = emissions_profile_names[idx]
             push!(traces,

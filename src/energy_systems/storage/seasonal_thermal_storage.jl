@@ -1467,22 +1467,10 @@ end
 
 function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dict{String,Any},
                                    output_path::String, io_settings::Dict{String,Any})::Bool
-    # add NaN values on leap_days so x0 and dx can be used in plots together with rangebreaks
-    function add_leap_day_values(values)
-        dates = collect(sim_params["start_date_output"]:Second(sim_params["time_step_seconds"]):sim_params["end_date"])
-        leap_mask = (month.(dates) .== 2) .& (day.(dates) .== 29)
-        y_with_leap = fill(NaN, length(dates), size(values, 2))
-        y_with_leap[.!leap_mask, :] .= values
-        for i in reverse(findall(leap_mask))
-            y_with_leap[i, :] .= y_with_leap[i + 1, :]
-        end
-        return y_with_leap
-    end
-
     # ====================================
     # Plot temperature distribution over time    
     # ====================================
-    y = add_leap_day_values(unit.temp_distribution_output)
+    y = add_leap_day_values(unit.temp_distribution_output, sim_params)
     x0 = sim_params["start_date_output"]
     dx = sim_params["time_step_seconds"] * 1000
 
@@ -1533,7 +1521,7 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     # ====================================
     # Plot temperature differences to surrounding over time    
     # ====================================
-    y = add_leap_day_values(unit.temp_difference_to_surrounding_output)
+    y = add_leap_day_values(unit.temp_difference_to_surrounding_output, sim_params)
     x0 = sim_params["start_date_output"]
     dx = sim_params["time_step_seconds"] * 1000
 
