@@ -37,26 +37,26 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\district_economy_emissions\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 438/8760 in 3.383 s. ETA: 64.2770 s
-[Info] Progress: 876/8760 in 0.926 s. ETA: 16.6680 s
-[Info] Progress: 1314/8760 in 0.882 s. ETA: 14.9940 s
-[Info] Progress: 1752/8760 in 0.913 s. ETA: 14.6080 s
-[Info] Progress: 2190/8760 in 0.995 s. ETA: 14.9250 s
-[Info] Progress: 2628/8760 in 0.868 s. ETA: 12.1520 s
-[Info] Progress: 3066/8760 in 0.814 s. ETA: 10.5820 s
-[Info] Progress: 3504/8760 in 0.76 s. ETA: 9.1200 s
-[Info] Progress: 3942/8760 in 0.701 s. ETA: 7.7110 s
-[Info] Progress: 4380/8760 in 0.789 s. ETA: 7.8900 s
-[Info] Progress: 4818/8760 in 0.71 s. ETA: 6.3900 s
-[Info] Progress: 5256/8760 in 0.748 s. ETA: 5.9840 s
-[Info] Progress: 5694/8760 in 0.747 s. ETA: 5.2290 s
-[Info] Progress: 6132/8760 in 0.715 s. ETA: 4.2900 s
-[Info] Progress: 6570/8760 in 0.771 s. ETA: 3.8550 s
-[Info] Progress: 7008/8760 in 0.846 s. ETA: 3.3840 s
-[Info] Progress: 7446/8760 in 0.966 s. ETA: 2.8980 s
-[Info] Progress: 7884/8760 in 0.948 s. ETA: 1.8960 s
-[Info] Progress: 8322/8760 in 0.899 s. ETA: 0.8990 s
-[Info] Progress: 8760/8760 in 0.817 s. ETA: 0.0000 s
+[Info] Progress: 438/8760 in 2.764 s. ETA: 52.5160 s
+[Info] Progress: 876/8760 in 0.662 s. ETA: 11.9160 s
+[Info] Progress: 1314/8760 in 0.675 s. ETA: 11.4750 s
+[Info] Progress: 1752/8760 in 0.729 s. ETA: 11.6640 s
+[Info] Progress: 2190/8760 in 0.704 s. ETA: 10.5600 s
+[Info] Progress: 2628/8760 in 0.763 s. ETA: 10.6820 s
+[Info] Progress: 3066/8760 in 0.551 s. ETA: 7.1630 s
+[Info] Progress: 3504/8760 in 0.602 s. ETA: 7.2240 s
+[Info] Progress: 3942/8760 in 0.622 s. ETA: 6.8420 s
+[Info] Progress: 4380/8760 in 0.58 s. ETA: 5.8000 s
+[Info] Progress: 4818/8760 in 0.593 s. ETA: 5.3370 s
+[Info] Progress: 5256/8760 in 0.611 s. ETA: 4.8880 s
+[Info] Progress: 5694/8760 in 0.612 s. ETA: 4.2840 s
+[Info] Progress: 6132/8760 in 0.624 s. ETA: 3.7440 s
+[Info] Progress: 6570/8760 in 0.502 s. ETA: 2.5100 s
+[Info] Progress: 7008/8760 in 0.667 s. ETA: 2.6680 s
+[Info] Progress: 7446/8760 in 0.774 s. ETA: 2.3220 s
+[Info] Progress: 7884/8760 in 0.752 s. ETA: 1.5040 s
+[Info] Progress: 8322/8760 in 0.692 s. ETA: 0.6920 s
+[Info] Progress: 8760/8760 in 0.746 s. ETA: 0.0000 s
 [Info] -- Finished time step loop
 [Info] Line plot created and saved to .\test\scenarios\district_economy_emissions\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\district_economy_emissions\sankey_plot.html
@@ -65,5 +65,3 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Economic results exported to .\test\scenarios\district_economy_emissions\economic_results.csv
 [Info] Emissions plot created and saved to .\test\scenarios\district_economy_emissions\emissions_plot.html
 [Info] Emissions results exported to .\test\scenarios\district_economy_emissions\emissions_results.csv
-[Info] general log saved to .\test\scenarios\district_economy_emissions\general.log
-[Info] balanceWarn log saved to .\test\scenarios\district_economy_emissions\balanceWarn.log

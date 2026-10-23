@@ -1,7 +1,7 @@
 {
     "io_settings": {
         "auxiliary_info": true,
-        "auxiliary_info_file": "./test/scenarios/simple_geothermal_collector/auxiliary_info.md",
+        "auxiliary_info_file_path": "./test/scenarios/simple_geothermal_collector/auxiliary_info.md",
         "fixed_output_precision": 10,
         "sankey_plot": "default",
         "sankey_plot_file_path": "./test/scenarios/simple_geothermal_collector/sankey_plot.html",
@@ -14,7 +14,7 @@
     "simulation_parameters": {
         "start": "01.01.2024 00:00",
         "end": "31.01.2024 23:00",
-        "start_end_unit": "dd.mm.yyyy HH:MM",
+        "start_date_format": "dd.mm.yyyy HH:MM",
         "time_step": 60,
         "time_step_unit": "minutes",
         "weather_file_path": "./profiles/weather/TRY2015_Stuttgart.epw"
@@ -51,9 +51,9 @@
             "output_refs": ["TST_HP_01"],
             "model_type": "detailed",
             "___GENERAL PARAMETER___": "",
-            "ambient_temperature_from_global_file": "temp_ambient_air",
-            "global_solar_radiation_from_global_file": "globHorIrr",
-            "infrared_sky_radiation_from_global_file": "longWaveIrr",
+            "use_ambient_temperature_from_weather_file": true,
+            "use_global_solar_radiation_from_weather_file": true,
+            "use_infrared_sky_radiation_from_weather_file": true,
             "accuracy_mode": "normal",
             "regeneration": false,
             "max_output_power": 25,

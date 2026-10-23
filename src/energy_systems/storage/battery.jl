@@ -1374,7 +1374,7 @@ function plot_optional_figures_begin(unit::Battery, output_path::String,
                 margin=15Plots.mm)
     fig_name = "Battery_$(unit.uac)_discharge_curves_current"
     for output_format in output_formats
-        Plots.savefig(p, output_path * "/" * fig_name * "." * output_format)
+        Plots.savefig(p, auxiliary_plot_path(output_path, fig_name * "." * output_format, sim_params))
     end
 
     # discharge curves of the cell chemistry at different Temperatures
@@ -1423,7 +1423,7 @@ function plot_optional_figures_begin(unit::Battery, output_path::String,
                 margin=15Plots.mm)
     fig_name = "Battery_$(unit.uac)_discharge_curves_temperature"
     for output_format in output_formats
-        Plots.savefig(p, output_path * "/" * fig_name * "." * output_format)
+        Plots.savefig(p, auxiliary_plot_path(output_path, fig_name * "." * output_format, sim_params))
     end
 
     # discharge curves of the cell chemistry after different number of cycles
@@ -1473,7 +1473,7 @@ function plot_optional_figures_begin(unit::Battery, output_path::String,
                 margin=15Plots.mm)
     fig_name = "Battery_$(unit.uac)_discharge_curves_cycles"
     for output_format in output_formats
-        Plots.savefig(p, output_path * "/" * fig_name * "." * output_format)
+        Plots.savefig(p, auxiliary_plot_path(output_path, fig_name * "." * output_format, sim_params))
     end
 
     return true

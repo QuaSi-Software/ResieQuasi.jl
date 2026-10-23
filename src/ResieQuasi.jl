@@ -166,7 +166,7 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     if do_write_CSV
         header = get_output_header(output_keys_to_CSV, weather_CSV_keys, csv_time_unit)
         # Reset the output file and add headers for the given outputs.
-        open(sim_params["run_path"](csv_file_path), "w") do file_handle
+        open(prepare_output_path(sim_params["run_path"](csv_file_path)), "w") do file_handle
             write(file_handle, join(header, ';') * "\n")
         end
     end
@@ -304,9 +304,21 @@ function run_simulation_loop(sim_params::Dict{String,Any},
                                           res::Dict{String,Union{Array{Float64},Float64}})
             for key in params
                 func, spec = split(key, " "; limit=2)
-                if func == "sum" || func == "mean"
+                if func == "sum"
                     values = view(output_data, :, output_columns[spec])
-                    res[key] = func == "sum" ? sum(values) : sum(values) / length(values)
+                    res[key] = sum(values)
+                elseif func == "mean"
+                    values = view(output_data, :, output_columns[spec])
+                    res[key] = sum(values) / length(values)
+                elseif func == "last"
+                    values = view(output_data, :, output_columns[spec])
+                    res[key] = values[end]
+                elseif func == "min"
+                    values = view(output_data, :, output_columns[spec])
+                    res[key] = minimum(values)
+                elseif func == "max"
+                    values = view(output_data, :, output_columns[spec])
+                    res[key] = maximum(values)
                 elseif func == "economic"
                     res[key] = getfield(economic_result, Symbol(spec))
                 elseif func == "emissions"
@@ -343,7 +355,7 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     if do_write_CSV && do_write_summary_CSV
         output_path = sim_params["run_path"](replace(csv_file_path, r"\.csv$"i => "_aggregated.csv"))
 
-        success = aggregate_csv(csv_file_path,
+        success = aggregate_csv(sim_params["run_path"](csv_file_path),
                                 output_path,
                                 output_keys_to_CSV,
                                 weather_CSV_keys,
@@ -363,25 +375,29 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     if do_create_plot_data || do_create_plot_weather
         lineplot_columns = output_data_columns(key_indexes, output_keys_lineplot; include_time=true)
         output_data_lineplot = Matrix(view(output_data_all_requested, :, lineplot_columns))
-        create_profile_line_plots(output_data_lineplot,
-                                  output_keys_lineplot,
-                                  output_weather_lineplot,
-                                  weather_data_keys,
-                                  io_settings,
-                                  sim_params)
+        lock(PLOT_LOCK) do
+            create_profile_line_plots(output_data_lineplot,
+                                      output_keys_lineplot,
+                                      output_weather_lineplot,
+                                      weather_data_keys,
+                                      io_settings,
+                                      sim_params)
+        end
         filepath = sim_params["run_path"](io_settings["output_plot_file_path"])
         @info "Line plot created and saved to $(sim_params["run_path"](filepath))"
     end
 
     # create Sankey diagram
     if do_create_sankey
-        create_sankey(output_sourcenames_sankey,
-                      output_targetnames_sankey,
-                      output_interface_values,
-                      medium_of_interfaces,
-                      nr_of_interfaces,
-                      io_settings,
-                      sim_params)
+        lock(PLOT_LOCK) do
+            create_sankey(output_sourcenames_sankey,
+                          output_targetnames_sankey,
+                          output_interface_values,
+                          medium_of_interfaces,
+                          nr_of_interfaces,
+                          io_settings,
+                          sim_params)
+        end
         filepath = sim_params["run_path"](io_settings["sankey_plot_file_path"])
         @info "Sankey created and saved to $filepath"
     end
@@ -389,9 +405,13 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     # plot additional figures potentially available from components after simulation
     if io_settings["auxiliary_plots"] && !suppress_all_output
         component_list = []
-        output_path = sim_params["run_path"](io_settings["auxiliary_plots_path"])
+        output_path = sim_params["run_path"](io_settings["auxiliary_plots_directory"])
+        mkpath(output_path)
         for component in components
-            if plot_optional_figures_end(component[2], sim_params, output_path)
+            plotted = lock(PLOT_LOCK) do
+                plot_optional_figures_end(component[2], sim_params, output_path)
+            end
+            if plotted
                 push!(component_list, component[2].uac)
             end
         end
@@ -405,15 +425,19 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     if do_calculate_economy && !suppress_all_output
         if io_settings["plot_economic_cashflows"]
             filepath = sim_params["run_path"](io_settings["economic_plot_cashflows_file_path"])
-            success = plot_economic_results(economic_result, filepath, sim_params,
-                                            io_settings["fixed_output_precision"], "cashflows")
+            success = lock(PLOT_LOCK) do
+                plot_economic_results(economic_result, filepath, sim_params,
+                                      io_settings["fixed_output_precision"], "cashflows")
+            end
             success && @info "Economy plot created and saved to $filepath"
         end
 
         if io_settings["plot_economic_present_values"]
             filepath = sim_params["run_path"](io_settings["economic_plot_present_values_file_path"])
-            success = plot_economic_results(economic_result, filepath, sim_params,
-                                            io_settings["fixed_output_precision"], "present_values")
+            success = lock(PLOT_LOCK) do
+                plot_economic_results(economic_result, filepath, sim_params,
+                                      io_settings["fixed_output_precision"], "present_values")
+            end
             success && @info "Economy plot created and saved to $filepath"
         end
 
@@ -430,8 +454,10 @@ function run_simulation_loop(sim_params::Dict{String,Any},
         # plot figure with yearly emissions
         if io_settings["plot_emission_results"]
             filepath = sim_params["run_path"](io_settings["emissions_plot_file_path"])
-            success = plot_emissions_results(emissions_result, filepath, sim_params,
-                                             io_settings["fixed_output_precision"])
+            success = lock(PLOT_LOCK) do
+                plot_emissions_results(emissions_result, filepath, sim_params,
+                                       io_settings["fixed_output_precision"])
+            end
             success && @info "Emissions plot created and saved to $filepath"
         end
 
@@ -447,8 +473,10 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     if (do_calculate_economy || do_calculate_emissions) && io_settings["plot_price_and_emission_profiles"] &&
        !suppress_all_output
         filepath = sim_params["run_path"](io_settings["price_and_emission_profile_file_path"])
-        success = plot_extended_price_and_emissions_profiles(economic_result, emissions_result, filepath, sim_params,
-                                                             io_settings["fixed_output_precision"])
+        success = lock(PLOT_LOCK) do
+            plot_extended_price_and_emissions_profiles(economic_result, emissions_result, filepath, sim_params,
+                                                       io_settings["fixed_output_precision"])
+        end
         success && @info "Utilized price and emission profiles exported as plot to $filepath"
     end
 
@@ -464,10 +492,15 @@ Load a project from the given file and run the simulation with it.
 - `filepath::String`: Filepath to the project config file.
 - `run_ID::UUID`: The run ID used in the run registry
 - `logger::Union{Nothing,Resie_Logger.CustomLogger}`: Logger used for ReSiE
+- `log_output_info`: Optional `Ref` used to pass `io_settings` and `run_path` to the caller as soon as
+                     they are available, ensuring that log files can be moved even if the simulation fails later.
 # Returns
 - `Bool`: `true` if the simulation was successful, `false` otherwise.
 """
-function load_and_run(filepath::String, run_ID::UUID; logger::Union{Nothing,Resie_Logger.CustomLogger}=nothing)::Bool
+function load_and_run(filepath::String,
+                      run_ID::UUID;
+                      logger::Union{Nothing,Resie_Logger.CustomLogger}=nothing,
+                      log_output_info=nothing)::Bool
     start = now()
     success = true
     @globalInfo "---- Simulation setup ----"
@@ -505,6 +538,13 @@ function load_and_run(filepath::String, run_ID::UUID; logger::Union{Nothing,Resi
         Resie_Logger.set_min_log_level!(logger, get_min_log_level(project_config, logger))
     end
     io_settings = get_io_settings(project_config)
+
+    # save information to Ref in order to move log files later; simply returning them does not work if an error occurs
+    if log_output_info !== nothing
+        run_path = path -> isabspath(path) ? path : abspath(joinpath(io_settings["base_path"], path))
+        log_output_info[] = (io_settings, run_path)
+    end
+
     sim_params = get_simulation_params(project_config, io_settings; preparation_cache=preparation_cache)
 
     if sim_params["parameter_study"]["runtime"]["enabled"]
@@ -578,8 +618,10 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
                                cancel_flag::Union{Nothing,Threads.Atomic{Bool}}=nothing,
                                preparation_cache::Union{Nothing,PreparationCache}=nothing)::OrderedDict{String,Any}
     start = now()
+    output_filename_prefix = ""
     if !isnothing(parameter_set)
-        project_config = create_parameter_variant(io_settings, sim_params, project_config, parameter_set)
+        project_config, output_filename_prefix = create_parameter_variant(io_settings, sim_params,
+                                                                          project_config, parameter_set)
     end
 
     results = OrderedDict{String,Any}()
@@ -593,6 +635,7 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
     try
         sim_params, io_settings, components, operations = prepare_inputs(project_config, run_ID;
                                                                          preparation_cache=preparation_cache)
+        sim_params["output_filename_prefix"] = output_filename_prefix
         @info "-- Simulation setup complete in $(seconds(now() - start)) s"
 
         lock(run_lock) do
@@ -656,7 +699,7 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
             # create header if file is empty
             if filesize(parameter_study_results_path) == 0
                 header = join(collect(keys(results)), ';') * "\n"
-                open(parameter_study_results_path, "w") do file_handle
+                open(prepare_output_path(parameter_study_results_path), "w") do file_handle
                     write(file_handle, header)
                 end
             end

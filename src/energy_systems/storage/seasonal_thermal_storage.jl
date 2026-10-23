@@ -265,21 +265,22 @@ const SEASONAL_THERMAL_STORAGE_COMPONENT_PARAMETERS = Dict(
         display_name="Ambient temp. profile",
         required=false,
         conditionals=[
-            ("ambient_temperature_from_global_file", "mutex"),
+            ("use_ambient_temperature_from_weather_file", "mutex"),
             ("constant_ambient_temperature", "mutex")
         ],
         validations=[
             ("at_least_one", "ambient_temperature_profile_file_path",
-             "ambient_temperature_from_global_file", "constant_ambient_temperature")
+             "use_ambient_temperature_from_weather_file", "constant_ambient_temperature")
         ],
         type=String,
         json_type="string",
         unit="-"
     ),
-    "ambient_temperature_from_global_file" => (
-        default=nothing,
-        description="Key in global weather file for ambient temperature profile. Use `temp_ambient_air` as key.",
-        display_name="Global file amb. temp. key",
+    "use_ambient_temperature_from_weather_file" => (
+        default=false,
+        description="If true, use the ambient air temperature from the project-wide weather file.",
+        weather_key="temp_ambient_air",
+        display_name="Use ambient air temperature from weather file?",
         required=false,
         conditionals=[
             ("ambient_temperature_profile_file_path", "mutex"),
@@ -287,10 +288,10 @@ const SEASONAL_THERMAL_STORAGE_COMPONENT_PARAMETERS = Dict(
         ],
         validations=[
             ("at_least_one", "ambient_temperature_profile_file_path",
-             "ambient_temperature_from_global_file", "constant_ambient_temperature")
+             "use_ambient_temperature_from_weather_file", "constant_ambient_temperature")
         ],
-        type=String,
-        json_type="string",
+        type=Bool,
+        json_type="boolean",
         unit="-"
     ),
     "constant_ambient_temperature" => (
@@ -300,11 +301,11 @@ const SEASONAL_THERMAL_STORAGE_COMPONENT_PARAMETERS = Dict(
         required=false,
         conditionals=[
             ("ambient_temperature_profile_file_path", "mutex"),
-            ("ambient_temperature_from_global_file", "mutex")
+            ("use_ambient_temperature_from_weather_file", "mutex")
         ],
         validations=[
             ("at_least_one", "ambient_temperature_profile_file_path",
-             "ambient_temperature_from_global_file", "constant_ambient_temperature")
+             "use_ambient_temperature_from_weather_file", "constant_ambient_temperature")
         ],
         type=Float64,
         json_type="number",
@@ -773,8 +774,8 @@ end
 
 function extract_parameter(x::Type{SeasonalThermalStorage}, config::Dict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
-    if param_name == "ambient_temperature_from_global_file"
-        return load_profile_from_global_weather_file(config, param_name, sim_params, uac)
+    if param_name == "use_ambient_temperature_from_weather_file"
+        return load_profile_from_weather_file(config, param_name, param_def, sim_params, uac)
     elseif param_name in ("ambient_temperature_profile_file_path", "ground_temperature_profile_file_path")
         return load_optional_profile(config, param_name, sim_params)
     elseif param_name in ("constant_ambient_temperature", "constant_ground_temperature")
@@ -861,8 +862,10 @@ function init_from_params(x::Type{SeasonalThermalStorage}, uac::String, params::
             params["thermal_transmission_barrel_below_ground"],
             Float64[], # thermal_transmission_barrels
             params["thermal_transmission_bottom"],
+            # Note that the two parameters in some_or_none() have misleading names, both can contain a profile 
+            # at this point and not just a path or a boolean value! They were overridden in SSOT_parameter_constructor().
             some_or_none(params["ambient_temperature_profile_file_path"],
-                         params["ambient_temperature_from_global_file"]),
+                         params["use_ambient_temperature_from_weather_file"]),
             params["constant_ambient_temperature"],
             some_or_none(params["ground_temperature_profile_file_path"]),
             params["constant_ground_temperature"],
@@ -1332,7 +1335,7 @@ function plot_optional_figures_begin(unit::SeasonalThermalStorage, output_path::
                 margin=15Plots.mm)
     fig_name = "STES_cross_section_$(unit.uac)"
     for output_format in output_formats
-        Plots.savefig(p, output_path * "/" * fig_name * "." * output_format)
+        Plots.savefig(p, auxiliary_plot_path(output_path, fig_name * "." * output_format, sim_params))
     end
 
     # Plot geometry of STES: 3D
@@ -1461,7 +1464,7 @@ function plot_optional_figures_begin(unit::SeasonalThermalStorage, output_path::
                 camera=(45, 20),
                 title="3D shape of the STES $(unit.uac) (cross-section: $(unit.shape))")
     fig_name = "STES_3D_shape_$(unit.uac)"
-    Plots.savefig(p, output_path * "/" * fig_name * ".html")
+    Plots.savefig(p, auxiliary_plot_path(output_path, fig_name * ".html", sim_params))
 
     return true
 end
@@ -1501,7 +1504,7 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     p = PlotlyJS.plot(traces, layout)
 
     fig_name = "temperature_distribution_STES_$(unit.uac).html"
-    PlotlyJS.savefig(p, output_path * "/" * fig_name)
+    PlotlyJS.savefig(p, auxiliary_plot_path(output_path, fig_name, sim_params))
 
     # ====================================
     # Plot temperature differences to surrounding over time    
@@ -1541,7 +1544,7 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     p = PlotlyJS.plot(traces, layout)
 
     fig_name = "temperature_difference_surrounding_STES_$(unit.uac).html"
-    PlotlyJS.savefig(p, output_path * "/" * fig_name)
+    PlotlyJS.savefig(p, auxiliary_plot_path(output_path, fig_name, sim_params))
 
     if unit.ground_model == "FVM"
         # ====================================

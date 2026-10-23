@@ -1,7 +1,7 @@
 {
     "io_settings": {
         "auxiliary_info": true,
-        "auxiliary_info_file": "./test/scenarios/hp_multiple_sources/auxiliary_info.md",
+        "auxiliary_info_file_path": "./test/scenarios/hp_multiple_sources/auxiliary_info.md",
         "fixed_output_precision": 10,
         "sankey_plot_file_path": "./test/scenarios/hp_multiple_sources/sankey_plot.html",
         "sankey_plot": "custom",
@@ -142,7 +142,7 @@
     "simulation_parameters": {
         "start": "01.01.2024 00:00",
         "end": "01.01.2024 23:45",
-        "start_end_unit": "dd.mm.yyyy HH:MM",
+        "start_date_format": "dd.mm.yyyy HH:MM",
         "time_step": 15,
         "time_step_unit": "minutes"
     },

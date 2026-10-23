@@ -3,7 +3,7 @@
         "csv_output_file_path": "./output/out.csv",
         "auxiliary_info": true,
         "auxiliary_plots": false,
-        "auxiliary_info_file": "./output/auxiliary_info.md",
+        "auxiliary_info_file_path": "./output/auxiliary_info.md",
         "sankey_plot": "default",
         "csv_output": "custom",
         "csv_output_keys": {
@@ -123,14 +123,14 @@
     "simulation_parameters": {
         "start": "01.01.2024 00:00",
         "end": "31.12.2024 23:45",
-        "start_end_unit": "dd.mm.yyyy HH:MM",
+        "start_date_format": "dd.mm.yyyy HH:MM",
         "time_step": 15,
         "time_step_unit": "minutes",
         "weather_file_path": "./profiles/weather/TRY2015_Stuttgart.epw"
     },
     "components": {
         "TST_DEM_TH_01": {
-            "type": "Demand",
+            "type": "FixedSink",
             "medium": "m_h_w_ht1",
             "output_refs": [],
             "energy_profile_file_path": "./profiles/examples/district/demand_heating_and_water_85Living_15Business_Wh_per_square_meter.prf",
@@ -138,7 +138,7 @@
             "scale": 16000
         },
         "TST_DEM_TH_02": {
-            "type": "Demand",
+            "type": "FixedSink",
             "medium": "m_h_w_ht1",
             "output_refs": [],
             "energy_profile_file_path": "./profiles/examples/district/demand_heating_and_water_25Living_75Business_Wh_per_square_meter.prf",
@@ -146,14 +146,14 @@
             "scale": 19000
         },
         "TST_DEM_EL_01": {
-            "type": "Demand",
+            "type": "FixedSink",
             "medium": "m_e_ac_230v",
             "output_refs": [],
             "energy_profile_file_path": "./profiles/examples/district/demand_electricity_85Living_15Business_Wh_per_square_meter.prf",
             "scale": 13000
         },   
         "TST_DEM_EL_02": {
-            "type": "Demand",
+            "type": "FixedSink",
             "medium": "m_e_ac_230v",
             "output_refs": [],
             "energy_profile_file_path": "./profiles/examples/district/demand_electricity_85Living_15Business_Wh_per_square_meter.prf",
@@ -270,7 +270,11 @@
                 "output_order": [
                     "TST_DEM_TH_02",
                     "TST_BFT_TH_02"
-                ]
+                ],
+				"energy_flow": [
+				  [1, 1],
+				  [1, 1]
+				]
             }
         },
         "TST_BUS_GAS_01": {
@@ -283,7 +287,10 @@
                 "output_order": [
                     "TST_CHP_01",
                     "TST_GBO_01"
-                ]
+                ],
+				"energy_flow": [
+				  [1, 1]
+				]
             }
         },
         "TST_ELY_01": {
@@ -401,7 +408,7 @@
             "output_refs": [
                 "TST_HTP_01"
             ],
-            "ambient_temperature_from_global_file": "temp_ambient_air",
+            "use_ambient_temperature_from_weather_file": true,
             "volume": 3000,
             "hr_ratio": 2,
             "sidewall_angle": 90,
