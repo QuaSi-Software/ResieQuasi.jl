@@ -862,6 +862,8 @@ function init_from_params(x::Type{SeasonalThermalStorage}, uac::String, params::
             params["thermal_transmission_barrel_below_ground"],
             Float64[], # thermal_transmission_barrels
             params["thermal_transmission_bottom"],
+            # Note that the two parameters in some_or_none() have misleading names, both can contain a profile 
+            # at this point and not just a path or a boolean value! They were overridden in SSOT_parameter_constructor().
             some_or_none(params["ambient_temperature_profile_file_path"],
                          params["use_ambient_temperature_from_weather_file"]),
             params["constant_ambient_temperature"],

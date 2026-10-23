@@ -441,6 +441,8 @@ function init_from_params(x::Type{BufferTank}, uac::String, params::Dict{String,
             params["thermal_transmission_barrel"],
             params["thermal_transmission_bottom"],
             params["consider_losses"] ?
+            # Note that the two parameters in some_or_none() have misleading names, both can contain a profile 
+            # at this point and not just a path or a boolean value! They were overridden in SSOT_parameter_constructor().
             some_or_none(params["ambient_temperature_profile_file_path"],
                          params["use_ambient_temperature_from_weather_file"]) : nothing,
             params["consider_losses"] ? params["constant_ambient_temperature"] : nothing,

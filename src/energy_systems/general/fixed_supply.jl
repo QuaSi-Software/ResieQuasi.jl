@@ -266,6 +266,8 @@ function init_from_params(x::Type{FixedSupply}, uac::String, params::Dict{String
             params["economic_parameters"],
             params["emissions_parameters"],
             energy_profile,                          # energy_profile
+            # Note that the two parameters in some_or_none() have misleading names, both can contain a profile 
+            # at this point and not just a path or a boolean value! They were overridden in SSOT_parameter_constructor().
             some_or_none(params["temperature_profile_file_path"], params["use_ambient_temperature_from_weather_file"]),
             params["scale"],                         # scaling_factor
             0.0,                                     # supply
