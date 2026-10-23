@@ -561,27 +561,27 @@ function test_find_indirect_chains_denied()
                                   [1, 1, 1]],
             ),
         ),
-    );
+    )
 
-    simulation_parameters = get_default_sim_params();
+    simulation_parameters = get_default_sim_params()
 
-    components = Resie.load_components(components_config, simulation_parameters);
+    components = Resie.load_components(components_config, simulation_parameters)
 
-    expected_bus1 = Set([components["TST_BUS_00"]]);
-    expected_bus2 = Set([components["TST_BUS_01"]]);
+    expected_bus1 = Set([components["TST_BUS_00"]])
+    expected_bus2 = Set([components["TST_BUS_01"]])
     expected_transformer1 = Set([components["TST_HP_02"],
                                  components["TST_HP_03"],
                                  components["TST_HP_04"],
-                                 components["TST_01_ELY_01"]]);
+                                 components["TST_01_ELY_01"]])
     expected_transformer2 = Set([components["TST_HP_01"],
-                                 components["TST_HP_01b"]]);
+                                 components["TST_HP_01b"]])
 
     chains_bus = Resie.find_chains([u for u in values(components) if !startswith(u.uac, "Proxy")],
-                                   EnergySystems.sf_bus);
+                                   EnergySystems.sf_bus)
 
     chains_transformer = Resie.find_chains([u for u in values(components) if !startswith(u.uac, "Proxy")],
                                            EnergySystems.sf_transformer;
-                                           direct_connection_only=false);
+                                           direct_connection_only=false)
 
     @test length(chains_bus) == 2
     @test chains_bus[1] == expected_bus1
