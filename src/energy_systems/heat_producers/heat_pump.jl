@@ -433,7 +433,7 @@ mutable struct HeatPump <: Component
     avg_plr::Float64
     time_active::Float64
 
-    function HeatPump(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function HeatPump(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         return new(SSOT_parameter_constructor(HeatPump, uac, config, sim_params)...)
     end
 end
@@ -450,7 +450,7 @@ function emissions_parameters(x::Type{HeatPump})::Dict{String,Any}
     return deepcopy(HEAT_PUMP_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{HeatPump}, config::Dict{String,Any}, param_name::String,
+function extract_parameter(x::Type{HeatPump}, config::AbstractDict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
     if param_name == "icing_coefficients"
         value = default(config, param_name, param_def.default)
@@ -465,7 +465,7 @@ function extract_parameter(x::Type{HeatPump}, config::Dict{String,Any}, param_na
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{HeatPump}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{HeatPump}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(HeatPump)

@@ -595,7 +595,7 @@ function plot_economic_results(result::EconomicResult, output_file_path::String,
     isempty(series) && return false
 
     # Optional fixed output precision for plotted values.
-    round_for_plot(v) = fixed_output_precision > 0 ? round.(v; sigsigdigits=fixed_output_precision) : v
+    round_for_plot(v) = fixed_output_precision > 0 ? round.(v; sigdigits=fixed_output_precision) : v
 
     # parameter 
     observation_period_in_years = Int(sim_params["economic_parameters"]["observation_period_in_years"])
@@ -776,25 +776,23 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
                                                     emissions_result::Any,
                                                     output_file_path::String,
                                                     sim_params::Dict{String,Any},
-                                                    fixed_output_precision::Int)
+                                                    io_settings::Dict{String,Any})
     emissions_factor = 1000.0
     emissions_unit = "g CO₂e/kWh"
 
     price_factor = 1000.0
     price_unit = "€/kWh"
-
     # Optional fixed output precision for plotted values.
     # Round after unit conversion so precision applies to displayed units.
-    round_for_plot(v) = fixed_output_precision > 0 ? round.(v; sigdigits=fixed_output_precision) : v
+    round_for_plot(v) = ifelse(io_settings["fixed_output_precision"] > 0,
+                               round.(v; sigdigits=io_settings["fixed_output_precision"]),
+                               v)
 
     traces = PlotlyJS.AbstractTrace[]
 
-    function timestep_axis(n::Int)
-        step_ms = round(Int, sim_params["time_step_seconds"] * 1000)
-        return [sim_params["start_date_output"] + Millisecond((i - 1) * step_ms) for i in 1:n]
-    end
-
-    # Price profiles: left y-axis
+    # gather data centrally to be able to downsample
+    economic_profiles = []
+    economic_profile_names = []
     if economic_result !== nothing
         for (uac, component_results) in sort(collect(economic_result.breakdown); by=first)
             component_results isa AbstractDict || continue
@@ -808,22 +806,18 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
                 isempty(profile) && continue
 
                 profile_name_string = String(profile_name)
-
-                line_attr = attr()
-
-                push!(traces,
-                      scatter(;
-                              x=timestep_axis(length(profile)),
-                              y=round_for_plot(price_factor .* Float64.(profile)),
-                              mode="lines",
-                              name="$(uac) | $(profile_name_string)",
-                              yaxis="y",
-                              line=line_attr))
+                if isempty(economic_profiles)
+                    economic_profiles = round_for_plot(price_factor .* Float64.(profile))
+                else
+                    economic_profiles = hcat(economic_profiles, round_for_plot(price_factor .* Float64.(profile)))
+                end
+                push!(economic_profile_names, "$(uac) | $(profile_name_string)")
             end
         end
     end
 
-    # Emissions profiles: right y-axis
+    emissions_profiles = []
+    emissions_profile_names = []
     if emissions_result !== nothing
         for (uac, component_results) in sort(collect(emissions_result.breakdown); by=first)
             component_results isa AbstractDict || continue
@@ -838,17 +832,58 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
 
                 profile_name_string = String(profile_name)
 
-                line_attr = attr()
-
-                push!(traces,
-                      scatter(;
-                              x=timestep_axis(length(profile)),
-                              y=round_for_plot(emissions_factor .* Float64.(profile)),
-                              mode="lines",
-                              name="$(uac) | $(profile_name_string)",
-                              yaxis="y2",
-                              line=line_attr))
+                if isempty(emissions_profiles)
+                    emissions_profiles = round_for_plot(emissions_factor .* Float64.(profile))
+                else
+                    emissions_profiles = hcat(emissions_profiles, round_for_plot(emissions_factor .* Float64.(profile)))
+                end
+                push!(emissions_profile_names, "$(uac) | $(profile_name_string)")
             end
+        end
+    end
+
+    # add NaN values on leap_days so x0 and dx can be used in plots together with rangebreaks
+    function add_leap_NaN(values)
+        dates = [sim_params["start_date_output"] + Second((s - 1) * sim_params["time_step_seconds"])
+                 for s in 1:size(values, 1)]
+        leap_mask = (month.(dates) .== 2) .& (day.(dates) .== 29)
+        y_with_leap = fill(NaN, length(dates), size(values, 2))
+        y_with_leap[.!leap_mask, :] .= values
+        for i in reverse(findall(leap_mask))
+            y_with_leap[i, :] .= y_with_leap[i + 1, :]
+        end
+        return y_with_leap
+    end
+
+    economic_profiles = add_leap_NaN(economic_profiles)
+    emissions_profiles = add_leap_NaN(emissions_profiles)
+
+    x0 = sim_params["start_date_output"]
+    dx = sim_params["time_step_seconds"] * 1000
+
+    # downsamle profiles and timestamps to reduce file size with long simulations
+    if io_settings["enable_plot_downsampling"]
+        max_n_vals = io_settings["plot_downsampling_max_number_values"] - prod(size(emissions_profiles))
+        economic_profiles, dec_f = EnergySystems.downsampling_for_plots(economic_profiles, 1;
+                                                                        max_n_values=max_n_vals)
+        emissions_profiles, _ = EnergySystems.downsampling_for_plots(emissions_profiles, 1;
+                                                                     decimation_factor=dec_f)
+        dx *= dec_f
+    end
+
+    if economic_result !== nothing
+        for (idx, profile) in enumerate(eachcol(economic_profiles))
+            name = economic_profile_names[idx]
+            push!(traces,
+                  scatter(; x0=x0, dx=dx, y=profile, mode="lines", name=name, yaxis="y"))
+        end
+    end
+
+    if emissions_result !== nothing
+        for (idx, profile) in enumerate(eachcol(emissions_profiles))
+            name = emissions_profile_names[idx]
+            push!(traces,
+                  scatter(; x0=x0, dx=dx, y=profile, mode="lines", name=name, yaxis="y2"))
         end
     end
 
@@ -861,12 +896,24 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     else
         "emissions profiles"
     end
+    title = "Extended $(title_suffix)" *
+            "<br><sup>Profiles utilized in calculation, including annual change rates.</sup>"
+    if dec_f > 1
+        title *= "<br>For plot performance reasons the plot got downsampled by factor " *
+                 "$dec_f. The values didn't get adjusted but just every $dec_f value gets" *
+                 " displayed."
+    end
+
+    leap_days_str = string.([Date(year, 2, 29)
+                             for year in
+                                 Dates.value(Year(sim_params["start_date_output"])):Dates.value(Year(sim_params["end_date"]))
+                             if isleapyear(year)])
 
     layout = Layout(;
-                    title=attr(;
-                               text="Extended $(title_suffix)" *
-                                    "<br><sup>Profiles utilized in calculation, including annual change rates.</sup>"),
-                    xaxis_title_text="Time",
+                    title_text=title,
+                    xaxis=attr(; title="Time",
+                               type="date",
+                               rangebreaks=[Dict("values" => leap_days_str)]),
                     yaxis=attr(;
                                title="Energy price / revenue [$(price_unit)]",
                                zeroline=true),

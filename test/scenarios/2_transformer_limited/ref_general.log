@@ -5,14 +5,14 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\2_transformer_limited\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 4/96 in 1.273 s. ETA: 29.2790 s
-[Info] Progress: 8/96 in 0.001 s. ETA: 0.0220 s
+[Info] Progress: 4/96 in 1.014 s. ETA: 23.3220 s
+[Info] Progress: 8/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 12/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 16/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 20/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 24/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 28/96 in 0.0 s. ETA: 0.0000 s
-[Info] Progress: 32/96 in 0.229 s. ETA: 3.6640 s
+[Info] Progress: 32/96 in 0.44 s. ETA: 7.0400 s
 [Info] Progress: 36/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 40/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 44/96 in 0.0 s. ETA: 0.0000 s
@@ -23,10 +23,10 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Progress: 64/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 68/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 72/96 in 0.0 s. ETA: 0.0000 s
-[Info] Progress: 76/96 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 76/96 in 0.1 s. ETA: 0.5000 s
 [Info] Progress: 80/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 84/96 in 0.0 s. ETA: 0.0000 s
-[Info] Progress: 88/96 in 0.008 s. ETA: 0.0160 s
+[Info] Progress: 88/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 92/96 in 0.0 s. ETA: 0.0000 s
 [Info] Progress: 96/96 in 0.0 s. ETA: 0.0000 s
 [Info] -- Finished time step loop

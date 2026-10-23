@@ -1,10 +1,11 @@
 module ResieQuasi
 
 using Printf
-using Dates: now, seconds
+using Dates: now, seconds, Second
 using UUIDs
 using Base.Threads
 using Logging
+using OrderedCollections: OrderedDict
 
 """
 Contains the parameters, instantiated components and the order of operations for a simulation run.
@@ -21,7 +22,7 @@ type.
 mutable struct SimulationRun
     parameters::Dict{String,Any}
     io_settings::Dict{String,Any}
-    components::Dict{String,Any}
+    components::OrderedDict{String,Any}
     order_of_operations::Vector{Any}
 end
 
@@ -97,7 +98,6 @@ using ColorSchemes
 using Colors
 using Interpolations
 using JSON
-using Dates
 
 """
     run_simulation_loop(sim_params, io_settings, components, operations)
@@ -380,6 +380,7 @@ function run_simulation_loop(sim_params::Dict{String,Any},
                       output_interface_values,
                       medium_of_interfaces,
                       nr_of_interfaces,
+                      components,
                       io_settings,
                       sim_params)
         filepath = sim_params["run_path"](io_settings["sankey_plot_file_path"])
@@ -391,7 +392,7 @@ function run_simulation_loop(sim_params::Dict{String,Any},
         component_list = []
         output_path = sim_params["run_path"](io_settings["auxiliary_plots_path"])
         for component in components
-            if plot_optional_figures_end(component[2], sim_params, output_path)
+            if plot_optional_figures_end(component[2], sim_params, output_path, io_settings)
                 push!(component_list, component[2].uac)
             end
         end
@@ -448,7 +449,7 @@ function run_simulation_loop(sim_params::Dict{String,Any},
        !suppress_all_output
         filepath = sim_params["run_path"](io_settings["price_and_emission_profile_file_path"])
         success = plot_extended_price_and_emissions_profiles(economic_result, emissions_result, filepath, sim_params,
-                                                             io_settings["fixed_output_precision"])
+                                                             io_settings)
         success && @info "Utilized price and emission profiles exported as plot to $filepath"
     end
 

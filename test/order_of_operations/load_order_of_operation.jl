@@ -6,7 +6,7 @@ using ResieQuasi.EnergySystems
 include("../test_util.jl")
 
 function load_order_of_operation()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -66,12 +66,12 @@ function load_order_of_operation()
 
     expected_order_calculated = [("TST_DEM_01", EnergySystems.s_reset),
                                  ("TST_HP_01", EnergySystems.s_reset),
-                                 ("TST_SRC_01", EnergySystems.s_reset),
                                  ("TST_GRI_01", EnergySystems.s_reset),
+                                 ("TST_SRC_01", EnergySystems.s_reset),
                                  ("TST_DEM_01", EnergySystems.s_control),
                                  ("TST_HP_01", EnergySystems.s_control),
-                                 ("TST_SRC_01", EnergySystems.s_control),
                                  ("TST_GRI_01", EnergySystems.s_control),
+                                 ("TST_SRC_01", EnergySystems.s_control),
                                  ("TST_DEM_01", EnergySystems.s_process),
                                  ("TST_HP_01", EnergySystems.s_process),
                                  ("TST_SRC_01", EnergySystems.s_process),

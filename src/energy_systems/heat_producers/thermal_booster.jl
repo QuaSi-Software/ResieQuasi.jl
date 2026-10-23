@@ -239,7 +239,7 @@ mutable struct ThermalBooster <: Component
 
     balance::Float64
 
-    function ThermalBooster(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function ThermalBooster(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         return new(SSOT_parameter_constructor(ThermalBooster, uac, config, sim_params)...)
     end
 end
@@ -256,7 +256,7 @@ function emissions_parameters(x::Type{ThermalBooster})::Dict{String,Any}
     return deepcopy(THERMAL_BOOSTER_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{ThermalBooster}, config::Dict{String,Any}, param_name::String,
+function extract_parameter(x::Type{ThermalBooster}, config::AbstractDict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
     if param_name == "demand_input_temperature_profile_file_path"
         return load_optional_profile(config, param_name, sim_params)
@@ -267,7 +267,7 @@ function extract_parameter(x::Type{ThermalBooster}, config::Dict{String,Any}, pa
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{ThermalBooster}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{ThermalBooster}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(ThermalBooster)

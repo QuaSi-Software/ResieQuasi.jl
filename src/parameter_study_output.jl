@@ -2581,13 +2581,6 @@ end
                                             y_key=nothing, z_key=nothing, color_key=nothing,
                                             objective_sense=:min)
 
-Create an interactive 3D parameter-study explorer with selectable axes, colour variable and
-independent axis zoom controls.
-"""
-
-"""
-    create_interactive_3d_parameter_study_plot(results, io_settings, sim_params; ...)
-
 Create an interactive 3D parameter-study explorer with selectable parameter and result axes,
 selectable colour, two fixed control rows and independent axis zoom controls. Single-objective
 runs highlight the best solution. Multi-objective runs highlight all Pareto-optimal solutions.

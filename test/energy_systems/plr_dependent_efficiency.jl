@@ -336,7 +336,7 @@ end
 end
 
 function test_gas_boiler_supply_driven_plrd()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "FlexibleSink",
             "medium" => "m_h_w_ht1",
@@ -433,7 +433,7 @@ end
 end
 
 function test_CHPP_el_eff_plrd()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -548,7 +548,7 @@ end
 end
 
 function test_electrolyser_dispatch_units()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
