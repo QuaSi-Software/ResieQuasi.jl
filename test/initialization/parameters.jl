@@ -203,6 +203,7 @@ function test_validations_fail()
             "output_refs" => ["TST_BUS_01"],
             "medium" => "m_h_w_ht1",
             "constant_temperature" => 70.0,
+            "constant_power" => 1000.0
         ),
         "TST_BUS_01" => Dict{String,Any}(
             "type" => "Bus",
@@ -242,7 +243,7 @@ function test_validations_fail()
         msg = sprint(showerror, e)
     end
     @assert construction_errored
-    @assert occursin("Can't construct component TST_GRI_01", msg)
+    @assert occursin("Can't construct component TST_STO_01", msg)
 end
 
 @testset "validations_fail" begin
