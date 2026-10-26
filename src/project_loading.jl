@@ -1948,9 +1948,11 @@ function get_economic_parameters(project_config::AbstractDict{String,Any},
     EnergySystems.validate_config(EnergySystems.Component, economic_parameters, "Economic parameters",
                                   sim_params, ECONOMIC_PARAMETERS_DEF)
 
-    economic_parameters["repeat_period"], economic_parameters["repeat_method"] = get_repeat_period(economic_parameters["repeat_method"],
-                                                                                                   sim_params,
-                                                                                                   "economic")
+    if economic_parameters["calculate_economy"]
+        economic_parameters["repeat_period"], economic_parameters["repeat_method"] = get_repeat_period(economic_parameters["repeat_method"],
+                                                                                                       sim_params,
+                                                                                                       "economic")
+    end
 
     return economic_parameters
 end
@@ -2024,9 +2026,11 @@ function get_emissions_parameters(project_config::AbstractDict{String,Any},
     EnergySystems.validate_config(EnergySystems.Component, emissions_parameters, "Emissions parameters",
                                   sim_params, EMISSIONS_PARAMATERS_DEF)
 
-    emissions_parameters["repeat_period"], emissions_parameters["repeat_method"] = get_repeat_period(emissions_parameters["repeat_method"],
-                                                                                                     sim_params,
-                                                                                                     "emissions")
+    if emissions_parameters["calculate_emissions"]
+        emissions_parameters["repeat_period"], emissions_parameters["repeat_method"] = get_repeat_period(emissions_parameters["repeat_method"],
+                                                                                                         sim_params,
+                                                                                                         "emissions")
+    end
 
     return emissions_parameters
 end
