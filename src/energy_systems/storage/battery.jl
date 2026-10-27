@@ -1,4 +1,5 @@
 using Plots: Plots
+using ..ResieQuasi: record_performance_detail!
 
 #! format: off
 const BATTERY_COMPONENT_PARAMETERS = Dict(
@@ -1156,15 +1157,32 @@ function calc_SOC_Q(current::Number, n::Number, T::Number, unit::Battery,
 end
 
 function process(unit::Battery, sim_params::Dict{String,Any})
+    profile_performance = haskey(sim_params, "performance_detail_timings")
     if unit.max_discharge_energy >= sim_params["epsilon"]
+        stage_started_ns = profile_performance ? time_ns() : UInt64(0)
         exchanges_out = balance_on(unit.output_interfaces[unit.m_el_out],
-                                   unit.output_interfaces[unit.m_el_out].target)
+                                   unit.output_interfaces[unit.m_el_out].target;
+                                   sim_params=sim_params)
+        if profile_performance
+            record_performance_detail!(sim_params, unit.uac, :process, :exchange_collection,
+                                       time_ns() - stage_started_ns)
+            stage_started_ns = time_ns()
+        end
         energy_demand = balance(exchanges_out) + energy_potential(exchanges_out)
+        if profile_performance
+            record_performance_detail!(sim_params, unit.uac, :process, :exchange_interpretation,
+                                       time_ns() - stage_started_ns, length(exchanges_out))
+            stage_started_ns = time_ns()
+        end
 
         if energy_demand >= 0.0 # process is only concerned with moving energy to the target
             set_max_energy!(unit.output_interfaces[unit.m_el_out], 0.0)
             if unit.model_type != "simplified"
                 unit.discharge_efficiency = NaN
+            end
+            if profile_performance
+                record_performance_detail!(sim_params, unit.uac, :process, :interface_and_state_update,
+                                           time_ns() - stage_started_ns)
             end
         else
             if abs(abs(energy_demand) - unit.max_discharge_energy) > sim_params["epsilon"]
@@ -1177,6 +1195,11 @@ function process(unit::Battery, sim_params::Dict{String,Any})
                 unit.V_cell = unit.V_cell_discharge
                 charge = unit.max_discharge_charge
             end
+            if profile_performance
+                record_performance_detail!(sim_params, unit.uac, :process, :battery_model_calculation,
+                                           time_ns() - stage_started_ns)
+                stage_started_ns = time_ns()
+            end
             unit.losses += discharge_energy_bat * (1.0 / unit.discharge_efficiency - 1)
             if unit.model_type != "simplified"
                 unit.extracted_charge += charge
@@ -1184,26 +1207,57 @@ function process(unit::Battery, sim_params::Dict{String,Any})
 
             unit.load -= discharge_energy_bat
             add!(unit.output_interfaces[unit.m_el_out], discharge_energy_bat)
+            if profile_performance
+                record_performance_detail!(sim_params, unit.uac, :process, :interface_and_state_update,
+                                           time_ns() - stage_started_ns)
+            end
         end
     else
+        stage_started_ns = profile_performance ? time_ns() : UInt64(0)
         set_max_energy!(unit.output_interfaces[unit.m_el_out], 0.0)
         if unit.model_type != "simplified"
             unit.discharge_efficiency = NaN
         end
+        if profile_performance
+            record_performance_detail!(sim_params, unit.uac, :process, :interface_and_state_update,
+                                       time_ns() - stage_started_ns)
+        end
     end
+    stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     handle_component_update!(unit, "process", sim_params)
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :process, :component_state_update,
+                                   time_ns() - stage_started_ns)
+    end
 end
 
 function load(unit::Battery, sim_params::Dict{String,Any})
+    profile_performance = haskey(sim_params, "performance_detail_timings")
     if unit.max_charge_energy >= sim_params["epsilon"]
+        stage_started_ns = profile_performance ? time_ns() : UInt64(0)
         exchanges_in = balance_on(unit.input_interfaces[unit.m_el_in],
-                                  unit.input_interfaces[unit.m_el_in].source)
+                                  unit.input_interfaces[unit.m_el_in].source;
+                                  sim_params=sim_params)
+        if profile_performance
+            record_performance_detail!(sim_params, unit.uac, :load, :exchange_collection,
+                                       time_ns() - stage_started_ns)
+            stage_started_ns = time_ns()
+        end
         energy_available = balance(exchanges_in) + energy_potential(exchanges_in)
+        if profile_performance
+            record_performance_detail!(sim_params, unit.uac, :load, :exchange_interpretation,
+                                       time_ns() - stage_started_ns, length(exchanges_in))
+            stage_started_ns = time_ns()
+        end
 
         if energy_available <= 0.0 # load is only concerned with receiving energy from the source
             set_max_energy!(unit.input_interfaces[unit.m_el_in], 0.0)
             if unit.model_type != "simplified"
                 unit.charge_efficiency = NaN
+            end
+            if profile_performance
+                record_performance_detail!(sim_params, unit.uac, :load, :interface_and_state_update,
+                                           time_ns() - stage_started_ns)
             end
         else
             if abs(energy_available - unit.max_charge_energy) > sim_params["epsilon"] ||
@@ -1218,20 +1272,39 @@ function load(unit::Battery, sim_params::Dict{String,Any})
                 unit.V_cell = unit.V_cell_charge
                 charge = unit.max_charge_charge
             end
+            if profile_performance
+                record_performance_detail!(sim_params, unit.uac, :load, :battery_model_calculation,
+                                           time_ns() - stage_started_ns)
+                stage_started_ns = time_ns()
+            end
             unit.losses += charge_energy_bat * (1 - unit.charge_efficiency)
             if unit.model_type != "simplified"
                 unit.extracted_charge += charge
             end
             unit.load += charge_energy_bat
             sub!(unit.input_interfaces[unit.m_el_in], charge_energy_bat)
+            if profile_performance
+                record_performance_detail!(sim_params, unit.uac, :load, :interface_and_state_update,
+                                           time_ns() - stage_started_ns)
+            end
         end
     else
+        stage_started_ns = profile_performance ? time_ns() : UInt64(0)
         set_max_energy!(unit.input_interfaces[unit.m_el_in], 0.0)
         if unit.model_type != "simplified"
             unit.charge_efficiency = NaN
         end
+        if profile_performance
+            record_performance_detail!(sim_params, unit.uac, :load, :interface_and_state_update,
+                                       time_ns() - stage_started_ns)
+        end
     end
+    stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     handle_component_update!(unit, "load", sim_params)
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :load, :component_state_update,
+                                   time_ns() - stage_started_ns)
+    end
 end
 
 function handle_component_update!(unit::Battery, step::String, sim_params::Dict{String,Any})

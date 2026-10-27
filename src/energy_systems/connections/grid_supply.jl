@@ -1,3 +1,5 @@
+using ..ResieQuasi: record_performance_detail!
+
 #! format: off
 const GRID_SUPPLY_PARAMETERS = Dict(
     "medium" => (
@@ -202,7 +204,14 @@ end
 
 function process(unit::GridSupply, sim_params::Dict{String,Any})
     outface = unit.output_interfaces[unit.medium]
-    exchanges = balance_on(outface, outface.target)
+    profile_performance = haskey(sim_params, "performance_detail_timings")
+    stage_started_ns = profile_performance ? time_ns() : UInt64(0)
+    exchanges = balance_on(outface, outface.target; sim_params=sim_params)
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :process, :exchange_collection,
+                                   time_ns() - stage_started_ns)
+        stage_started_ns = time_ns()
+    end
 
     # if we get multiple exchanges from balance_on, a bus is involved, which means the
     # temperature check has already been performed. we only need to check the case for
@@ -223,9 +232,18 @@ function process(unit::GridSupply, sim_params::Dict{String,Any})
             energy_demand = 0.0
         end
     end
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :process, :exchange_interpretation,
+                                   time_ns() - stage_started_ns, length(exchanges))
+        stage_started_ns = time_ns()
+    end
     if energy_demand < 0.0
         unit.output_sum += energy_demand
         add!(outface, abs(energy_demand), nothing, temp_out)
+    end
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :process, :interface_and_state_update,
+                                   time_ns() - stage_started_ns)
     end
 end
 

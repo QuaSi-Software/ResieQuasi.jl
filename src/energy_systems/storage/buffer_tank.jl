@@ -1,3 +1,5 @@
+using ..ResieQuasi: record_performance_detail!
+
 #! format: off
 const BUFFER_TANK_COMPONENT_PARAMETERS = Dict(
     "medium" => (
@@ -383,7 +385,8 @@ function emissions_parameters(x::Type{BufferTank})::Dict{String,Any}
     return deepcopy(BUFFER_TANK_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{BufferTank}, config::AbstractDict{String,Any}, param_name::String, param_def::NamedTuple,
+function extract_parameter(x::Type{BufferTank}, config::AbstractDict{String,Any}, param_name::String,
+                           param_def::NamedTuple,
                            sim_params::Dict{String,Any}, uac::String)
     if param_name == "ambient_temperature_from_global_file"
         return load_profile_from_global_weather_file(config, param_name, sim_params, uac)
@@ -396,7 +399,8 @@ function extract_parameter(x::Type{BufferTank}, config::AbstractDict{String,Any}
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{BufferTank}, config::AbstractDict{String,Any}, extracted::Dict{String,Any}, uac::String,
+function validate_config(x::Type{BufferTank}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
+                         uac::String,
                          sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(BufferTank)
@@ -594,16 +598,33 @@ end
 
 function process(unit::BufferTank, sim_params::Dict{String,Any})
     outface = unit.output_interfaces[unit.medium]
-    exchanges = balance_on(outface, outface.target)
+    profile_performance = haskey(sim_params, "performance_detail_timings")
+    stage_started_ns = profile_performance ? time_ns() : UInt64(0)
+    exchanges = balance_on(outface, outface.target; sim_params=sim_params)
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :process, :exchange_collection,
+                                   time_ns() - stage_started_ns)
+        stage_started_ns = time_ns()
+    end
     energy_demanded = balance(exchanges) + energy_potential(exchanges)
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :process, :exchange_interpretation,
+                                   time_ns() - stage_started_ns, length(exchanges))
+    end
 
     # shortcut if there is no energy demanded
     if energy_demanded >= -sim_params["epsilon"] || unit.capacity <= sim_params["epsilon"]
+        stage_started_ns = profile_performance ? time_ns() : UInt64(0)
         set_max_energy!(unit.output_interfaces[unit.medium], 0.0)
         handle_component_update!(unit, "process", sim_params)
+        if profile_performance
+            record_performance_detail!(sim_params, unit.uac, :process, :component_state_update,
+                                       time_ns() - stage_started_ns)
+        end
         return
     end
 
+    stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     for exchange in exchanges
         demanded_on_interface = exchange.balance + exchange.energy_potential
 
@@ -631,8 +652,17 @@ function process(unit::BufferTank, sim_params::Dict{String,Any})
             unit.load = 0.0
         end
     end
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :process, :exchange_application,
+                                   time_ns() - stage_started_ns, length(exchanges))
+        stage_started_ns = time_ns()
+    end
 
     handle_component_update!(unit, "process", sim_params)
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :process, :component_state_update,
+                                   time_ns() - stage_started_ns)
+    end
 end
 
 function handle_component_update!(unit::BufferTank, step::String, sim_params::Dict{String,Any})
@@ -652,16 +682,33 @@ end
 
 function load(unit::BufferTank, sim_params::Dict{String,Any})
     inface = unit.input_interfaces[unit.medium]
-    exchanges = balance_on(inface, inface.source)
+    profile_performance = haskey(sim_params, "performance_detail_timings")
+    stage_started_ns = profile_performance ? time_ns() : UInt64(0)
+    exchanges = balance_on(inface, inface.source; sim_params=sim_params)
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :load, :exchange_collection,
+                                   time_ns() - stage_started_ns)
+        stage_started_ns = time_ns()
+    end
     energy_available = balance(exchanges) + energy_potential(exchanges)
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :load, :exchange_interpretation,
+                                   time_ns() - stage_started_ns, length(exchanges))
+    end
 
     # shortcut if there is no energy to be used
     if energy_available <= sim_params["epsilon"] || unit.capacity <= sim_params["epsilon"]
+        stage_started_ns = profile_performance ? time_ns() : UInt64(0)
         handle_component_update!(unit, "load", sim_params)
         set_max_energy!(unit.input_interfaces[unit.medium], 0.0)
+        if profile_performance
+            record_performance_detail!(sim_params, unit.uac, :load, :component_state_update,
+                                       time_ns() - stage_started_ns)
+        end
         return
     end
 
+    stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     for exchange in exchanges
         exchange_energy_available = exchange.balance + exchange.energy_potential
 
@@ -689,8 +736,17 @@ function load(unit::BufferTank, sim_params::Dict{String,Any})
             energy_available -= diff
         end
     end
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :load, :exchange_application,
+                                   time_ns() - stage_started_ns, length(exchanges))
+        stage_started_ns = time_ns()
+    end
 
     handle_component_update!(unit, "load", sim_params)
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :load, :component_state_update,
+                                   time_ns() - stage_started_ns)
+    end
 end
 
 function get_reference_for_capex_and_embodied_emissions(unit::BufferTank)

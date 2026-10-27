@@ -384,6 +384,7 @@ function run_simulation_loop(sim_params::Dict{String,Any},
             start = now()
         end
     end
+    profile_performance && delete!(sim_params, "performance_detail_phase")
     @info "-- Finished time step loop"
     profile_loop_finished_ns = profile_performance ? time_ns() : UInt64(0)
 
@@ -646,7 +647,9 @@ function run_simulation_loop(sim_params::Dict{String,Any},
         for key in sorted_detail_keys
             elapsed_ns = performance_detail_timings[key]
             calls = performance_detail_counts[key]
-            measurement_scope = key[3] in (:slicing_search_total, :optimizer_total, :optimizer_objective_callback) ?
+            measurement_scope = key[3] in (:slicing_search_total, :optimizer_total,
+                                           :optimizer_objective_callback, :bus_inner_distribution_total,
+                                           :bus_distribution_pair_loop_total) ?
                                 "inclusive" : "exclusive"
             @info "Simulation performance detail" component=key[1] phase=string(key[2]) stage=string(key[3]) measurement_scope=measurement_scope total_seconds=elapsed_ns /
                                                                                                                                                                1e9 calls=calls average_milliseconds=elapsed_ns /
@@ -661,6 +664,12 @@ function run_simulation_loop(sim_params::Dict{String,Any},
                                                component_stage_performance_timings,
                                                measured_elapsed_ns)
             @info "Simulation performance plot created and saved to $(performance_plot_path)"
+            performance_detail_plot_path = sim_params["run_path"](io_settings["performance_detail_plot_file_path"])
+            create_simulation_performance_detail_plot(performance_detail_plot_path,
+                                                      performance_detail_timings,
+                                                      performance_detail_counts,
+                                                      measured_elapsed_ns)
+            @info "Simulation performance detail plot created and saved to $(performance_detail_plot_path)"
         end
     end
 

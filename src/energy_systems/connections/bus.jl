@@ -1,4 +1,4 @@
-using ..ResieQuasi: get_run
+using ..ResieQuasi: get_run, record_performance_detail!
 using ResieQuasi
 using UUIDs
 
@@ -572,13 +572,25 @@ busses of the chain.
 `Vector{EnergyExchange}`: A list of energy exchanges, each of which encode one potential
     source or target for the component requesting a balance calculation.
 """
-function balance_on(interface::SystemInterface, unit::Bus)::Vector{EnergyExchange}
+function balance_on(interface::SystemInterface,
+                    unit::Bus;
+                    sim_params::Union{Nothing,Dict{String,Any}}=nothing)::Vector{EnergyExchange}
+    profile_performance = sim_params !== nothing && haskey(sim_params, "performance_detail_timings")
+    caller_component = interface.source isa Bus ? interface.target.uac : interface.source.uac
+    phase = profile_performance ? get(sim_params, "performance_detail_phase", :bus) : :bus
+
     if unit.proxy !== nothing
+        proxy_lookup_started_ns = profile_performance ? time_ns() : UInt64(0)
         proxy_interface = find_interface_on_proxy(unit.proxy, interface)
-        return proxy_interface === nothing ? [] : balance_on(proxy_interface, unit.proxy)
+        if profile_performance
+            record_performance_detail!(sim_params, caller_component, phase, :bus_proxy_interface_lookup,
+                                       time_ns() - proxy_lookup_started_ns)
+        end
+        return proxy_interface === nothing ? [] : balance_on(proxy_interface, unit.proxy; sim_params)
     end
 
     # determine if the calling component is an input or output to the bus, can be only one of both
+    stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     caller_is_input = false
     caller_uac = nothing
     for input_interface in unit.input_interfaces
@@ -603,7 +615,22 @@ function balance_on(interface::SystemInterface, unit::Bus)::Vector{EnergyExchang
             end
         end
     end
-    inner_distribute!(unit; caller_uac_transformer_only=caller_uac, caller_is_input=caller_is_input)
+    if profile_performance
+        record_performance_detail!(sim_params, caller_component, phase, :bus_caller_classification,
+                                   time_ns() - stage_started_ns)
+        stage_started_ns = time_ns()
+    end
+    inner_distribute!(unit;
+                      caller_uac_transformer_only=caller_uac,
+                      caller_is_input=caller_is_input,
+                      sim_params=sim_params,
+                      caller_component=caller_component,
+                      caller_phase=phase)
+    if profile_performance
+        record_performance_detail!(sim_params, caller_component, phase, :bus_inner_distribution_total,
+                                   time_ns() - stage_started_ns)
+        stage_started_ns = time_ns()
+    end
 
     return_exchanges = []
     if caller_is_input
@@ -748,6 +775,11 @@ function balance_on(interface::SystemInterface, unit::Bus)::Vector{EnergyExchang
                    voltage=nothing))
     end
 
+    if profile_performance
+        record_performance_detail!(sim_params, caller_component, phase, :bus_exchange_materialization,
+                                   time_ns() - stage_started_ns, length(return_exchanges))
+    end
+
     return return_exchanges
 end
 
@@ -878,9 +910,23 @@ optional parameters.
                                           Otherwise, this has to be nothing!
 `caller_is_input::Bool`: Indicates if the calling component from balance_on is an input or output component
 """
-function inner_distribute!(unit::Bus; caller_uac_transformer_only::Stringing=nothing, caller_is_input::Bool=false)
+function inner_distribute!(unit::Bus;
+                           caller_uac_transformer_only::Stringing=nothing,
+                           caller_is_input::Bool=false,
+                           sim_params::Union{Nothing,Dict{String,Any}}=nothing,
+                           caller_component::Union{Nothing,String}=nothing,
+                           caller_phase::Symbol=:bus)
+    profile_performance = sim_params !== nothing && haskey(sim_params, "performance_detail_timings")
+    stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     reset_balance_table!(unit)
+    if profile_performance
+        record_performance_detail!(sim_params, something(caller_component, unit.uac), caller_phase,
+                                   :bus_balance_table_reset, time_ns() - stage_started_ns)
+        stage_started_ns = time_ns()
+    end
     output_priority_to_skip = length(unit.balance_table_outputs)
+    energy_reduction_elapsed_ns = UInt64(0)
+    energy_reduction_calls = 0
 
     for (input_row, output_row) in unit.input_output_rows_iteration
         # ensure that an input is not distributed to an output if one of them comes after another input/output with 
@@ -952,6 +998,7 @@ function inner_distribute!(unit::Bus; caller_uac_transformer_only::Stringing=not
                                                                                  temperature_lowest_max)
 
         if energy_flow !== 0.0 && !isinf(energy_flow)
+            reduction_started_ns = profile_performance ? time_ns() : UInt64(0)
             # extract the already distributed energy from the balance table
             already_distributed_input_energies = Float64.(unit.balance_table[input_row.priority, 1:2:end])
             already_distributed_input_temperatures = unit.balance_table[input_row.priority, 2:2:end]
@@ -995,7 +1042,18 @@ function inner_distribute!(unit::Bus; caller_uac_transformer_only::Stringing=not
                                    output_row.target.uac,
                                    unit.run_id)
             end
+            if profile_performance
+                energy_reduction_elapsed_ns += time_ns() - reduction_started_ns
+                energy_reduction_calls += 1
+            end
         end
+    end
+    if profile_performance
+        record_performance_detail!(sim_params, something(caller_component, unit.uac), caller_phase,
+                                   :bus_distribution_pair_loop_total, time_ns() - stage_started_ns)
+        record_performance_detail!(sim_params, something(caller_component, unit.uac), caller_phase,
+                                   :bus_energy_allocation_and_reduction, energy_reduction_elapsed_ns,
+                                   energy_reduction_calls)
     end
 end
 
@@ -1063,8 +1121,8 @@ function filter_inputs(unit::Bus, condition::SystemFunction, inclusive::Bool)
     return [f
             for f in unit.input_interfaces
             if (inclusive && f.source.sys_function == condition)
-               ||
-               (!inclusive && f.source.sys_function != condition)]
+    ||
+        (!inclusive && f.source.sys_function != condition)]
 end
 
 """
@@ -1087,8 +1145,8 @@ function filter_outputs(unit::Bus, condition::SystemFunction, inclusive::Bool)
     return [f
             for f in unit.output_interfaces
             if (inclusive && f.target.sys_function == condition)
-               ||
-               (!inclusive && f.target.sys_function != condition)]
+    ||
+        (!inclusive && f.target.sys_function != condition)]
 end
 
 """

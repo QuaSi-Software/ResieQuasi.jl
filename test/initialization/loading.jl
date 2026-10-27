@@ -62,6 +62,7 @@ end
     io_settings = Resie.get_io_settings(project_config)
     @test io_settings["profile_simulation_performance"] == false
     @test io_settings["performance_plot_file_path"] == "./output/performance_profile.html"
+    @test io_settings["performance_detail_plot_file_path"] == "./output/performance_profile_details.html"
 
     project_config["io_settings"]["profile_simulation_performance"] = true
     io_settings = Resie.get_io_settings(project_config)
@@ -104,5 +105,32 @@ end
         @test isfile(plot_path)
         @test occursin("Unit A", read(plot_path, String))
         @test occursin("Simulation overhead", read(plot_path, String))
+    end
+
+    @testset "simulation performance detail plot" begin
+        timings = Dict{Tuple{String,Symbol,Symbol},UInt64}(
+            ("HeatPump A", :process, :slicing_search_total) => 500_000_000,
+            ("HeatPump A", :process, :optimizer_total) => 400_000_000,
+            ("HeatPump A", :process, :optimizer_slice_calculation) => 350_000_000,
+            ("HeatPump A", :potential, :heat_potential_collection) => 100_000_000)
+        counts = Dict{Tuple{String,Symbol,Symbol},Int}(
+            ("HeatPump A", :process, :slicing_search_total) => 10,
+            ("HeatPump A", :process, :optimizer_total) => 10,
+            ("HeatPump A", :process, :optimizer_slice_calculation) => 100,
+            ("HeatPump A", :potential, :heat_potential_collection) => 10)
+
+        mktempdir() do directory
+            plot_path = joinpath(directory, "performance_profile_details.html")
+            result_path = Resie.create_simulation_performance_detail_plot(plot_path, timings, counts,
+                                                                          UInt64(1_000_000_000))
+            html = read(plot_path, String)
+            @test result_path == plot_path
+            @test isfile(plot_path)
+            @test occursin("HeatPump A / process / optimizer_slice_calculation", html)
+            @test occursin("HeatPump A / potential / heat_potential_collection", html)
+            @test !occursin("HeatPump A / process / slicing_search_total", html)
+            @test !occursin("HeatPump A / process / optimizer_total", html)
+            @test occursin("Exclusive timings", html)
+        end
     end
 end

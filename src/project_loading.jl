@@ -243,6 +243,16 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="string",
         unit="-"
     ),
+    "performance_detail_plot_file_path" => (
+        default="./output/performance_profile_details.html",
+        description="File path for the detailed heat-pump performance plot generated when " *
+                    "simulation performance profiling is enabled.",
+        display_name="Performance detail plot file path",
+        required=false,
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
     "output_plot_time_unit" => (
         default="date",
         description="Unit for x-axis of the output plot. Note that the plotted energies " *

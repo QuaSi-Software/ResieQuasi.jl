@@ -1334,7 +1334,9 @@ called in 1-to-1 connections. Here, the components take care of matching tempera
 - `Vector{EnergyExchange}`: A list of energy exchange items, which contain the information
     required to perform the energy flow calculations.
 """
-function balance_on(interface::SystemInterface, unit::Component)::Vector{EnergyExchange}
+function balance_on(interface::SystemInterface,
+                    unit::Component;
+                    sim_params::Union{Nothing,Dict{String,Any}}=nothing)::Vector{EnergyExchange}
     balance_written = is_max_energy_nothing(interface.max_energy) || interface.sum_abs_change > 0.0
     purpose_uac = unit.uac == interface.target.uac ? interface.target.uac : interface.source.uac
 
@@ -3022,6 +3024,14 @@ function perform_operations(components::Grouping,
         end
         unit = components[entry[1]]
         step = entry[2]
+        stage = step === s_reset ? :reset :
+                step === s_control ? :control :
+                step === s_potential ? :potential :
+                step === s_process ? :process :
+                step === s_load ? :load : :distribute
+        if performance_timings !== nothing
+            sim_params["performance_detail_phase"] = stage
+        end
 
         if step == s_reset
             reset(unit)
@@ -3038,11 +3048,6 @@ function perform_operations(components::Grouping,
         end
 
         if performance_timings !== nothing
-            stage = step === s_reset ? :reset :
-                    step === s_control ? :control :
-                    step === s_potential ? :potential :
-                    step === s_process ? :process :
-                    step === s_load ? :load : :distribute
             elapsed_ns = time_ns() - operation_started_ns
             performance_timings[stage] = get(performance_timings, stage, UInt64(0)) + elapsed_ns
             if component_performance_timings !== nothing

@@ -758,6 +758,49 @@ function create_simulation_performance_plot(path::String,
 end
 
 """
+    create_simulation_performance_detail_plot(path, detail_timings, detail_counts,
+                                              measured_workflow_ns)
+
+Write a horizontal bar chart of exclusive, per-component performance measurements. Inclusive
+optimizer/search totals are omitted because their nested measurements are shown separately.
+"""
+function create_simulation_performance_detail_plot(path::String,
+                                                   detail_timings::Dict{Tuple{String,Symbol,Symbol},UInt64},
+                                                   detail_counts::Dict{Tuple{String,Symbol,Symbol},Int},
+                                                   measured_workflow_ns::UInt64)
+    inclusive_stages = (:slicing_search_total, :optimizer_total, :optimizer_objective_callback,
+                        :bus_inner_distribution_total, :bus_distribution_pair_loop_total)
+    detail_keys = filter(key -> !(key[3] in inclusive_stages), collect(keys(detail_timings)))
+    sort!(detail_keys; by=key -> detail_timings[key], rev=true)
+
+    labels = ["$(key[1]) / $(key[2]) / $(key[3])" for key in detail_keys]
+    elapsed_seconds = [detail_timings[key] / 1e9 for key in detail_keys]
+    calls = [detail_counts[key] for key in detail_keys]
+    average_milliseconds = [detail_timings[key] / detail_counts[key] / 1e6 for key in detail_keys]
+    hover_data = hcat(calls, average_milliseconds)
+    trace = PlotlyJS.bar(; x=elapsed_seconds,
+                         y=labels,
+                         orientation="h",
+                         customdata=hover_data,
+                         marker_color="#4C78A8",
+                         hovertemplate="%{y}<br>Total: %{x:.3f} s" *
+                                       "<br>Calls: %{customdata[0]}" *
+                                       "<br>Average: %{customdata[1]:.4f} ms<extra></extra>")
+
+    total_seconds = measured_workflow_ns / 1e9
+    layout = PlotlyJS.Layout(;
+                             title=PlotlyJS.attr(;
+                                                 text="Detailed component performance" *
+                                                      "<br><sup>Exclusive timings; measured workflow: $(round(total_seconds; digits=2)) s</sup>"),
+                             xaxis_title_text="Accumulated time [s]",
+                             yaxis=PlotlyJS.attr(; autorange="reversed"),
+                             height=max(450, 32 * length(labels) + 180),
+                             margin=PlotlyJS.attr(; l=390, r=30, t=100, b=60))
+    PlotlyJS.savefig(PlotlyJS.plot([trace], layout), path)
+    return path
+end
+
+"""
     create_profile_line_plots(data, keys, weather_data, weather_keys, io_settings, sim_params)
 
 Creates the line plots for the given output configuration.
