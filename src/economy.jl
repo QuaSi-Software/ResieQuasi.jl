@@ -892,10 +892,12 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     end
     title = "Extended $(title_suffix)" *
             "<br><sup>Profiles utilized in calculation, including annual change rates.</sup>"
+    t = 60
     if dec_f > 1
-        title *= "<br>For plot performance reasons the plot got downsampled by factor " *
+        title *= "<br><sup>For plot performance reasons the plot got downsampled by factor " *
                  "$dec_f. The values didn't get adjusted but just every $dec_f value gets" *
-                 " displayed."
+                 " displayed.</sup>"
+        t = 90 # adjust title margin slightly to accommodate longer title
     end
 
     leap_days_str = string.([Date(year, 2, 29)
@@ -917,8 +919,8 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
                                 side="right",
                                 zeroline=true),
                     hovermode="closest",
-                    legend=attr(; x=1.05, y=1.0, xanchor="left", yanchor="top"))
-
+                    legend=attr(; x=1.05, y=1.0, xanchor="left", yanchor="top"),
+                    margin_t=t)
     p = plot(traces, layout)
     savefig(p, output_file_path)
 

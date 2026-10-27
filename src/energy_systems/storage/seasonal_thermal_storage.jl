@@ -1500,9 +1500,9 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
 
     title = "Temperature distribution over time in STES $(unit.uac)"
     if dec_f > 1
-        title *= "<br>For plot performance reasons the plot got downsampled by factor " *
+        title *= "<br><sup>For plot performance reasons the plot got downsampled by factor " *
                  "$dec_f. The values didn't get adjusted but just every $dec_f value gets" *
-                 " displayed."
+                 " displayed.</sup>"
     end
 
     leap_days_str = string.([Date(year, 2, 29)
@@ -1558,9 +1558,9 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     title = "Temperature difference to surrounding over time in STES $(unit.uac) " *
             "(positive: storage is colder than surrounding)"
     if dec_f > 1
-        title *= "<br>For plot performance reasons the plot got downsampled by factor " *
+        title *= "<br><sup>For plot performance reasons the plot got downsampled by factor " *
                  "$dec_f. The values didn't get adjusted but just every $dec_f value gets" *
-                 " displayed."
+                 " displayed.</sup>"
     end
 
     leap_days_str = string.([Date(year, 2, 29)
