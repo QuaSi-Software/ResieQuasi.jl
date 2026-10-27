@@ -208,7 +208,7 @@ function process(unit::GridSink, sim_params::Dict{String,Any})
     stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     exchanges = balance_on(inface, inface.source; sim_params=sim_params)
     if profile_performance
-        record_performance_detail!(sim_params, unit.uac, :process, :exchange_collection,
+        record_performance_detail!(sim_params, unit.uac, :process, :balance_on,
                                    time_ns() - stage_started_ns)
         stage_started_ns = time_ns()
     end

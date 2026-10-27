@@ -1164,7 +1164,7 @@ function process(unit::Battery, sim_params::Dict{String,Any})
                                    unit.output_interfaces[unit.m_el_out].target;
                                    sim_params=sim_params)
         if profile_performance
-            record_performance_detail!(sim_params, unit.uac, :process, :exchange_collection,
+            record_performance_detail!(sim_params, unit.uac, :process, :balance_on,
                                        time_ns() - stage_started_ns)
             stage_started_ns = time_ns()
         end
@@ -1239,7 +1239,7 @@ function load(unit::Battery, sim_params::Dict{String,Any})
                                   unit.input_interfaces[unit.m_el_in].source;
                                   sim_params=sim_params)
         if profile_performance
-            record_performance_detail!(sim_params, unit.uac, :load, :exchange_collection,
+            record_performance_detail!(sim_params, unit.uac, :load, :balance_on,
                                        time_ns() - stage_started_ns)
             stage_started_ns = time_ns()
         end

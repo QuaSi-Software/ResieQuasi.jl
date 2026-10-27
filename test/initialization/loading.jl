@@ -112,12 +112,14 @@ end
             ("HeatPump A", :process, :slicing_search_total) => 500_000_000,
             ("HeatPump A", :process, :optimizer_total) => 400_000_000,
             ("HeatPump A", :process, :optimizer_slice_calculation) => 350_000_000,
-            ("HeatPump A", :potential, :heat_potential_collection) => 100_000_000)
+            ("HeatPump A", :potential, :heat_potential_collection) => 100_000_000,
+            ("Tank A", :load, :exchange_collection) => 200_000_000)
         counts = Dict{Tuple{String,Symbol,Symbol},Int}(
             ("HeatPump A", :process, :slicing_search_total) => 10,
             ("HeatPump A", :process, :optimizer_total) => 10,
             ("HeatPump A", :process, :optimizer_slice_calculation) => 100,
-            ("HeatPump A", :potential, :heat_potential_collection) => 10)
+            ("HeatPump A", :potential, :heat_potential_collection) => 10,
+            ("Tank A", :load, :exchange_collection) => 10)
 
         mktempdir() do directory
             plot_path = joinpath(directory, "performance_profile_details.html")
@@ -126,10 +128,14 @@ end
             html = read(plot_path, String)
             @test result_path == plot_path
             @test isfile(plot_path)
-            @test occursin("HeatPump A / process / optimizer_slice_calculation", html)
-            @test occursin("HeatPump A / potential / heat_potential_collection", html)
-            @test !occursin("HeatPump A / process / slicing_search_total", html)
-            @test !occursin("HeatPump A / process / optimizer_total", html)
+            @test occursin("HeatPump A / potential", html)
+            @test occursin("HeatPump A / process", html)
+            @test occursin("Tank A / load", html)
+            @test occursin("\"name\":\"optimizer_slice_calculation\"", html)
+            @test occursin("\"name\":\"heat_potential_collection\"", html)
+            @test occursin("\"barmode\":\"stack\"", html)
+            @test !occursin("\"name\":\"optimizer_total\"", html)
+            @test !occursin("\"name\":\"slicing_search_total\"", html)
             @test occursin("Exclusive timings", html)
         end
     end
