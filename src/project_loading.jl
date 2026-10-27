@@ -574,6 +574,7 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
                     "Works together with plot downsampling.",
         display_name="Maximum number of values in a plot",
         required=false,
+        validations=[("self", "value_gt_num", 0)],
         type=Integer,
         json_type="number",
         unit="-"

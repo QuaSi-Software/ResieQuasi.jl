@@ -842,36 +842,23 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
         end
     end
 
-    # add NaN values on leap_days so x0 and dx can be used in plots together with rangebreaks
-    function add_leap_NaN(values)
-        dates = [sim_params["start_date_output"] + Second((s - 1) * sim_params["time_step_seconds"])
-                 for s in 1:size(values, 1)]
-        leap_mask = (month.(dates) .== 2) .& (day.(dates) .== 29)
-        y_with_leap = fill(NaN, length(dates), size(values, 2))
-        y_with_leap[.!leap_mask, :] .= values
-        for i in reverse(findall(leap_mask))
-            y_with_leap[i, :] .= y_with_leap[i + 1, :]
-        end
-        return y_with_leap
-    end
-
-    economic_profiles = add_leap_NaN(economic_profiles)
-    emissions_profiles = add_leap_NaN(emissions_profiles)
-
     x0 = sim_params["start_date_output"]
     dx = sim_params["time_step_seconds"] * 1000
 
     # downsamle profiles and timestamps to reduce file size with long simulations
+    dec_f = 1
     if io_settings["enable_plot_downsampling"]
-        max_n_vals = io_settings["plot_downsampling_max_number_values"] - prod(size(emissions_profiles))
-        economic_profiles, dec_f = EnergySystems.downsampling_for_plots(economic_profiles, 1;
-                                                                        max_n_values=max_n_vals)
+        n_vals = prod(size(economic_profiles)) + prod(size(emissions_profiles))
+        dec_f = ceil(Int, n_vals / io_settings["plot_downsampling_max_number_values"])
+        economic_profiles, _ = EnergySystems.downsampling_for_plots(economic_profiles, 1;
+                                                                    decimation_factor=dec_f)
         emissions_profiles, _ = EnergySystems.downsampling_for_plots(emissions_profiles, 1;
                                                                      decimation_factor=dec_f)
         dx *= dec_f
     end
 
     if economic_result !== nothing
+        economic_profiles = EnergySystems.add_leap_day_values(economic_profiles, sim_params)
         for (idx, profile) in enumerate(eachcol(economic_profiles))
             name = economic_profile_names[idx]
             push!(traces,
@@ -880,6 +867,7 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     end
 
     if emissions_result !== nothing
+        emissions_profiles = EnergySystems.add_leap_day_values(emissions_profiles, sim_params)
         for (idx, profile) in enumerate(eachcol(emissions_profiles))
             name = emissions_profile_names[idx]
             push!(traces,
