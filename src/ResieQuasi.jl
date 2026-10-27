@@ -141,6 +141,7 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     weather_CSV_keys = do_write_CSV_weather ? weather_data_keys : nothing
     do_write_CSV = output_keys_to_CSV !== nothing || do_write_CSV_weather
     do_write_CSV_continuously = io_settings["write_csv_continuously"]
+    profile_performance = get(io_settings, "profile_simulation_performance", false)
     do_write_summary_CSV = !suppress_all_output && io_settings["write_summary_csv"]
     csv_file_path = io_settings["csv_output_file_path"]
     csv_time_unit = io_settings["csv_time_unit"]
@@ -192,6 +193,11 @@ function run_simulation_loop(sim_params::Dict{String,Any},
         @info "-- Starting with preheating, no output will be written until completed."
     end
     start = now()
+    performance_timings = profile_performance ? Dict{Symbol,UInt64}() : nothing
+    performance_counts = profile_performance ? Dict{Symbol,Int}() : nothing
+    component_performance_timings = profile_performance ? Dict{String,UInt64}() : nothing
+    component_stage_performance_timings = profile_performance ? Dict{Tuple{String,Symbol},UInt64}() : nothing
+    profile_loop_started_ns = profile_performance ? time_ns() : UInt64(0)
     for steps in 1:sim_params["number_of_time_steps"]
         # handle interruption from STRG+C for multi-thread simulations
         if cancel_flag !== nothing && cancel_flag[]
@@ -207,13 +213,35 @@ function run_simulation_loop(sim_params::Dict{String,Any},
             @info "-- Preheating completed. Starting output now."
         end
 
-        operations_adjusted = reorder_operations_in_time_step(components, operations, sim_params)
-        perform_operations(components, operations_adjusted, sim_params)
+        if profile_performance
+            stage_started_ns = time_ns()
+            operations_adjusted = reorder_operations_in_time_step(components, operations, sim_params)
+            performance_timings[:operation_reordering] = get(performance_timings, :operation_reordering, UInt64(0)) +
+                                                         (time_ns() - stage_started_ns)
+            performance_counts[:operation_reordering] = get(performance_counts, :operation_reordering, 0) + 1
+            perform_operations(components, operations_adjusted, sim_params;
+                               performance_timings=performance_timings,
+                               performance_counts=performance_counts,
+                               component_performance_timings=component_performance_timings,
+                               component_stage_performance_timings=component_stage_performance_timings)
+        else
+            operations_adjusted = reorder_operations_in_time_step(components, operations, sim_params)
+            perform_operations(components, operations_adjusted, sim_params)
+        end
 
         if do_output
             # check if any component and/or interface was not balanced
-            interface_warnings = check_balances_of_interfaces(components, sim_params["epsilon"])
-            component_warnings = check_balances_of_components(components, sim_params["epsilon"])
+            if profile_performance
+                stage_started_ns = time_ns()
+                interface_warnings = check_balances_of_interfaces(components, sim_params["epsilon"])
+                component_warnings = check_balances_of_components(components, sim_params["epsilon"])
+                performance_timings[:balance_checks] = get(performance_timings, :balance_checks, UInt64(0)) +
+                                                       (time_ns() - stage_started_ns)
+                performance_counts[:balance_checks] = get(performance_counts, :balance_checks, 0) + 1
+            else
+                interface_warnings = check_balances_of_interfaces(components, sim_params["epsilon"])
+                component_warnings = check_balances_of_components(components, sim_params["epsilon"])
+            end
             if length(interface_warnings) > 0
                 for (key, balance) in interface_warnings
                     @balanceWarn "In timestep $(sim_params["current_date"]), the balance in interface " *
@@ -230,16 +258,41 @@ function run_simulation_loop(sim_params::Dict{String,Any},
             # write requested output data to the CSV file if configured, or to output
             # storage if not
             if do_write_CSV
-                row = get_output_row(output_keys_to_CSV,
-                                     weather_CSV_keys,
-                                     sim_params,
-                                     csv_time_unit,
-                                     io_settings)
-                row[2:end] = replace.(row[2:end], '.' => ',')
+                if profile_performance
+                    stage_started_ns = time_ns()
+                    row = get_output_row(output_keys_to_CSV,
+                                         weather_CSV_keys,
+                                         sim_params,
+                                         csv_time_unit,
+                                         io_settings)
+                    row[2:end] = replace.(row[2:end], '.' => ',')
+                    performance_timings[:csv_row_preparation] = get(performance_timings, :csv_row_preparation,
+                                                                    UInt64(0)) +
+                                                                (time_ns() - stage_started_ns)
+                    performance_counts[:csv_row_preparation] = get(performance_counts, :csv_row_preparation, 0) + 1
+                else
+                    row = get_output_row(output_keys_to_CSV,
+                                         weather_CSV_keys,
+                                         sim_params,
+                                         csv_time_unit,
+                                         io_settings)
+                    row[2:end] = replace.(row[2:end], '.' => ',')
+                end
                 if do_write_CSV_continuously
                     # Write row to the output file
-                    open(sim_params["run_path"](csv_file_path), "a") do file_handle
-                        write(file_handle, join(row, ';') * "\n")
+                    if profile_performance
+                        stage_started_ns = time_ns()
+                        open(sim_params["run_path"](csv_file_path), "a") do file_handle
+                            write(file_handle, join(row, ';') * "\n")
+                        end
+                        performance_timings[:csv_file_writing] = get(performance_timings, :csv_file_writing,
+                                                                     UInt64(0)) +
+                                                                 (time_ns() - stage_started_ns)
+                        performance_counts[:csv_file_writing] = get(performance_counts, :csv_file_writing, 0) + 1
+                    else
+                        open(sim_params["run_path"](csv_file_path), "a") do file_handle
+                            write(file_handle, join(row, ';') * "\n")
+                        end
                     end
                 else
                     output_csv[output_steps, :] = row
@@ -248,16 +301,45 @@ function run_simulation_loop(sim_params::Dict{String,Any},
 
             # get the energy transported through each interface in every timestep for Sankey
             if do_create_sankey
-                output_interface_values[output_steps, :] = collect_interface_energies(components, nr_of_interfaces)
+                if profile_performance
+                    stage_started_ns = time_ns()
+                    output_interface_values[output_steps, :] = collect_interface_energies(components, nr_of_interfaces)
+                    performance_timings[:sankey_collection] = get(performance_timings, :sankey_collection, UInt64(0)) +
+                                                              (time_ns() - stage_started_ns)
+                    performance_counts[:sankey_collection] = get(performance_counts, :sankey_collection, 0) + 1
+                else
+                    output_interface_values[output_steps, :] = collect_interface_energies(components, nr_of_interfaces)
+                end
             end
             # gather output data of weather
             if do_create_plot_weather
-                output_weather_lineplot[output_steps, :] = gather_weather_data(weather_data_keys, sim_params)
+                if profile_performance
+                    stage_started_ns = time_ns()
+                    output_weather_lineplot[output_steps, :] = gather_weather_data(weather_data_keys, sim_params)
+                    performance_timings[:weather_output_collection] = get(performance_timings,
+                                                                          :weather_output_collection, UInt64(0)) +
+                                                                      (time_ns() - stage_started_ns)
+                    performance_counts[:weather_output_collection] = get(performance_counts, :weather_output_collection,
+                                                                         0) + 1
+                else
+                    output_weather_lineplot[output_steps, :] = gather_weather_data(weather_data_keys, sim_params)
+                end
             end
             # gather output data of each component for line plot, economy and emissions
             if do_create_plot_data || do_calculate_economy || do_calculate_emissions || collect_objective_results
-                output_data_all_requested[output_steps, :] = gather_output_data(all_requested_output_keys,
-                                                                                sim_params["time_since_output"])
+                if profile_performance
+                    stage_started_ns = time_ns()
+                    output_data_all_requested[output_steps, :] = gather_output_data(all_requested_output_keys,
+                                                                                    sim_params["time_since_output"])
+                    performance_timings[:requested_output_collection] = get(performance_timings,
+                                                                            :requested_output_collection, UInt64(0)) +
+                                                                        (time_ns() - stage_started_ns)
+                    performance_counts[:requested_output_collection] = get(performance_counts,
+                                                                           :requested_output_collection, 0) + 1
+                else
+                    output_data_all_requested[output_steps, :] = gather_output_data(all_requested_output_keys,
+                                                                                    sim_params["time_since_output"])
+                end
             end
 
             # simulation update
@@ -281,6 +363,29 @@ function run_simulation_loop(sim_params::Dict{String,Any},
         end
     end
     @info "-- Finished time step loop"
+    if profile_performance
+        loop_elapsed_ns = time_ns() - profile_loop_started_ns
+        @info "Simulation performance profile" simulation_loop_seconds=loop_elapsed_ns / 1e9
+        @info "Simulation performance step counts" simulation_steps=Int(sim_params["number_of_time_steps"]) output_steps=Int(sim_params["number_of_time_steps_output"])
+        for stage in sort!(collect(keys(performance_timings)); by=string)
+            elapsed_ns = performance_timings[stage]
+            calls = performance_counts[stage]
+            @info "Simulation performance stage" stage=string(stage) total_seconds=elapsed_ns / 1e9 percent_of_loop=100 *
+                                                                                                                    elapsed_ns /
+                                                                                                                    loop_elapsed_ns calls=calls average_milliseconds=elapsed_ns /
+                                                                                                                                                                     calls /
+                                                                                                                                                                     1e6
+        end
+        if !suppress_all_output
+            performance_plot_path = sim_params["run_path"](io_settings["performance_plot_file_path"])
+            create_simulation_performance_plot(performance_plot_path,
+                                               performance_timings,
+                                               component_performance_timings,
+                                               component_stage_performance_timings,
+                                               loop_elapsed_ns)
+            @info "Simulation performance plot created and saved to $(performance_plot_path)"
+        end
+    end
 
     # Map each requested OutputKey to its column in output_data_all_requested.
     key_indexes = output_key_indexes(all_requested_output_keys)
@@ -331,10 +436,15 @@ function run_simulation_loop(sim_params::Dict{String,Any},
         if do_write_CSV_continuously
             @info "CSV-file with outputs continuously written to $(csv_file_path_abs)"
         else
+            csv_write_started_ns = profile_performance ? time_ns() : UInt64(0)
             open(csv_file_path_abs, "a") do file_handle
                 for row_idx in 1:size(output_csv)[1]
                     write(file_handle, join(output_csv[row_idx, :], ";") * "\n")
                 end
+            end
+            if profile_performance
+                elapsed_ns = time_ns() - csv_write_started_ns
+                @info "Simulation performance stage" stage="csv_final_file_writing" total_seconds=elapsed_ns / 1e9
             end
             @info "CSV-file with outputs written to $(csv_file_path_abs)"
         end

@@ -684,6 +684,80 @@ function gather_output_data(output_keys::Vector{EnergySystems.OutputKey}, time::
 end
 
 """
+    create_simulation_performance_plot(path, performance_timings,
+                                      component_performance_timings,
+                                      component_stage_performance_timings,
+                                      simulation_loop_ns)
+
+Write an HTML stacked-bar chart showing per-component operation time and simulation
+overhead. Components beyond the top 30 are grouped into one bar to keep large models
+readable; their time remains included in the chart.
+"""
+function create_simulation_performance_plot(path::String,
+                                            performance_timings::Dict{Symbol,UInt64},
+                                            component_performance_timings::Dict{String,UInt64},
+                                            component_stage_performance_timings::Dict{Tuple{String,Symbol},UInt64},
+                                            simulation_loop_ns::UInt64)
+    operation_stages = (:reset, :control, :potential, :process, :load, :distribute)
+    sorted_components = sort!(collect(keys(component_performance_timings));
+                              by=component -> component_performance_timings[component],
+                              rev=true)
+    top_components = sorted_components[1:min(length(sorted_components), 30)]
+    labels = copy(top_components)
+    has_other_components = length(sorted_components) > length(top_components)
+    has_other_components && push!(labels, "Other components")
+    push!(labels, "Simulation overhead")
+
+    traces = PlotlyJS.AbstractTrace[]
+    for stage in operation_stages
+        values = Float64[]
+        for component in top_components
+            push!(values, get(component_stage_performance_timings, (component, stage), UInt64(0)) / 1e9)
+        end
+        if has_other_components
+            other_time_ns = sum((get(component_stage_performance_timings, (component, stage), UInt64(0))
+                                 for component in sorted_components[(length(top_components) + 1):end]);
+                                init=UInt64(0))
+            push!(values, other_time_ns / 1e9)
+        end
+        push!(values, 0.0)
+        push!(traces,
+              PlotlyJS.bar(; x=values,
+                           y=labels,
+                           orientation="h",
+                           name=string(stage),
+                           hovertemplate="%{y}<br>%{fullData.name}: %{x:.3f} s<extra></extra>"))
+    end
+
+    overhead_ns = sum((elapsed_ns for (stage, elapsed_ns) in performance_timings
+                       if !(stage in operation_stages));
+                      init=UInt64(0))
+    overhead_values = zeros(Float64, length(labels))
+    overhead_values[end] = overhead_ns / 1e9
+    push!(traces,
+          PlotlyJS.bar(; x=overhead_values,
+                       y=labels,
+                       orientation="h",
+                       name="Simulation overhead",
+                       hovertemplate="%{y}<br>%{fullData.name}: %{x:.3f} s<extra></extra>"))
+
+    total_seconds = simulation_loop_ns / 1e9
+    layout = PlotlyJS.Layout(;
+                             title=PlotlyJS.attr(;
+                                                 text="Simulation performance breakdown" *
+                                                      "<br><sup>Accumulated wall time: $(round(total_seconds; digits=2)) s</sup>"),
+                             xaxis_title_text="Accumulated time [s]",
+                             yaxis=PlotlyJS.attr(; autorange="reversed"),
+                             barmode="stack",
+                             height=max(450, 34 * length(labels) + 160),
+                             margin=PlotlyJS.attr(; l=220, r=30, t=90, b=60),
+                             legend=PlotlyJS.attr(; orientation="h", y=-0.15))
+    plot_object = PlotlyJS.plot(traces, layout)
+    PlotlyJS.savefig(plot_object, path)
+    return path
+end
+
+"""
     create_profile_line_plots(data, keys, weather_data, weather_keys, io_settings, sim_params)
 
 Creates the line plots for the given output configuration.

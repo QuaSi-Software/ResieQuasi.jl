@@ -3011,8 +3011,15 @@ Performs the simulation operations of one time step for the given components in 
 """
 function perform_operations(components::Grouping,
                             order_of_operations::OrderOfOperations,
-                            sim_params::Dict{String,Any})
+                            sim_params::Dict{String,Any};
+                            performance_timings::Union{Nothing,Dict{Symbol,UInt64}}=nothing,
+                            performance_counts::Union{Nothing,Dict{Symbol,Int}}=nothing,
+                            component_performance_timings::Union{Nothing,Dict{String,UInt64}}=nothing,
+                            component_stage_performance_timings::Union{Nothing,Dict{Tuple{String,Symbol},UInt64}}=nothing)
     for entry in order_of_operations
+        if performance_timings !== nothing
+            operation_started_ns = time_ns()
+        end
         unit = components[entry[1]]
         step = entry[2]
 
@@ -3028,6 +3035,28 @@ function perform_operations(components::Grouping,
             load(unit, sim_params)
         elseif step == s_distribute
             distribute!(unit)
+        end
+
+        if performance_timings !== nothing
+            stage = step === s_reset ? :reset :
+                    step === s_control ? :control :
+                    step === s_potential ? :potential :
+                    step === s_process ? :process :
+                    step === s_load ? :load : :distribute
+            elapsed_ns = time_ns() - operation_started_ns
+            performance_timings[stage] = get(performance_timings, stage, UInt64(0)) + elapsed_ns
+            if component_performance_timings !== nothing
+                component_performance_timings[unit.uac] = get(component_performance_timings, unit.uac, UInt64(0)) +
+                                                          elapsed_ns
+            end
+            if component_stage_performance_timings !== nothing
+                component_stage = (unit.uac, stage)
+                component_stage_performance_timings[component_stage] = get(component_stage_performance_timings,
+                                                                           component_stage, UInt64(0)) + elapsed_ns
+            end
+            if performance_counts !== nothing
+                performance_counts[stage] = get(performance_counts, stage, 0) + 1
+            end
         end
     end
 end

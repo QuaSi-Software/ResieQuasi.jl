@@ -162,6 +162,17 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="boolean",
         unit="-"
     ),
+    "profile_simulation_performance" => (
+        default=false,
+        description="Measure wall-clock time in the simulation loop and report aggregated " *
+                    "timings for operation types, balance checks, output collection, and " *
+                    "CSV writing. Profiling adds per-operation timing overhead.",
+        display_name="Profile simulation performance?",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
     "csv_output_weather" => (
         default=false,
         description="Toggle if the weather data read in from the given weather file " *
@@ -217,6 +228,16 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         default="./output/output_plot.html",
         description="File path to where the output line plot will be written",
         display_name="Output plot file path",
+        required=false,
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
+    "performance_plot_file_path" => (
+        default="./output/performance_profile.html",
+        description="File path for the HTML performance profile plot generated when " *
+                    "simulation performance profiling is enabled.",
+        display_name="Performance profile plot file path",
         required=false,
         type=String,
         json_type="string",
