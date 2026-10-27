@@ -44,6 +44,22 @@ function get_run(id::UUID)::SimulationRun
     return current_runs[id]
 end
 
+function record_performance_detail!(sim_params::Dict{String,Any},
+                                    component::AbstractString,
+                                    phase::Symbol,
+                                    stage::Symbol,
+                                    elapsed_ns::UInt64,
+                                    calls::Int=1)
+    timings = get(sim_params, "performance_detail_timings", nothing)
+    timings === nothing && return nothing
+
+    key = (String(component), phase, stage)
+    timings[key] = get(timings, key, UInt64(0)) + elapsed_ns
+    counts = sim_params["performance_detail_counts"]
+    counts[key] = get(counts, key, 0) + calls
+    return nothing
+end
+
 """
     close_run(id)
 
@@ -197,6 +213,12 @@ function run_simulation_loop(sim_params::Dict{String,Any},
     performance_counts = profile_performance ? Dict{Symbol,Int}() : nothing
     component_performance_timings = profile_performance ? Dict{String,UInt64}() : nothing
     component_stage_performance_timings = profile_performance ? Dict{Tuple{String,Symbol},UInt64}() : nothing
+    performance_detail_timings = profile_performance ? Dict{Tuple{String,Symbol,Symbol},UInt64}() : nothing
+    performance_detail_counts = profile_performance ? Dict{Tuple{String,Symbol,Symbol},Int}() : nothing
+    if profile_performance
+        sim_params["performance_detail_timings"] = performance_detail_timings
+        sim_params["performance_detail_counts"] = performance_detail_counts
+    end
     profile_loop_started_ns = profile_performance ? time_ns() : UInt64(0)
     for steps in 1:sim_params["number_of_time_steps"]
         # handle interruption from STRG+C for multi-thread simulations
@@ -363,33 +385,19 @@ function run_simulation_loop(sim_params::Dict{String,Any},
         end
     end
     @info "-- Finished time step loop"
-    if profile_performance
-        loop_elapsed_ns = time_ns() - profile_loop_started_ns
-        @info "Simulation performance profile" simulation_loop_seconds=loop_elapsed_ns / 1e9
-        @info "Simulation performance step counts" simulation_steps=Int(sim_params["number_of_time_steps"]) output_steps=Int(sim_params["number_of_time_steps_output"])
-        for stage in sort!(collect(keys(performance_timings)); by=string)
-            elapsed_ns = performance_timings[stage]
-            calls = performance_counts[stage]
-            @info "Simulation performance stage" stage=string(stage) total_seconds=elapsed_ns / 1e9 percent_of_loop=100 *
-                                                                                                                    elapsed_ns /
-                                                                                                                    loop_elapsed_ns calls=calls average_milliseconds=elapsed_ns /
-                                                                                                                                                                     calls /
-                                                                                                                                                                     1e6
-        end
-        if !suppress_all_output
-            performance_plot_path = sim_params["run_path"](io_settings["performance_plot_file_path"])
-            create_simulation_performance_plot(performance_plot_path,
-                                               performance_timings,
-                                               component_performance_timings,
-                                               component_stage_performance_timings,
-                                               loop_elapsed_ns)
-            @info "Simulation performance plot created and saved to $(performance_plot_path)"
-        end
-    end
+    profile_loop_finished_ns = profile_performance ? time_ns() : UInt64(0)
+
+    post_loop_stage_started_ns = profile_performance ? time_ns() : UInt64(0)
 
     # Map each requested OutputKey to its column in output_data_all_requested.
     key_indexes = output_key_indexes(all_requested_output_keys)
+    if profile_performance
+        elapsed_ns = time_ns() - post_loop_stage_started_ns
+        performance_timings[:post_loop_output_key_preparation] = elapsed_ns
+        performance_counts[:post_loop_output_key_preparation] = 1
+    end
 
+    post_loop_stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     if do_calculate_economy || do_calculate_emissions
         economic_emissions_columns = output_data_columns(key_indexes, output_keys_economic_emissions; include_time=true)
         output_data_economic_emissions = Matrix(view(output_data_all_requested, :, economic_emissions_columns))
@@ -398,7 +406,13 @@ function run_simulation_loop(sim_params::Dict{String,Any},
         economic_result = do_calculate_economy ? calculate_economy(economic_emissions_data, sim_params) : nothing
         emissions_result = do_calculate_emissions ? calculate_emissions(economic_emissions_data, sim_params) : nothing
     end
+    if profile_performance
+        elapsed_ns = time_ns() - post_loop_stage_started_ns
+        performance_timings[:post_loop_economy_emissions_calculation] = elapsed_ns
+        performance_counts[:post_loop_economy_emissions_calculation] = 1
+    end
 
+    post_loop_stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     if collect_objective_results
         objective_results = Dict{String,Union{Array{Float64},Float64}}()
         parameter_study_columns = output_data_column_map(key_indexes, output_keys_parameter_study)
@@ -429,6 +443,11 @@ function run_simulation_loop(sim_params::Dict{String,Any},
                             for key in sim_params["parameter_study"]["runtime"]["objective_params_keys"]]
         objective_results["objective"] = sim_params["parameter_study"]["runtime"]["objective_function"](objective_values)
     end
+    if profile_performance
+        elapsed_ns = time_ns() - post_loop_stage_started_ns
+        performance_timings[:post_loop_objective_results] = elapsed_ns
+        performance_counts[:post_loop_objective_results] = 1
+    end
 
     # write output to CSV if not done continuously
     if do_write_CSV
@@ -444,12 +463,14 @@ function run_simulation_loop(sim_params::Dict{String,Any},
             end
             if profile_performance
                 elapsed_ns = time_ns() - csv_write_started_ns
-                @info "Simulation performance stage" stage="csv_final_file_writing" total_seconds=elapsed_ns / 1e9
+                performance_timings[:post_loop_csv_final_file_writing] = elapsed_ns
+                performance_counts[:post_loop_csv_final_file_writing] = 1
             end
             @info "CSV-file with outputs written to $(csv_file_path_abs)"
         end
     end
 
+    post_loop_stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     if do_write_CSV && do_write_summary_CSV
         output_path = sim_params["run_path"](replace(csv_file_path, r"\.csv$"i => "_aggregated.csv"))
 
@@ -468,8 +489,14 @@ function run_simulation_loop(sim_params::Dict{String,Any},
                                 io_settings["fixed_output_precision"])
         success && @info "Summary CSV-file with outputs created and written to $(output_path)"
     end
+    if profile_performance
+        elapsed_ns = time_ns() - post_loop_stage_started_ns
+        performance_timings[:post_loop_csv_aggregation] = elapsed_ns
+        performance_counts[:post_loop_csv_aggregation] = 1
+    end
 
     # create profile line plot
+    post_loop_stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     if do_create_plot_data || do_create_plot_weather
         lineplot_columns = output_data_columns(key_indexes, output_keys_lineplot; include_time=true)
         output_data_lineplot = Matrix(view(output_data_all_requested, :, lineplot_columns))
@@ -482,8 +509,14 @@ function run_simulation_loop(sim_params::Dict{String,Any},
         filepath = sim_params["run_path"](io_settings["output_plot_file_path"])
         @info "Line plot created and saved to $(sim_params["run_path"](filepath))"
     end
+    if profile_performance
+        elapsed_ns = time_ns() - post_loop_stage_started_ns
+        performance_timings[:post_loop_line_plot] = elapsed_ns
+        performance_counts[:post_loop_line_plot] = 1
+    end
 
     # create Sankey diagram
+    post_loop_stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     if do_create_sankey
         create_sankey(output_sourcenames_sankey,
                       output_targetnames_sankey,
@@ -496,8 +529,14 @@ function run_simulation_loop(sim_params::Dict{String,Any},
         filepath = sim_params["run_path"](io_settings["sankey_plot_file_path"])
         @info "Sankey created and saved to $filepath"
     end
+    if profile_performance
+        elapsed_ns = time_ns() - post_loop_stage_started_ns
+        performance_timings[:post_loop_sankey] = elapsed_ns
+        performance_counts[:post_loop_sankey] = 1
+    end
 
     # plot additional figures potentially available from components after simulation
+    post_loop_stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     if io_settings["auxiliary_plots"] && !suppress_all_output
         component_list = []
         output_path = sim_params["run_path"](io_settings["auxiliary_plots_path"])
@@ -511,8 +550,14 @@ function run_simulation_loop(sim_params::Dict{String,Any},
                   "following components: $(join(component_list, ", "))"
         end
     end
+    if profile_performance
+        elapsed_ns = time_ns() - post_loop_stage_started_ns
+        performance_timings[:post_loop_auxiliary_plots] = elapsed_ns
+        performance_counts[:post_loop_auxiliary_plots] = 1
+    end
 
     # output economic results
+    post_loop_stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     if do_calculate_economy && !suppress_all_output
         if io_settings["plot_economic_cashflows"]
             filepath = sim_params["run_path"](io_settings["economic_plot_cashflows_file_path"])
@@ -535,8 +580,14 @@ function run_simulation_loop(sim_params::Dict{String,Any},
             success && @info "Economic results exported to $filepath"
         end
     end
+    if profile_performance
+        elapsed_ns = time_ns() - post_loop_stage_started_ns
+        performance_timings[:post_loop_economic_outputs] = elapsed_ns
+        performance_counts[:post_loop_economic_outputs] = 1
+    end
 
     # output emissions results
+    post_loop_stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     if do_calculate_emissions && !suppress_all_output
         # plot figure with yearly emissions
         if io_settings["plot_emission_results"]
@@ -553,14 +604,64 @@ function run_simulation_loop(sim_params::Dict{String,Any},
             success && @info "Emissions results exported to $filepath"
         end
     end
+    if profile_performance
+        elapsed_ns = time_ns() - post_loop_stage_started_ns
+        performance_timings[:post_loop_emissions_outputs] = elapsed_ns
+        performance_counts[:post_loop_emissions_outputs] = 1
+    end
 
     # plot utilized price and emission profiles
+    post_loop_stage_started_ns = profile_performance ? time_ns() : UInt64(0)
     if (do_calculate_economy || do_calculate_emissions) && io_settings["plot_price_and_emission_profiles"] &&
        !suppress_all_output
         filepath = sim_params["run_path"](io_settings["price_and_emission_profile_file_path"])
         success = plot_extended_price_and_emissions_profiles(economic_result, emissions_result, filepath, sim_params,
                                                              io_settings)
         success && @info "Utilized price and emission profiles exported as plot to $filepath"
+    end
+    if profile_performance
+        elapsed_ns = time_ns() - post_loop_stage_started_ns
+        performance_timings[:post_loop_price_emissions_plot] = elapsed_ns
+        performance_counts[:post_loop_price_emissions_plot] = 1
+    end
+
+    if profile_performance
+        loop_elapsed_ns = profile_loop_finished_ns - profile_loop_started_ns
+        measured_elapsed_ns = time_ns() - profile_loop_started_ns
+        @info "Simulation performance profile" simulation_loop_seconds=loop_elapsed_ns / 1e9 measured_workflow_seconds=measured_elapsed_ns /
+                                                                                                                       1e9
+        @info "Simulation performance step counts" simulation_steps=Int(sim_params["number_of_time_steps"]) output_steps=Int(sim_params["number_of_time_steps_output"])
+        for stage in sort!(collect(keys(performance_timings)); by=string)
+            elapsed_ns = performance_timings[stage]
+            calls = performance_counts[stage]
+            @info "Simulation performance stage" stage=string(stage) total_seconds=elapsed_ns / 1e9 percent_of_measured_workflow=100 *
+                                                                                                                                 elapsed_ns /
+                                                                                                                                 measured_elapsed_ns calls=calls average_milliseconds=elapsed_ns /
+                                                                                                                                                                                      calls /
+                                                                                                                                                                                      1e6
+        end
+        sorted_detail_keys = sort!(collect(keys(performance_detail_timings));
+                                   by=key -> performance_detail_timings[key],
+                                   rev=true)
+        for key in sorted_detail_keys
+            elapsed_ns = performance_detail_timings[key]
+            calls = performance_detail_counts[key]
+            measurement_scope = key[3] in (:slicing_search_total, :optimizer_total, :optimizer_objective_callback) ?
+                                "inclusive" : "exclusive"
+            @info "Simulation performance detail" component=key[1] phase=string(key[2]) stage=string(key[3]) measurement_scope=measurement_scope total_seconds=elapsed_ns /
+                                                                                                                                                               1e9 calls=calls average_milliseconds=elapsed_ns /
+                                                                                                                                                                                                    calls /
+                                                                                                                                                                                                    1e6
+        end
+        if !suppress_all_output
+            performance_plot_path = sim_params["run_path"](io_settings["performance_plot_file_path"])
+            create_simulation_performance_plot(performance_plot_path,
+                                               performance_timings,
+                                               component_performance_timings,
+                                               component_stage_performance_timings,
+                                               measured_elapsed_ns)
+            @info "Simulation performance plot created and saved to $(performance_plot_path)"
+        end
     end
 
     return collect_objective_results ? objective_results : nothing

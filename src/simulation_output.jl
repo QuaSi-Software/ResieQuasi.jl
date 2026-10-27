@@ -687,17 +687,17 @@ end
     create_simulation_performance_plot(path, performance_timings,
                                       component_performance_timings,
                                       component_stage_performance_timings,
-                                      simulation_loop_ns)
+                                      measured_workflow_ns)
 
 Write an HTML stacked-bar chart showing per-component operation time and simulation
-overhead. Components beyond the top 30 are grouped into one bar to keep large models
-readable; their time remains included in the chart.
+overhead, including post-loop output stages. Components beyond the top 30 are grouped into
+one bar to keep large models readable; their time remains included in the chart.
 """
 function create_simulation_performance_plot(path::String,
                                             performance_timings::Dict{Symbol,UInt64},
                                             component_performance_timings::Dict{String,UInt64},
                                             component_stage_performance_timings::Dict{Tuple{String,Symbol},UInt64},
-                                            simulation_loop_ns::UInt64)
+                                            measured_workflow_ns::UInt64)
     operation_stages = (:reset, :control, :potential, :process, :load, :distribute)
     sorted_components = sort!(collect(keys(component_performance_timings));
                               by=component -> component_performance_timings[component],
@@ -741,7 +741,7 @@ function create_simulation_performance_plot(path::String,
                        name="Simulation overhead",
                        hovertemplate="%{y}<br>%{fullData.name}: %{x:.3f} s<extra></extra>"))
 
-    total_seconds = simulation_loop_ns / 1e9
+    total_seconds = measured_workflow_ns / 1e9
     layout = PlotlyJS.Layout(;
                              title=PlotlyJS.attr(;
                                                  text="Simulation performance breakdown" *

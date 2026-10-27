@@ -1,5 +1,5 @@
 using Optim: optimize, minimizer, Options, NelderMead
-using ..ResieQuasi: get_run
+using ..ResieQuasi: get_run, record_performance_detail!
 
 #! format: off
 const HEAT_PUMP_COMPONENT_PARAMETERS = Dict(
@@ -1355,8 +1355,11 @@ runs the slicing algorithm once assuming PLRs of 1.0 for all slices.
 function find_best_slicing(unit::HeatPump,
                            sim_params::Dict{String,Any},
                            energies::HPEnergies;
+                           phase::Symbol,
                            fixed_heat_in::Union{Nothing,Integer}=nothing,
                            fixed_heat_out::Union{Nothing,Integer}=nothing)::HPEnergies
+    profile_performance = haskey(sim_params, "performance_detail_timings")
+
     # no optimisation for simplified heat pump, as the slicing algorithm will result in a
     # solution independent of chosen PLRs assuming sufficient time is available to meet
     # demands, hence the PLRs are set to 1.0
@@ -1366,7 +1369,14 @@ function find_best_slicing(unit::HeatPump,
                             length(energies.potentials_heat_out))
         # technically this is the only and final calculation, but the fudge factor is only
         # relevant for optimisation, which is why we disable it here
-        energies = calculate_slices(unit, sim_params, energies, default_plrs, false, fixed_heat_in, fixed_heat_out)
+        if profile_performance
+            slice_started_ns = time_ns()
+            energies = calculate_slices(unit, sim_params, energies, default_plrs, false, fixed_heat_in, fixed_heat_out)
+            record_performance_detail!(sim_params, unit.uac, phase, :simplified_slice_calculation,
+                                       time_ns() - slice_started_ns)
+        else
+            energies = calculate_slices(unit, sim_params, energies, default_plrs, false, fixed_heat_in, fixed_heat_out)
+        end
         return energies
     end
 
@@ -1386,16 +1396,59 @@ function find_best_slicing(unit::HeatPump,
 
     # run optimisation to find PLRs that meet demands and are optimal by criteria depending
     # on the model type (see function evaluate)
-    results = optimize(plrs -> evaluate(calculate_slices(unit,
-                                                         sim_params, energies, plrs, false, fixed_heat_in,
-                                                         fixed_heat_out; ignore_cop_warning=true),
-                                        unit, plrs, sim_params),
+    objective_timing_totals = profile_performance ? zeros(UInt64, 4) : nothing
+    objective = if profile_performance
+        plrs -> begin
+            objective_started_ns = time_ns()
+            slice_started_ns = time_ns()
+            sliced_energies = calculate_slices(unit, sim_params, energies, plrs, false, fixed_heat_in,
+                                               fixed_heat_out; ignore_cop_warning=true)
+            objective_timing_totals[1] += time_ns() - slice_started_ns
+
+            evaluation_started_ns = time_ns()
+            value = evaluate(sliced_energies, unit, plrs, sim_params)
+            objective_timing_totals[2] += time_ns() - evaluation_started_ns
+            objective_timing_totals[3] += time_ns() - objective_started_ns
+            objective_timing_totals[4] += 1
+            return value
+        end
+    else
+        plrs -> evaluate(calculate_slices(unit,
+                                          sim_params, energies, plrs, false, fixed_heat_in,
+                                          fixed_heat_out; ignore_cop_warning=true),
+                         unit, plrs, sim_params)
+    end
+    optimizer_started_ns = profile_performance ? time_ns() : UInt64(0)
+    results = optimize(objective,
                        lower_plrs, upper_plrs, initial_plrs, NelderMead(),
                        Options(; iterations=Int64(unit.nr_optimisation_passes),
                                x_abstol=unit.x_abstol,
                                f_abstol=unit.f_abstol))
+    if profile_performance
+        optimizer_elapsed_ns = time_ns() - optimizer_started_ns
+        objective_calls = Int(objective_timing_totals[4])
+        record_performance_detail!(sim_params, unit.uac, phase, :optimizer_total,
+                                   optimizer_elapsed_ns)
+        framework_overhead_ns = optimizer_elapsed_ns >= objective_timing_totals[3] ?
+                                optimizer_elapsed_ns - objective_timing_totals[3] : UInt64(0)
+        record_performance_detail!(sim_params, unit.uac, phase, :optimizer_framework_overhead,
+                                   framework_overhead_ns)
+        record_performance_detail!(sim_params, unit.uac, phase, :optimizer_objective_callback,
+                                   objective_timing_totals[3], objective_calls)
+        record_performance_detail!(sim_params, unit.uac, phase, :optimizer_slice_calculation,
+                                   objective_timing_totals[1], objective_calls)
+        record_performance_detail!(sim_params, unit.uac, phase, :optimizer_objective_evaluation,
+                                   objective_timing_totals[2], objective_calls)
+    end
     optimal_plrs = minimizer(results)
-    energies = calculate_slices(unit, sim_params, energies, optimal_plrs, true, fixed_heat_in, fixed_heat_out)
+    if profile_performance
+        slice_started_ns = time_ns()
+        energies = calculate_slices(unit, sim_params, energies, optimal_plrs, true, fixed_heat_in, fixed_heat_out)
+        record_performance_detail!(sim_params, unit.uac, phase, :final_slice_calculation,
+                                   time_ns() - slice_started_ns)
+    else
+        energies = calculate_slices(unit, sim_params, energies, optimal_plrs, true, fixed_heat_in, fixed_heat_out)
+    end
 
     return energies
 end
@@ -1414,12 +1467,14 @@ layer around the function for calculating the slices.
 # Returns
 - `HPEnergies`: The energies container containing the results of the calculations.
 """
-function calculate_energies(unit::HeatPump, sim_params::Dict{String,Any})
+function calculate_energies(unit::HeatPump, sim_params::Dict{String,Any}; phase::Symbol)
+    profile_performance = haskey(sim_params, "performance_detail_timings")
     energies = HPEnergies()
     do_calculation = true
 
     # get electricity potential and reduce it by constant power draw (or however much
     # is available)
+    electricity_preparation_started_ns = profile_performance ? time_ns() : UInt64(0)
     energies.potential_el_in_layered, energies.in_uacs_el = check_el_in_layered(unit, sim_params)
     energies.potential_el_in = sum(energies.potential_el_in_layered)
     unit.current_constant_loss = min(energies.potential_el_in,
@@ -1436,9 +1491,14 @@ function calculate_energies(unit::HeatPump, sim_params::Dict{String,Any})
     if energies.max_usage_fraction <= 0.0
         do_calculation = false
     end
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, phase, :electricity_potential_preparation,
+                                   time_ns() - electricity_preparation_started_ns)
+    end
 
     if do_calculation
         # get vectored values for the input and output heat potentials
+        heat_collection_started_ns = profile_performance ? time_ns() : UInt64(0)
         energies.potentials_heat_in,
         energies.in_temps_min,
         energies.in_temps_max,
@@ -1448,8 +1508,13 @@ function calculate_energies(unit::HeatPump, sim_params::Dict{String,Any})
         energies.out_temps_min,
         energies.out_temps_max,
         energies.out_uacs = check_heat_out_layered(unit, sim_params)
+        if profile_performance
+            record_performance_detail!(sim_params, unit.uac, phase, :heat_potential_collection,
+                                       time_ns() - heat_collection_started_ns)
+        end
 
         # in the following we want to work with positive values as it is easier
+        slicing_preparation_started_ns = profile_performance ? time_ns() : UInt64(0)
         energies.potentials_heat_in = abs.(energies.potentials_heat_in)
         energies.potentials_heat_out = abs.(energies.potentials_heat_out)
 
@@ -1479,6 +1544,11 @@ function calculate_energies(unit::HeatPump, sim_params::Dict{String,Any})
         energies.heat_in_has_inf_energy = any(isinf, filter_by_transformer(energies, sim_params; heat_in=true))
         energies.heat_out_has_inf_energy = any(isinf, filter_by_transformer(energies, sim_params; heat_in=false))
 
+        if profile_performance
+            record_performance_detail!(sim_params, unit.uac, phase, :slicing_input_preparation,
+                                       time_ns() - slicing_preparation_started_ns)
+        end
+
         if energies.heat_in_has_inf_energy && energies.heat_out_has_inf_energy
             @warn "The heat pump $(unit.uac) has unknown energies in both its inputs and " *
                   "outputs. This cannot be resolved. Please check the order of operation and " *
@@ -1489,22 +1559,44 @@ function calculate_energies(unit::HeatPump, sim_params::Dict{String,Any})
 
         if energies.heat_in_has_inf_energy
             for heat_in_idx in eachindex(energies.potentials_heat_in)
-                energies = find_best_slicing(unit, sim_params, energies; fixed_heat_in=heat_in_idx)
+                if haskey(sim_params, "performance_detail_timings")
+                    slice_search_started_ns = time_ns()
+                    energies = find_best_slicing(unit, sim_params, energies; phase, fixed_heat_in=heat_in_idx)
+                    record_performance_detail!(sim_params, unit.uac, phase, :slicing_search_total,
+                                               time_ns() - slice_search_started_ns)
+                else
+                    energies = find_best_slicing(unit, sim_params, energies; phase, fixed_heat_in=heat_in_idx)
+                end
                 energies = add_heat_in_temp_to_slices(energies)
                 energies = copy_heat_out_temp_to_slices(energies)
             end
         elseif energies.heat_out_has_inf_energy
             for heat_out_idx in eachindex(energies.potentials_heat_out)
-                energies = find_best_slicing(unit, sim_params, energies; fixed_heat_out=heat_out_idx)
+                if haskey(sim_params, "performance_detail_timings")
+                    slice_search_started_ns = time_ns()
+                    energies = find_best_slicing(unit, sim_params, energies; phase, fixed_heat_out=heat_out_idx)
+                    record_performance_detail!(sim_params, unit.uac, phase, :slicing_search_total,
+                                               time_ns() - slice_search_started_ns)
+                else
+                    energies = find_best_slicing(unit, sim_params, energies; phase, fixed_heat_out=heat_out_idx)
+                end
                 energies = add_heat_out_temp_to_slices(energies)
                 energies = copy_heat_in_temp_to_slices(energies)
             end
         else
-            energies = find_best_slicing(unit, sim_params, energies)
+            if haskey(sim_params, "performance_detail_timings")
+                slice_search_started_ns = time_ns()
+                energies = find_best_slicing(unit, sim_params, energies; phase)
+                record_performance_detail!(sim_params, unit.uac, phase, :slicing_search_total,
+                                           time_ns() - slice_search_started_ns)
+            else
+                energies = find_best_slicing(unit, sim_params, energies; phase)
+            end
             energies = copy_temp_to_slices!(energies)
         end
     end
 
+    postprocessing_started_ns = profile_performance ? time_ns() : UInt64(0)
     # calculate average PLR, from active slices. because they already have been weighted
     # by max power for each slice, we can simply add them up here
     unit.avg_plr = 0.0
@@ -1551,14 +1643,24 @@ function calculate_energies(unit::HeatPump, sim_params::Dict{String,Any})
         energies.slices_el_in .+= (unit.current_constant_loss / length(energies.slices_el_in))
     end
 
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, phase, :energy_result_postprocessing,
+                                   time_ns() - postprocessing_started_ns)
+    end
     return energies
 end
 
 function potential(unit::HeatPump, sim_params::Dict{String,Any})
-    energies = calculate_energies(unit, sim_params)
+    energies = calculate_energies(unit, sim_params; phase=:potential)
+    profile_performance = haskey(sim_params, "performance_detail_timings")
+    potential_application_started_ns = profile_performance ? time_ns() : UInt64(0)
 
     if sum(energies.slices_heat_out; init=0.0) < sim_params["epsilon"]
         set_max_energies!(unit, true, sum(energies.slices_el_in; init=0.0), 0.0, 0.0, 0.0)
+        if profile_performance
+            record_performance_detail!(sim_params, unit.uac, :potential, :potential_result_application,
+                                       time_ns() - potential_application_started_ns)
+        end
         return
     end
 
@@ -1605,6 +1707,10 @@ function potential(unit::HeatPump, sim_params::Dict{String,Any})
                           String[],
                           energies.heat_in_has_inf_energy,
                           energies.heat_out_has_inf_energy)
+    end
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :potential, :potential_result_application,
+                                   time_ns() - potential_application_started_ns)
     end
 end
 
@@ -1763,7 +1869,9 @@ function split_slices_primary_secondary(unit::HeatPump,
 end
 
 function process(unit::HeatPump, sim_params::Dict{String,Any})
-    energies = calculate_energies(unit, sim_params)
+    energies = calculate_energies(unit, sim_params; phase=:process)
+    profile_performance = haskey(sim_params, "performance_detail_timings")
+    process_application_started_ns = profile_performance ? time_ns() : UInt64(0)
 
     el_in = sum(energies.slices_el_in; init=0.0)
     heat_out = sum(energies.slices_heat_out; init=0.0)
@@ -1831,6 +1939,10 @@ function process(unit::HeatPump, sim_params::Dict{String,Any})
                    sum(energies.slices_heat_in; init=0.0) -  # input heat
                    heat_out -                                # outputs
                    unit.losses                               # losses
+    if profile_performance
+        record_performance_detail!(sim_params, unit.uac, :process, :process_result_application,
+                                   time_ns() - process_application_started_ns)
+    end
 end
 
 function component_has_minimum_part_load(unit::HeatPump)

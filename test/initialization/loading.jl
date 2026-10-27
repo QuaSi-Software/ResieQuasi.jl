@@ -68,6 +68,25 @@ end
     @test io_settings["profile_simulation_performance"] == true
 end
 
+@testset "simulation performance detail recording" begin
+    sim_params = Dict{String,Any}(
+        "performance_detail_timings" => Dict{Tuple{String,Symbol,Symbol},UInt64}(),
+        "performance_detail_counts" => Dict{Tuple{String,Symbol,Symbol},Int}())
+
+    Resie.record_performance_detail!(sim_params, "HeatPump A", :potential, :optimizer_total,
+                                     UInt64(100), 1)
+    Resie.record_performance_detail!(sim_params, "HeatPump A", :potential, :optimizer_total,
+                                     UInt64(250), 2)
+
+    key = ("HeatPump A", :potential, :optimizer_total)
+    @test sim_params["performance_detail_timings"][key] == UInt64(350)
+    @test sim_params["performance_detail_counts"][key] == 3
+
+    unprofiled_params = Dict{String,Any}()
+    @test Resie.record_performance_detail!(unprofiled_params, "HeatPump A", :process,
+                                           :optimizer_total, UInt64(100)) === nothing
+end
+
 @testset "simulation performance plot" begin
     performance_timings = Dict{Symbol,UInt64}(:process => 3_000_000_000,
                                               :operation_reordering => 1_000_000_000)
