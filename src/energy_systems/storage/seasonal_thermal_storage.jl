@@ -1470,9 +1470,11 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     # ====================================
     # Plot temperature distribution over time    
     # ====================================
-    y = add_leap_day_values(unit.temp_distribution_output, sim_params)
     x0 = sim_params["start_date_output"]
     dx = sim_params["time_step_seconds"] * 1000
+
+    y = add_leap_day_values(unit.temp_distribution_output, x0,
+                            sim_params["time_step_seconds"], sim_params["end_date"])
 
     # downsamle y and x to reduce file size with long simulations
     dec_f = 1
@@ -1521,9 +1523,11 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     # ====================================
     # Plot temperature differences to surrounding over time    
     # ====================================
-    y = add_leap_day_values(unit.temp_difference_to_surrounding_output, sim_params)
     x0 = sim_params["start_date_output"]
     dx = sim_params["time_step_seconds"] * 1000
+
+    y = add_leap_day_values(unit.temp_difference_to_surrounding_output, x0,
+                            sim_params["time_step_seconds"], sim_params["end_date"])
 
     # downsamle y and x to reduce file size with long simulations
     dec_f = 1

@@ -844,21 +844,23 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
 
     x0 = sim_params["start_date_output"]
     dx = sim_params["time_step_seconds"] * 1000
+    end_date = x0 + Year(sim_params["economic_parameters"]["observation_period_in_years"]) -
+               Second(sim_params["time_step_seconds"])
 
     # downsamle profiles and timestamps to reduce file size with long simulations
     dec_f = 1
     if io_settings["enable_plot_downsampling"]
         n_vals = prod(size(economic_profiles)) + prod(size(emissions_profiles))
         dec_f = ceil(Int, n_vals / io_settings["plot_downsampling_max_number_values"])
-        economic_profiles, _ = EnergySystems.downsampling_for_plots(economic_profiles, 1;
-                                                                    decimation_factor=dec_f)
-        emissions_profiles, _ = EnergySystems.downsampling_for_plots(emissions_profiles, 1;
-                                                                     decimation_factor=dec_f)
         dx *= dec_f
     end
 
     if economic_result !== nothing
-        economic_profiles = EnergySystems.add_leap_day_values(economic_profiles, sim_params)
+        economic_profiles = EnergySystems.add_leap_day_values(economic_profiles, x0,
+                                                              sim_params["time_step_seconds"],
+                                                              end_date)
+        economic_profiles, _ = EnergySystems.downsampling_for_plots(economic_profiles, 1;
+                                                                    decimation_factor=dec_f)
         for (idx, profile) in enumerate(eachcol(economic_profiles))
             name = economic_profile_names[idx]
             push!(traces,
@@ -867,7 +869,11 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     end
 
     if emissions_result !== nothing
-        emissions_profiles = EnergySystems.add_leap_day_values(emissions_profiles, sim_params)
+        emissions_profiles = EnergySystems.add_leap_day_values(emissions_profiles, x0,
+                                                               sim_params["time_step_seconds"],
+                                                               end_date)
+        emissions_profiles, _ = EnergySystems.downsampling_for_plots(emissions_profiles, 1;
+                                                                     decimation_factor=dec_f)
         for (idx, profile) in enumerate(eachcol(emissions_profiles))
             name = emissions_profile_names[idx]
             push!(traces,

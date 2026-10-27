@@ -819,7 +819,9 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
     else
         x0 = sim_params["start_date_output"]
         dx = sim_params["time_step_seconds"] * 1000
-        y = EnergySystems.add_leap_day_values(y, sim_params)
+        y = EnergySystems.add_leap_day_values(y, x0,
+                                              sim_params["time_step_seconds"],
+                                              sim_params["end_date"])
     end
 
     # downsamle y and x to reduce file size with long simulations
