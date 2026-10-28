@@ -286,6 +286,10 @@ function bus_from_node(node::BusNode, template::Bus, components::Grouping)::Bus
 end
 
 function get_new_uac(parent_uac::String, child_uac::String)::String
+    #TODO Makeshift fix for a bug with circular busses
+    if startswith(child_uac, "Proxy-")
+        child_uac = child_uac[7:end]
+    end
     if startswith(parent_uac, "Proxy-")
         return parent_uac * "|" * child_uac
     else

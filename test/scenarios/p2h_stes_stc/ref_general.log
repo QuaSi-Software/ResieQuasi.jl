@@ -11,33 +11,33 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] The timestamp of the profile at .\profiles\weather\TRY2015_Stuttgart.epw:WindSpeed was shifted by 1800 seconds.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:WindSpeed was shifted using linear interpolation to fit the simulation start time. 
 [Info] The profile at .\profiles\examples\district\PV_Stuttgart_30_south_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
+[Info] The profile at .\profiles\examples\district\4000hours_with_least_CO2_2022.prf (intensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\district\PV_Stuttgart_10_west_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\district\demand_heating_and_water_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\district\demand_heating_and_water_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
-[Info] The profile at .\profiles\examples\district\4000hours_with_least_CO2_2022.prf (intensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] Auxiliary info dumped to file .\test\scenarios\p2h_stes_stc\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 36/720 in 0.6 s. ETA: 11.4000 s
-[Info] Progress: 72/720 in 0.05 s. ETA: 0.9000 s
-[Info] Progress: 108/720 in 0.067 s. ETA: 1.1390 s
-[Info] Progress: 144/720 in 0.056 s. ETA: 0.8960 s
-[Info] Progress: 180/720 in 0.063 s. ETA: 0.9450 s
-[Info] Progress: 216/720 in 0.058 s. ETA: 0.8120 s
-[Info] Progress: 252/720 in 0.06 s. ETA: 0.7800 s
-[Info] Progress: 288/720 in 0.073 s. ETA: 0.8760 s
-[Info] Progress: 324/720 in 0.063 s. ETA: 0.6930 s
-[Info] Progress: 360/720 in 0.061 s. ETA: 0.6100 s
-[Info] Progress: 396/720 in 0.16 s. ETA: 1.4400 s
-[Info] Progress: 432/720 in 0.06 s. ETA: 0.4640 s
-[Info] Progress: 468/720 in 0.051 s. ETA: 0.3570 s
-[Info] Progress: 504/720 in 0.058 s. ETA: 0.3480 s
+[Info] Progress: 36/720 in 0.559 s. ETA: 10.6210 s
+[Info] Progress: 72/720 in 0.056 s. ETA: 1.0080 s
+[Info] Progress: 108/720 in 0.048 s. ETA: 0.8160 s
+[Info] Progress: 144/720 in 0.063 s. ETA: 1.0080 s
+[Info] Progress: 180/720 in 0.048 s. ETA: 0.7200 s
+[Info] Progress: 216/720 in 0.057 s. ETA: 0.7980 s
+[Info] Progress: 252/720 in 0.065 s. ETA: 0.8450 s
+[Info] Progress: 288/720 in 0.128 s. ETA: 1.5360 s
+[Info] Progress: 324/720 in 0.05 s. ETA: 0.5500 s
+[Info] Progress: 360/720 in 0.053 s. ETA: 0.5300 s
+[Info] Progress: 396/720 in 0.053 s. ETA: 0.4770 s
+[Info] Progress: 432/720 in 0.058 s. ETA: 0.4640 s
+[Info] Progress: 468/720 in 0.052 s. ETA: 0.3640 s
+[Info] Progress: 504/720 in 0.056 s. ETA: 0.3360 s
 [Info] Progress: 540/720 in 0.053 s. ETA: 0.2650 s
-[Info] Progress: 576/720 in 0.051 s. ETA: 0.2040 s
-[Info] Progress: 612/720 in 0.049 s. ETA: 0.1470 s
-[Info] Progress: 648/720 in 0.061 s. ETA: 0.1220 s
-[Info] Progress: 684/720 in 0.073 s. ETA: 0.0730 s
-[Info] Progress: 720/720 in 0.066 s. ETA: 0.0000 s
+[Info] Progress: 576/720 in 0.045 s. ETA: 0.1800 s
+[Info] Progress: 612/720 in 0.063 s. ETA: 0.1890 s
+[Info] Progress: 648/720 in 0.05 s. ETA: 0.1000 s
+[Info] Progress: 684/720 in 0.096 s. ETA: 0.0960 s
+[Info] Progress: 720/720 in 0.054 s. ETA: 0.0000 s
 [Info] -- Finished time step loop
 [Info] CSV-file with outputs written to .\test\scenarios\p2h_stes_stc\out.csv
 [Info] Summary CSV-file with outputs created and written to .\test\scenarios\p2h_stes_stc\out_aggregated.csv

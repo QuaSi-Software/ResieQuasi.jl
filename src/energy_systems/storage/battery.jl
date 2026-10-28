@@ -479,7 +479,7 @@ Base.@kwdef mutable struct Battery <: Component
     # indicating if the load step has already been performed in the current time step
     load_done::Bool
 
-    function Battery(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function Battery(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         return new(SSOT_parameter_constructor(Battery, uac, config, sim_params)...)
     end
 end
@@ -496,7 +496,7 @@ function emissions_parameters(x::Type{Battery})::Dict{String,Any}
     return deepcopy(BATTERY_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{Battery}, config::Dict{String,Any}, param_name::String,
+function extract_parameter(x::Type{Battery}, config::AbstractDict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
     if param_name == "cell_cutoff_current" && !haskey(config, "cell_cutoff_current")
         return 0.003 * Float64(default(config, "capacity_cell_Ah", 0.0))
@@ -505,7 +505,7 @@ function extract_parameter(x::Type{Battery}, config::Dict{String,Any}, param_nam
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{Battery}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{Battery}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(Battery)

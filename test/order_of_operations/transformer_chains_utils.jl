@@ -4,7 +4,7 @@ import ResieQuasi as Resie
 using ResieQuasi.EnergySystems
 
 function test_distance_from_sink()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_BUS_01" => Dict{String,Any}(
             "type" => "Bus",
             "medium" => "m_h_w_ht1",
@@ -72,7 +72,7 @@ end
 end
 
 function test_iteration_order()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_BUS_01" => Dict{String,Any}(
             "type" => "Bus",
             "medium" => "m_h_w_ht1",
@@ -150,7 +150,7 @@ end
 end
 
 function test_find_chains()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_BUS_01" => Dict{String,Any}(
             "type" => "Bus",
             "medium" => "m_h_w_lt1",
@@ -230,7 +230,7 @@ function test_find_chains()
 end
 
 function test_find_indirect_chains()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -424,7 +424,7 @@ function test_find_indirect_chains_denied()
     # This is the same energy system as in test_find_indirect_chains(), but the connection matrix
     # of the two busses denies the connection to and from HP1/HP1b to other transformers. 
     # Therefore, here two independent transformer chains are detected instead of one.
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -620,7 +620,7 @@ function test_find_indirect_chains_denied2()
     # of the two busses denies the connection to HP4 from other transformers. 
     # Therefore, here two independent transformer chains are detected instead of one. One chain
     # is only HP4.
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",

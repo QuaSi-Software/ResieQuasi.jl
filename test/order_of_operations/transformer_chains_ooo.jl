@@ -6,7 +6,7 @@ using ResieQuasi.EnergySystems
 include("../test_util.jl")
 
 function test_base_order()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_01_ELT_01_PVP" => Dict{String,Any}(
             "type" => "PVPlant",
             "output_refs" => ["TST_01_ELT_01_BUS"],
@@ -123,8 +123,8 @@ function test_base_order()
                 [1296, ("TST_01_HZG_01_BUS", EnergySystems.s_reset)],
                 [1295, ("TST_01_HZG_01_CHP", EnergySystems.s_reset)],
                 [1294, ("TST_01_HZG_01_HTP", EnergySystems.s_reset)],
-                [1293, ("TST_01_HZG_01_BFT", EnergySystems.s_reset)],
-                [1292, ("TST_01_ELT_01_BAT", EnergySystems.s_reset)],
+                [1293, ("TST_01_ELT_01_BAT", EnergySystems.s_reset)],
+                [1292, ("TST_01_HZG_01_BFT", EnergySystems.s_reset)],
                 [1291, ("TST_01_ELT_01_GRI", EnergySystems.s_reset)],
                 [1290, ("TST_01_HZG_01_GRI", EnergySystems.s_reset)],
                 [1289, ("TST_01_HZG_02_SRC", EnergySystems.s_reset)],
@@ -136,8 +136,8 @@ function test_base_order()
                 [1283, ("TST_01_HZG_01_BUS", EnergySystems.s_control)],
                 [1282, ("TST_01_HZG_01_CHP", EnergySystems.s_control)],
                 [1281, ("TST_01_HZG_01_HTP", EnergySystems.s_control)],
-                [1280, ("TST_01_HZG_01_BFT", EnergySystems.s_control)],
-                [1279, ("TST_01_ELT_01_BAT", EnergySystems.s_control)],
+                [1280, ("TST_01_ELT_01_BAT", EnergySystems.s_control)],
+                [1279, ("TST_01_HZG_01_BFT", EnergySystems.s_control)],
                 [1278, ("TST_01_ELT_01_GRI", EnergySystems.s_control)],
                 [1277, ("TST_01_HZG_01_GRI", EnergySystems.s_control)],
                 [1276, ("TST_01_HZG_02_SRC", EnergySystems.s_control)],
@@ -151,10 +151,10 @@ function test_base_order()
                 [1268, ("TST_01_HZG_01_HTP", EnergySystems.s_potential)],
                 [1267, ("TST_01_HZG_01_CHP", EnergySystems.s_process)],
                 [1266, ("TST_01_HZG_01_HTP", EnergySystems.s_process)],
-                [1265, ("TST_01_HZG_01_BFT", EnergySystems.s_process)],
-                [1264, ("TST_01_ELT_01_BAT", EnergySystems.s_process)],
-                [1263, ("TST_01_HZG_01_BFT", EnergySystems.s_load)],
-                [1262, ("TST_01_ELT_01_BAT", EnergySystems.s_load)],
+                [1265, ("TST_01_ELT_01_BAT", EnergySystems.s_process)],
+                [1264, ("TST_01_HZG_01_BFT", EnergySystems.s_process)],
+                [1263, ("TST_01_ELT_01_BAT", EnergySystems.s_load)],
+                [1262, ("TST_01_HZG_01_BFT", EnergySystems.s_load)],
                 [1261, ("TST_01_HZG_02_SRC", EnergySystems.s_process)],
                 [1260, ("TST_01_ELT_01_GRI", EnergySystems.s_process)],
                 [1259, ("TST_01_HZG_01_GRI", EnergySystems.s_process)],
@@ -175,7 +175,7 @@ end
 end
 
 function test_ooo_middle_bus()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -307,38 +307,38 @@ function test_ooo_middle_bus()
 
     expected = ["TST_DEM_01 s_reset",
                 "TST_DEM_02 s_reset",
-                "TST_BUS_TH s_reset",
                 "TST_BUS_EL s_reset",
+                "TST_BUS_TH s_reset",
                 "TST_HP_01 s_reset",
-                "TST_HP_06 s_reset",
-                "TST_HP_03 s_reset",
-                "TST_HP_05 s_reset",
-                "TST_HP_04 s_reset",
                 "TST_HP_02 s_reset",
-                "TST_HP_08 s_reset",
+                "TST_HP_03 s_reset",
+                "TST_HP_04 s_reset",
+                "TST_HP_05 s_reset",
+                "TST_HP_06 s_reset",
                 "TST_HP_07 s_reset",
+                "TST_HP_08 s_reset",
+                "TST_GRI_EL s_reset",
                 "TST_SRC_01 s_reset",
                 "TST_SRC_02 s_reset",
-                "TST_GRI_EL s_reset",
                 "TST_DEM_01 s_control",
                 "TST_DEM_02 s_control",
-                "TST_BUS_TH s_control",
                 "TST_BUS_EL s_control",
+                "TST_BUS_TH s_control",
                 "TST_HP_01 s_control",
-                "TST_HP_06 s_control",
-                "TST_HP_03 s_control",
-                "TST_HP_05 s_control",
-                "TST_HP_04 s_control",
                 "TST_HP_02 s_control",
-                "TST_HP_08 s_control",
+                "TST_HP_03 s_control",
+                "TST_HP_04 s_control",
+                "TST_HP_05 s_control",
+                "TST_HP_06 s_control",
                 "TST_HP_07 s_control",
+                "TST_HP_08 s_control",
+                "TST_GRI_EL s_control",
                 "TST_SRC_01 s_control",
                 "TST_SRC_02 s_control",
-                "TST_GRI_EL s_control",
                 "TST_DEM_01 s_process",
                 "TST_DEM_02 s_process",
-                "TST_BUS_TH s_process",
                 "TST_BUS_EL s_process",
+                "TST_BUS_TH s_process",
                 "TST_HP_01 s_potential",
                 "TST_HP_02 s_potential",
                 "TST_HP_03 s_potential",
@@ -358,8 +358,8 @@ function test_ooo_middle_bus()
                 "TST_SRC_01 s_process",
                 "TST_SRC_02 s_process",
                 "TST_GRI_EL s_process",
-                "TST_BUS_TH s_distribute",
-                "TST_BUS_EL s_distribute"]
+                "TST_BUS_EL s_distribute",
+                "TST_BUS_TH s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 
@@ -373,7 +373,7 @@ function test_ooo_middle_bus()
 end
 
 function test_ooo_middle_bus_different_order()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -505,38 +505,38 @@ function test_ooo_middle_bus_different_order()
 
     expected = ["TST_DEM_01 s_reset",
                 "TST_DEM_02 s_reset",
-                "TST_BUS_TH s_reset",
                 "TST_BUS_EL s_reset",
+                "TST_BUS_TH s_reset",
                 "TST_HP_01 s_reset",
-                "TST_HP_06 s_reset",
-                "TST_HP_03 s_reset",
-                "TST_HP_05 s_reset",
-                "TST_HP_04 s_reset",
                 "TST_HP_02 s_reset",
-                "TST_HP_08 s_reset",
+                "TST_HP_03 s_reset",
+                "TST_HP_04 s_reset",
+                "TST_HP_05 s_reset",
+                "TST_HP_06 s_reset",
                 "TST_HP_07 s_reset",
+                "TST_HP_08 s_reset",
+                "TST_GRI_EL s_reset",
                 "TST_SRC_01 s_reset",
                 "TST_SRC_02 s_reset",
-                "TST_GRI_EL s_reset",
                 "TST_DEM_01 s_control",
                 "TST_DEM_02 s_control",
-                "TST_BUS_TH s_control",
                 "TST_BUS_EL s_control",
+                "TST_BUS_TH s_control",
                 "TST_HP_01 s_control",
-                "TST_HP_06 s_control",
-                "TST_HP_03 s_control",
-                "TST_HP_05 s_control",
-                "TST_HP_04 s_control",
                 "TST_HP_02 s_control",
-                "TST_HP_08 s_control",
+                "TST_HP_03 s_control",
+                "TST_HP_04 s_control",
+                "TST_HP_05 s_control",
+                "TST_HP_06 s_control",
                 "TST_HP_07 s_control",
+                "TST_HP_08 s_control",
+                "TST_GRI_EL s_control",
                 "TST_SRC_01 s_control",
                 "TST_SRC_02 s_control",
-                "TST_GRI_EL s_control",
                 "TST_DEM_01 s_process",
                 "TST_DEM_02 s_process",
-                "TST_BUS_TH s_process",
                 "TST_BUS_EL s_process",
+                "TST_BUS_TH s_process",
                 "TST_HP_03 s_potential",
                 "TST_HP_04 s_potential",
                 "TST_HP_01 s_potential",
@@ -556,8 +556,8 @@ function test_ooo_middle_bus_different_order()
                 "TST_SRC_01 s_process",
                 "TST_SRC_02 s_process",
                 "TST_GRI_EL s_process",
-                "TST_BUS_TH s_distribute",
-                "TST_BUS_EL s_distribute"]
+                "TST_BUS_EL s_distribute",
+                "TST_BUS_TH s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 
@@ -571,7 +571,7 @@ function test_ooo_middle_bus_different_order()
 end
 
 function test_ooo_middle_transformer()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -670,33 +670,33 @@ function test_ooo_middle_transformer()
     )
     expected = ["TST_DEM_01 s_reset",
                 "TST_DEM_02 s_reset",
-                "TST_BUS_TH s_reset",
-                "TST_BUS_H2 s_reset",
                 "TST_BUS_EL s_reset",
-                "TST_HP_01 s_reset",
-                "TST_01_ELY_01 s_reset",
-                "TST_HP_02 s_reset",
+                "TST_BUS_H2 s_reset",
+                "TST_BUS_TH s_reset",
                 "ESS_FBH2_01 s_reset",
-                "TST_SRC_01 s_reset",
+                "TST_01_ELY_01 s_reset",
+                "TST_HP_01 s_reset",
+                "TST_HP_02 s_reset",
                 "TST_GRI_01 s_reset",
+                "TST_SRC_01 s_reset",
                 "TST_GRI_O2 s_reset",
                 "TST_DEM_01 s_control",
                 "TST_DEM_02 s_control",
-                "TST_BUS_TH s_control",
-                "TST_BUS_H2 s_control",
                 "TST_BUS_EL s_control",
-                "TST_HP_01 s_control",
-                "TST_01_ELY_01 s_control",
-                "TST_HP_02 s_control",
+                "TST_BUS_H2 s_control",
+                "TST_BUS_TH s_control",
                 "ESS_FBH2_01 s_control",
-                "TST_SRC_01 s_control",
+                "TST_01_ELY_01 s_control",
+                "TST_HP_01 s_control",
+                "TST_HP_02 s_control",
                 "TST_GRI_01 s_control",
+                "TST_SRC_01 s_control",
                 "TST_GRI_O2 s_control",
                 "TST_DEM_01 s_process",
                 "TST_DEM_02 s_process",
-                "TST_BUS_TH s_process",
-                "TST_BUS_H2 s_process",
                 "TST_BUS_EL s_process",
+                "TST_BUS_H2 s_process",
+                "TST_BUS_TH s_process",
                 "ESS_FBH2_01 s_potential",
                 "TST_HP_01 s_potential",
                 "TST_HP_02 s_potential",
@@ -707,9 +707,9 @@ function test_ooo_middle_transformer()
                 "TST_SRC_01 s_process",
                 "TST_GRI_01 s_process",
                 "TST_GRI_O2 s_process",
-                "TST_BUS_TH s_distribute",
+                "TST_BUS_EL s_distribute",
                 "TST_BUS_H2 s_distribute",
-                "TST_BUS_EL s_distribute"]
+                "TST_BUS_TH s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 
@@ -723,7 +723,7 @@ function test_ooo_middle_transformer()
 end
 
 function test_ooo_parallels()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -820,31 +820,31 @@ function test_ooo_parallels()
         ),
     )
     expected = ["TST_DEM_01 s_reset",
-                "TST_BUS_TH2 s_reset",
                 "TST_BUS_EL s_reset",
                 "TST_BUS_TH1 s_reset",
+                "TST_BUS_TH2 s_reset",
                 "TST_HP_01 s_reset",
-                "TST_HP_03 s_reset",
-                "TST_HP_05 s_reset",
-                "TST_HP_04 s_reset",
                 "TST_HP_02 s_reset",
-                "TST_SRC_01 s_reset",
+                "TST_HP_03 s_reset",
+                "TST_HP_04 s_reset",
+                "TST_HP_05 s_reset",
                 "TST_GRI_01 s_reset",
+                "TST_SRC_01 s_reset",
                 "TST_DEM_01 s_control",
-                "TST_BUS_TH2 s_control",
                 "TST_BUS_EL s_control",
                 "TST_BUS_TH1 s_control",
+                "TST_BUS_TH2 s_control",
                 "TST_HP_01 s_control",
-                "TST_HP_03 s_control",
-                "TST_HP_05 s_control",
-                "TST_HP_04 s_control",
                 "TST_HP_02 s_control",
-                "TST_SRC_01 s_control",
+                "TST_HP_03 s_control",
+                "TST_HP_04 s_control",
+                "TST_HP_05 s_control",
                 "TST_GRI_01 s_control",
+                "TST_SRC_01 s_control",
                 "TST_DEM_01 s_process",
-                "TST_BUS_TH2 s_process",
                 "TST_BUS_EL s_process",
                 "TST_BUS_TH1 s_process",
+                "TST_BUS_TH2 s_process",
                 "TST_HP_02 s_potential",
                 "TST_HP_01 s_potential",
                 "TST_HP_02 s_potential",
@@ -859,9 +859,9 @@ function test_ooo_parallels()
                 "TST_HP_05 s_process",
                 "TST_SRC_01 s_process",
                 "TST_GRI_01 s_process",
-                "TST_BUS_TH2 s_distribute",
                 "TST_BUS_EL s_distribute",
-                "TST_BUS_TH1 s_distribute"]
+                "TST_BUS_TH1 s_distribute",
+                "TST_BUS_TH2 s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 
@@ -875,7 +875,7 @@ function test_ooo_parallels()
 end
 
 function test_ooo_parallels_different_order()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -972,31 +972,31 @@ function test_ooo_parallels_different_order()
         ),
     )
     expected = ["TST_DEM_01 s_reset",
-                "TST_BUS_TH2 s_reset",
                 "TST_BUS_EL s_reset",
                 "TST_BUS_TH1 s_reset",
+                "TST_BUS_TH2 s_reset",
                 "TST_HP_01 s_reset",
-                "TST_HP_03 s_reset",
-                "TST_HP_05 s_reset",
-                "TST_HP_04 s_reset",
                 "TST_HP_02 s_reset",
-                "TST_SRC_01 s_reset",
+                "TST_HP_03 s_reset",
+                "TST_HP_04 s_reset",
+                "TST_HP_05 s_reset",
                 "TST_GRI_01 s_reset",
+                "TST_SRC_01 s_reset",
                 "TST_DEM_01 s_control",
-                "TST_BUS_TH2 s_control",
                 "TST_BUS_EL s_control",
                 "TST_BUS_TH1 s_control",
+                "TST_BUS_TH2 s_control",
                 "TST_HP_01 s_control",
-                "TST_HP_03 s_control",
-                "TST_HP_05 s_control",
-                "TST_HP_04 s_control",
                 "TST_HP_02 s_control",
-                "TST_SRC_01 s_control",
+                "TST_HP_03 s_control",
+                "TST_HP_04 s_control",
+                "TST_HP_05 s_control",
                 "TST_GRI_01 s_control",
+                "TST_SRC_01 s_control",
                 "TST_DEM_01 s_process",
-                "TST_BUS_TH2 s_process",
                 "TST_BUS_EL s_process",
                 "TST_BUS_TH1 s_process",
+                "TST_BUS_TH2 s_process",
                 "TST_HP_04 s_potential",
                 "TST_HP_03 s_potential",
                 "TST_HP_04 s_potential",
@@ -1010,9 +1010,9 @@ function test_ooo_parallels_different_order()
                 "TST_HP_02 s_process",
                 "TST_SRC_01 s_process",
                 "TST_GRI_01 s_process",
-                "TST_BUS_TH2 s_distribute",
                 "TST_BUS_EL s_distribute",
-                "TST_BUS_TH1 s_distribute"]
+                "TST_BUS_TH1 s_distribute",
+                "TST_BUS_TH2 s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 
@@ -1026,7 +1026,7 @@ function test_ooo_parallels_different_order()
 end
 
 function test_ooo_parallels_in_chain()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -1174,48 +1174,48 @@ function test_ooo_parallels_in_chain()
     )
 
     expected = ["TST_DEM_01 s_reset",
-                "TST_DEM_03 s_reset",
                 "TST_DEM_02 s_reset",
+                "TST_DEM_03 s_reset",
                 "TST_BUS_00 s_reset",
                 "TST_BUS_01 s_reset",
-                "TST_HP_01 s_reset",
-                "TST_HP_03 s_reset",
                 "TST_01_ELY_01 s_reset",
-                "TST_HP_04 s_reset",
-                "TST_HP_02 s_reset",
+                "TST_HP_01 s_reset",
                 "TST_HP_01b s_reset",
+                "TST_HP_02 s_reset",
+                "TST_HP_03 s_reset",
+                "TST_HP_04 s_reset",
                 "TST_GRI_00 s_reset",
-                "TST_GRI_03 s_reset",
+                "TST_GRI_01 s_reset",
                 "TST_GRI_02 s_reset",
+                "TST_GRI_03 s_reset",
+                "TST_GRI_04 s_reset",
                 "TST_SRC_01 s_reset",
                 "TST_SRC_1b s_reset",
-                "TST_GRI_01 s_reset",
-                "TST_GRI_04 s_reset",
-                "TST_GRI_O2 s_reset",
                 "TST_GRI_H2 s_reset",
+                "TST_GRI_O2 s_reset",
                 "TST_DEM_01 s_control",
-                "TST_DEM_03 s_control",
                 "TST_DEM_02 s_control",
+                "TST_DEM_03 s_control",
                 "TST_BUS_00 s_control",
                 "TST_BUS_01 s_control",
-                "TST_HP_01 s_control",
-                "TST_HP_03 s_control",
                 "TST_01_ELY_01 s_control",
-                "TST_HP_04 s_control",
-                "TST_HP_02 s_control",
+                "TST_HP_01 s_control",
                 "TST_HP_01b s_control",
+                "TST_HP_02 s_control",
+                "TST_HP_03 s_control",
+                "TST_HP_04 s_control",
                 "TST_GRI_00 s_control",
-                "TST_GRI_03 s_control",
+                "TST_GRI_01 s_control",
                 "TST_GRI_02 s_control",
+                "TST_GRI_03 s_control",
+                "TST_GRI_04 s_control",
                 "TST_SRC_01 s_control",
                 "TST_SRC_1b s_control",
-                "TST_GRI_01 s_control",
-                "TST_GRI_04 s_control",
-                "TST_GRI_O2 s_control",
                 "TST_GRI_H2 s_control",
+                "TST_GRI_O2 s_control",
                 "TST_DEM_01 s_process",
-                "TST_DEM_03 s_process",
                 "TST_DEM_02 s_process",
+                "TST_DEM_03 s_process",
                 "TST_BUS_00 s_process",
                 "TST_BUS_01 s_process",
                 "TST_01_ELY_01 s_potential",
@@ -1234,12 +1234,12 @@ function test_ooo_parallels_in_chain()
                 "TST_SRC_01 s_process",
                 "TST_SRC_1b s_process",
                 "TST_GRI_00 s_process",
-                "TST_GRI_03 s_process",
-                "TST_GRI_02 s_process",
                 "TST_GRI_01 s_process",
+                "TST_GRI_02 s_process",
+                "TST_GRI_03 s_process",
                 "TST_GRI_04 s_process",
-                "TST_GRI_O2 s_process",
                 "TST_GRI_H2 s_process",
+                "TST_GRI_O2 s_process",
                 "TST_BUS_00 s_distribute",
                 "TST_BUS_01 s_distribute"]
 
@@ -1255,7 +1255,7 @@ function test_ooo_parallels_in_chain()
 end
 
 function test_ooo_parallels_in_a_row()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -1390,40 +1390,40 @@ function test_ooo_parallels_in_a_row()
     )
 
     expected = ["TST_DEM_01 s_reset",
-                "TST_BUS_TH2 s_reset",
-                "TST_BUS_TH3 s_reset",
                 "TST_BUS_EL s_reset",
                 "TST_BUS_TH1 s_reset",
+                "TST_BUS_TH2 s_reset",
+                "TST_BUS_TH3 s_reset",
                 "TST_HP_01 s_reset",
-                "TST_HP_06 s_reset",
-                "TST_HP_03 s_reset",
-                "TST_HP_05 s_reset",
-                "TST_HP_04 s_reset",
                 "TST_HP_02 s_reset",
-                "TST_HP_08 s_reset",
+                "TST_HP_03 s_reset",
+                "TST_HP_04 s_reset",
+                "TST_HP_05 s_reset",
+                "TST_HP_06 s_reset",
                 "TST_HP_07 s_reset",
-                "TST_SRC_01 s_reset",
+                "TST_HP_08 s_reset",
                 "TST_GRI_01 s_reset",
+                "TST_SRC_01 s_reset",
                 "TST_DEM_01 s_control",
-                "TST_BUS_TH2 s_control",
-                "TST_BUS_TH3 s_control",
                 "TST_BUS_EL s_control",
                 "TST_BUS_TH1 s_control",
+                "TST_BUS_TH2 s_control",
+                "TST_BUS_TH3 s_control",
                 "TST_HP_01 s_control",
-                "TST_HP_06 s_control",
-                "TST_HP_03 s_control",
-                "TST_HP_05 s_control",
-                "TST_HP_04 s_control",
                 "TST_HP_02 s_control",
-                "TST_HP_08 s_control",
+                "TST_HP_03 s_control",
+                "TST_HP_04 s_control",
+                "TST_HP_05 s_control",
+                "TST_HP_06 s_control",
                 "TST_HP_07 s_control",
-                "TST_SRC_01 s_control",
+                "TST_HP_08 s_control",
                 "TST_GRI_01 s_control",
+                "TST_SRC_01 s_control",
                 "TST_DEM_01 s_process",
-                "TST_BUS_TH2 s_process",
-                "TST_BUS_TH3 s_process",
                 "TST_BUS_EL s_process",
                 "TST_BUS_TH1 s_process",
+                "TST_BUS_TH2 s_process",
+                "TST_BUS_TH3 s_process",
                 "TST_HP_06 s_potential",
                 "TST_HP_05 s_potential",
                 "TST_HP_06 s_potential",
@@ -1444,10 +1444,10 @@ function test_ooo_parallels_in_a_row()
                 "TST_HP_08 s_process",
                 "TST_SRC_01 s_process",
                 "TST_GRI_01 s_process",
-                "TST_BUS_TH2 s_distribute",
-                "TST_BUS_TH3 s_distribute",
                 "TST_BUS_EL s_distribute",
-                "TST_BUS_TH1 s_distribute"]
+                "TST_BUS_TH1 s_distribute",
+                "TST_BUS_TH2 s_distribute",
+                "TST_BUS_TH3 s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 
@@ -1461,7 +1461,7 @@ function test_ooo_parallels_in_a_row()
 end
 
 function test_ooo_connected_middle_busses()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -1645,52 +1645,52 @@ function test_ooo_connected_middle_busses()
     )
 
     expected = ["TST_DEM_01 s_reset",
-                "TST_DEM_03 s_reset",
                 "TST_DEM_02 s_reset",
-                "TST_BUS_TH_01 s_reset",
+                "TST_DEM_03 s_reset",
                 "TST_BUS_EL s_reset",
+                "TST_BUS_TH_01 s_reset",
                 "TST_BUS_TH_02 s_reset",
                 "TST_HP_01 s_reset",
-                "TST_HP_09 s_reset",
-                "TST_HP_12 s_reset",
-                "TST_HP_06 s_reset",
+                "TST_HP_02 s_reset",
                 "TST_HP_03 s_reset",
+                "TST_HP_04 s_reset",
                 "TST_HP_05 s_reset",
+                "TST_HP_06 s_reset",
+                "TST_HP_07 s_reset",
+                "TST_HP_08 s_reset",
+                "TST_HP_09 s_reset",
                 "TST_HP_10 s_reset",
                 "TST_HP_11 s_reset",
-                "TST_HP_04 s_reset",
-                "TST_HP_02 s_reset",
-                "TST_HP_08 s_reset",
-                "TST_HP_07 s_reset",
+                "TST_HP_12 s_reset",
+                "TST_GRI_EL s_reset",
                 "TST_SRC_01 s_reset",
                 "TST_SRC_02 s_reset",
-                "TST_GRI_EL s_reset",
                 "TST_DEM_01 s_control",
-                "TST_DEM_03 s_control",
                 "TST_DEM_02 s_control",
-                "TST_BUS_TH_01 s_control",
+                "TST_DEM_03 s_control",
                 "TST_BUS_EL s_control",
+                "TST_BUS_TH_01 s_control",
                 "TST_BUS_TH_02 s_control",
                 "TST_HP_01 s_control",
-                "TST_HP_09 s_control",
-                "TST_HP_12 s_control",
-                "TST_HP_06 s_control",
+                "TST_HP_02 s_control",
                 "TST_HP_03 s_control",
+                "TST_HP_04 s_control",
                 "TST_HP_05 s_control",
+                "TST_HP_06 s_control",
+                "TST_HP_07 s_control",
+                "TST_HP_08 s_control",
+                "TST_HP_09 s_control",
                 "TST_HP_10 s_control",
                 "TST_HP_11 s_control",
-                "TST_HP_04 s_control",
-                "TST_HP_02 s_control",
-                "TST_HP_08 s_control",
-                "TST_HP_07 s_control",
+                "TST_HP_12 s_control",
+                "TST_GRI_EL s_control",
                 "TST_SRC_01 s_control",
                 "TST_SRC_02 s_control",
-                "TST_GRI_EL s_control",
                 "TST_DEM_01 s_process",
-                "TST_DEM_03 s_process",
                 "TST_DEM_02 s_process",
-                "TST_BUS_TH_01 s_process",
+                "TST_DEM_03 s_process",
                 "TST_BUS_EL s_process",
+                "TST_BUS_TH_01 s_process",
                 "TST_BUS_TH_02 s_process",
                 "TST_HP_01 s_potential",
                 "TST_HP_02 s_potential",
@@ -1719,8 +1719,8 @@ function test_ooo_connected_middle_busses()
                 "TST_SRC_01 s_process",
                 "TST_SRC_02 s_process",
                 "TST_GRI_EL s_process",
-                "TST_BUS_TH_01 s_distribute",
                 "TST_BUS_EL s_distribute",
+                "TST_BUS_TH_01 s_distribute",
                 "TST_BUS_TH_02 s_distribute"]
 
     simulation_parameters = get_default_sim_params()
@@ -1735,7 +1735,7 @@ function test_ooo_connected_middle_busses()
 end
 
 function test_ooo_connected_middle_transformer()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -1855,37 +1855,37 @@ function test_ooo_connected_middle_transformer()
 
     expected = ["TST_DEM_01 s_reset",
                 "TST_DEM_02 s_reset",
-                "TST_BUS_TH s_reset",
-                "TST_BUS_H2 s_reset",
                 "TST_BUS_EL s_reset",
-                "TST_HP_01 s_reset",
-                "TST_CHP_01 s_reset",
-                "TST_01_ELY_01 s_reset",
-                "TST_HP_02 s_reset",
+                "TST_BUS_H2 s_reset",
+                "TST_BUS_TH s_reset",
                 "ESS_FBH2_01 s_reset",
-                "TST_GRI_NG s_reset",
+                "TST_01_ELY_01 s_reset",
+                "TST_CHP_01 s_reset",
+                "TST_HP_01 s_reset",
+                "TST_HP_02 s_reset",
                 "TST_GRI_01 s_reset",
+                "TST_GRI_NG s_reset",
                 "TST_GRI_02 s_reset",
                 "TST_GRI_O2 s_reset",
                 "TST_DEM_01 s_control",
                 "TST_DEM_02 s_control",
-                "TST_BUS_TH s_control",
-                "TST_BUS_H2 s_control",
                 "TST_BUS_EL s_control",
-                "TST_HP_01 s_control",
-                "TST_CHP_01 s_control",
-                "TST_01_ELY_01 s_control",
-                "TST_HP_02 s_control",
+                "TST_BUS_H2 s_control",
+                "TST_BUS_TH s_control",
                 "ESS_FBH2_01 s_control",
-                "TST_GRI_NG s_control",
+                "TST_01_ELY_01 s_control",
+                "TST_CHP_01 s_control",
+                "TST_HP_01 s_control",
+                "TST_HP_02 s_control",
                 "TST_GRI_01 s_control",
+                "TST_GRI_NG s_control",
                 "TST_GRI_02 s_control",
                 "TST_GRI_O2 s_control",
                 "TST_DEM_01 s_process",
                 "TST_DEM_02 s_process",
-                "TST_BUS_TH s_process",
-                "TST_BUS_H2 s_process",
                 "TST_BUS_EL s_process",
+                "TST_BUS_H2 s_process",
+                "TST_BUS_TH s_process",
                 "TST_CHP_01 s_potential",
                 "TST_HP_02 s_potential",
                 "TST_HP_01 s_potential",
@@ -1895,13 +1895,13 @@ function test_ooo_connected_middle_transformer()
                 "TST_HP_02 s_process",
                 "TST_CHP_01 s_process",
                 "ESS_FBH2_01 s_process",
-                "TST_GRI_NG s_process",
                 "TST_GRI_01 s_process",
+                "TST_GRI_NG s_process",
                 "TST_GRI_02 s_process",
                 "TST_GRI_O2 s_process",
-                "TST_BUS_TH s_distribute",
+                "TST_BUS_EL s_distribute",
                 "TST_BUS_H2 s_distribute",
-                "TST_BUS_EL s_distribute"]
+                "TST_BUS_TH s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 
@@ -1915,7 +1915,7 @@ function test_ooo_connected_middle_transformer()
 end
 
 function test_ooo_connected_middle_transformer_variant()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -2062,44 +2062,44 @@ function test_ooo_connected_middle_transformer_variant()
     )
     expected = ["TST_DEM_01 s_reset",
                 "TST_DEM_02 s_reset",
-                "TST_BUS_TH2 s_reset",
-                "TST_BUS_TH s_reset",
-                "TST_BUS_H2 s_reset",
                 "TST_BUS_EL s_reset",
-                "TST_HP_01 s_reset",
-                "TST_HP_03 s_reset",
-                "TST_CHP_01 s_reset",
-                "TST_01_ELY_01 s_reset",
-                "TST_HP_02 s_reset",
+                "TST_BUS_H2 s_reset",
+                "TST_BUS_TH s_reset",
+                "TST_BUS_TH2 s_reset",
                 "ESS_FBH2_01 s_reset",
-                "TST_SRC_01 s_reset",
-                "TST_GRI_NG s_reset",
+                "TST_01_ELY_01 s_reset",
+                "TST_CHP_01 s_reset",
+                "TST_HP_01 s_reset",
+                "TST_HP_02 s_reset",
+                "TST_HP_03 s_reset",
                 "TST_GRI_01 s_reset",
+                "TST_GRI_NG s_reset",
+                "TST_SRC_01 s_reset",
                 "TST_GRI_02 s_reset",
                 "TST_GRI_O2 s_reset",
                 "TST_DEM_01 s_control",
                 "TST_DEM_02 s_control",
-                "TST_BUS_TH2 s_control",
-                "TST_BUS_TH s_control",
-                "TST_BUS_H2 s_control",
                 "TST_BUS_EL s_control",
-                "TST_HP_01 s_control",
-                "TST_HP_03 s_control",
-                "TST_CHP_01 s_control",
-                "TST_01_ELY_01 s_control",
-                "TST_HP_02 s_control",
+                "TST_BUS_H2 s_control",
+                "TST_BUS_TH s_control",
+                "TST_BUS_TH2 s_control",
                 "ESS_FBH2_01 s_control",
-                "TST_SRC_01 s_control",
-                "TST_GRI_NG s_control",
+                "TST_01_ELY_01 s_control",
+                "TST_CHP_01 s_control",
+                "TST_HP_01 s_control",
+                "TST_HP_02 s_control",
+                "TST_HP_03 s_control",
                 "TST_GRI_01 s_control",
+                "TST_GRI_NG s_control",
+                "TST_SRC_01 s_control",
                 "TST_GRI_02 s_control",
                 "TST_GRI_O2 s_control",
                 "TST_DEM_01 s_process",
                 "TST_DEM_02 s_process",
-                "TST_BUS_TH2 s_process",
-                "TST_BUS_TH s_process",
-                "TST_BUS_H2 s_process",
                 "TST_BUS_EL s_process",
+                "TST_BUS_H2 s_process",
+                "TST_BUS_TH s_process",
+                "TST_BUS_TH2 s_process",
                 "TST_CHP_01 s_potential",
                 "TST_HP_02 s_potential",
                 "TST_HP_01 s_potential",
@@ -2112,14 +2112,14 @@ function test_ooo_connected_middle_transformer_variant()
                 "ESS_FBH2_01 s_process",
                 "TST_HP_03 s_process",
                 "TST_SRC_01 s_process",
-                "TST_GRI_NG s_process",
                 "TST_GRI_01 s_process",
+                "TST_GRI_NG s_process",
                 "TST_GRI_02 s_process",
                 "TST_GRI_O2 s_process",
-                "TST_BUS_TH2 s_distribute",
-                "TST_BUS_TH s_distribute",
+                "TST_BUS_EL s_distribute",
                 "TST_BUS_H2 s_distribute",
-                "TST_BUS_EL s_distribute"]
+                "TST_BUS_TH s_distribute",
+                "TST_BUS_TH2 s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 
@@ -2133,7 +2133,7 @@ function test_ooo_connected_middle_transformer_variant()
 end
 
 function test_ooo_circle_grid_supply_denied()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -2206,36 +2206,36 @@ function test_ooo_circle_grid_supply_denied()
     )
 
     expected = ["TST_DEM_01 s_reset",
-                "TST_BUS_TH s_reset",
                 "TST_BUS_EL s_reset",
-                "TST_HP_01 s_reset",
+                "TST_BUS_TH s_reset",
                 "TST_CHP_01 s_reset",
-                "TST_SRC_01 s_reset",
-                "TST_GRI_natgas s_reset",
+                "TST_HP_01 s_reset",
                 "TST_GRI_01 s_reset",
+                "TST_GRI_natgas s_reset",
+                "TST_SRC_01 s_reset",
                 "TST_GRI_02 s_reset",
                 "TST_DEM_01 s_control",
-                "TST_BUS_TH s_control",
                 "TST_BUS_EL s_control",
-                "TST_HP_01 s_control",
+                "TST_BUS_TH s_control",
                 "TST_CHP_01 s_control",
-                "TST_SRC_01 s_control",
-                "TST_GRI_natgas s_control",
+                "TST_HP_01 s_control",
                 "TST_GRI_01 s_control",
+                "TST_GRI_natgas s_control",
+                "TST_SRC_01 s_control",
                 "TST_GRI_02 s_control",
                 "TST_DEM_01 s_process",
-                "TST_BUS_TH s_process",
                 "TST_BUS_EL s_process",
+                "TST_BUS_TH s_process",
                 "TST_HP_01 s_potential",
                 "TST_CHP_01 s_potential",
                 "TST_HP_01 s_process",
                 "TST_CHP_01 s_process",
                 "TST_SRC_01 s_process",
-                "TST_GRI_natgas s_process",
                 "TST_GRI_01 s_process",
+                "TST_GRI_natgas s_process",
                 "TST_GRI_02 s_process",
-                "TST_BUS_TH s_distribute",
-                "TST_BUS_EL s_distribute"]
+                "TST_BUS_EL s_distribute",
+                "TST_BUS_TH s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 
@@ -2249,7 +2249,7 @@ function test_ooo_circle_grid_supply_denied()
 end
 
 function test_ooo_circle_grid_supply_allowed()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -2322,36 +2322,36 @@ function test_ooo_circle_grid_supply_allowed()
     )
 
     expected = ["TST_DEM_01 s_reset",
-                "TST_BUS_TH s_reset",
                 "TST_BUS_EL s_reset",
-                "TST_HP_01 s_reset",
+                "TST_BUS_TH s_reset",
                 "TST_CHP_01 s_reset",
-                "TST_SRC_01 s_reset",
-                "TST_GRI_natgas s_reset",
+                "TST_HP_01 s_reset",
                 "TST_GRI_01 s_reset",
+                "TST_GRI_natgas s_reset",
+                "TST_SRC_01 s_reset",
                 "TST_GRI_02 s_reset",
                 "TST_DEM_01 s_control",
-                "TST_BUS_TH s_control",
                 "TST_BUS_EL s_control",
-                "TST_HP_01 s_control",
+                "TST_BUS_TH s_control",
                 "TST_CHP_01 s_control",
-                "TST_SRC_01 s_control",
-                "TST_GRI_natgas s_control",
+                "TST_HP_01 s_control",
                 "TST_GRI_01 s_control",
+                "TST_GRI_natgas s_control",
+                "TST_SRC_01 s_control",
                 "TST_GRI_02 s_control",
                 "TST_DEM_01 s_process",
-                "TST_BUS_TH s_process",
                 "TST_BUS_EL s_process",
+                "TST_BUS_TH s_process",
                 "TST_HP_01 s_potential",
                 "TST_CHP_01 s_potential",
                 "TST_HP_01 s_process",
                 "TST_CHP_01 s_process",
                 "TST_SRC_01 s_process",
-                "TST_GRI_natgas s_process",
                 "TST_GRI_01 s_process",
+                "TST_GRI_natgas s_process",
                 "TST_GRI_02 s_process",
-                "TST_BUS_TH s_distribute",
-                "TST_BUS_EL s_distribute"]
+                "TST_BUS_EL s_distribute",
+                "TST_BUS_TH s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 
@@ -2365,7 +2365,7 @@ function test_ooo_circle_grid_supply_allowed()
 end
 
 function test_ooo_circle_middle_transformer_input()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -2447,39 +2447,39 @@ function test_ooo_circle_middle_transformer_input()
     )
 
     expected = ["TST_DEM_01 s_reset",
-                "TST_BUS_TH s_reset",
                 "TST_BUS_EL s_reset",
-                "TST_HP_02 s_reset",
-                "TST_HP_01 s_reset",
+                "TST_BUS_TH s_reset",
                 "TST_CHP_01 s_reset",
-                "TST_SRC_01 s_reset",
-                "TST_GRI_natgas s_reset",
+                "TST_HP_01 s_reset",
+                "TST_HP_02 s_reset",
                 "TST_GRI_01 s_reset",
+                "TST_GRI_natgas s_reset",
+                "TST_SRC_01 s_reset",
                 "TST_GRI_02 s_reset",
                 "TST_DEM_01 s_control",
-                "TST_BUS_TH s_control",
                 "TST_BUS_EL s_control",
-                "TST_HP_02 s_control",
-                "TST_HP_01 s_control",
+                "TST_BUS_TH s_control",
                 "TST_CHP_01 s_control",
-                "TST_SRC_01 s_control",
-                "TST_GRI_natgas s_control",
+                "TST_HP_01 s_control",
+                "TST_HP_02 s_control",
                 "TST_GRI_01 s_control",
+                "TST_GRI_natgas s_control",
+                "TST_SRC_01 s_control",
                 "TST_GRI_02 s_control",
                 "TST_DEM_01 s_process",
-                "TST_BUS_TH s_process",
                 "TST_BUS_EL s_process",
+                "TST_BUS_TH s_process",
                 "TST_HP_01 s_potential",
                 "TST_CHP_01 s_potential",
                 "TST_HP_02 s_process",
                 "TST_HP_01 s_process",
                 "TST_CHP_01 s_process",
                 "TST_SRC_01 s_process",
-                "TST_GRI_natgas s_process",
                 "TST_GRI_01 s_process",
+                "TST_GRI_natgas s_process",
                 "TST_GRI_02 s_process",
-                "TST_BUS_TH s_distribute",
-                "TST_BUS_EL s_distribute"]
+                "TST_BUS_EL s_distribute",
+                "TST_BUS_TH s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 
@@ -2493,7 +2493,7 @@ function test_ooo_circle_middle_transformer_input()
 end
 
 function test_ooo_circle_variant()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -2584,30 +2584,30 @@ function test_ooo_circle_variant()
     )
 
     expected = ["TST_DEM_01 s_reset",
-                "TST_BUS_TH s_reset",
                 "TST_BUS_EL s_reset",
-                "TST_HP_01 s_reset",
+                "TST_BUS_TH s_reset",
                 "TST_CHP_01 s_reset",
                 "TST_CHP_02 s_reset",
-                "TST_GRI_natgas_2 s_reset",
-                "TST_SRC_01 s_reset",
+                "TST_HP_01 s_reset",
                 "TST_GRI_01 s_reset",
                 "TST_GRI_natgas_1 s_reset",
+                "TST_GRI_natgas_2 s_reset",
+                "TST_SRC_01 s_reset",
                 "TST_GRI_02 s_reset",
                 "TST_DEM_01 s_control",
-                "TST_BUS_TH s_control",
                 "TST_BUS_EL s_control",
-                "TST_HP_01 s_control",
+                "TST_BUS_TH s_control",
                 "TST_CHP_01 s_control",
                 "TST_CHP_02 s_control",
-                "TST_GRI_natgas_2 s_control",
-                "TST_SRC_01 s_control",
+                "TST_HP_01 s_control",
                 "TST_GRI_01 s_control",
                 "TST_GRI_natgas_1 s_control",
+                "TST_GRI_natgas_2 s_control",
+                "TST_SRC_01 s_control",
                 "TST_GRI_02 s_control",
                 "TST_DEM_01 s_process",
-                "TST_BUS_TH s_process",
                 "TST_BUS_EL s_process",
+                "TST_BUS_TH s_process",
                 "TST_HP_01 s_potential",
                 "TST_CHP_02 s_potential",
                 "TST_CHP_01 s_potential",
@@ -2615,12 +2615,12 @@ function test_ooo_circle_variant()
                 "TST_CHP_01 s_process",
                 "TST_CHP_02 s_process",
                 "TST_SRC_01 s_process",
-                "TST_GRI_natgas_2 s_process",
                 "TST_GRI_01 s_process",
                 "TST_GRI_natgas_1 s_process",
+                "TST_GRI_natgas_2 s_process",
                 "TST_GRI_02 s_process",
-                "TST_BUS_TH s_distribute",
-                "TST_BUS_EL s_distribute"]
+                "TST_BUS_EL s_distribute",
+                "TST_BUS_TH s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 
@@ -2634,7 +2634,7 @@ function test_ooo_circle_variant()
 end
 
 function test_ooo_circle_middle_transformer_interconnections()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -2746,34 +2746,34 @@ function test_ooo_circle_middle_transformer_interconnections()
 
     expected = ["TST_DEM_01 s_reset",
                 "TST_DEM_02 s_reset",
-                "TST_BUS_TH s_reset",
                 "TST_BUS_EL s_reset",
-                "TST_HP_01 s_reset",
-                "TST_HP_03 s_reset",
+                "TST_BUS_TH s_reset",
                 "TST_CHP_01 s_reset",
+                "TST_HP_01 s_reset",
                 "TST_HP_02 s_reset",
+                "TST_HP_03 s_reset",
                 "TST_BFT_TH_01 s_reset",
+                "TST_GRI_01 s_reset",
                 "TST_GRI_natgas s_reset",
                 "TST_SRC_01 s_reset",
-                "TST_GRI_01 s_reset",
                 "TST_GRI_02 s_reset",
                 "TST_DEM_01 s_control",
                 "TST_DEM_02 s_control",
-                "TST_BUS_TH s_control",
                 "TST_BUS_EL s_control",
-                "TST_HP_01 s_control",
-                "TST_HP_03 s_control",
+                "TST_BUS_TH s_control",
                 "TST_CHP_01 s_control",
+                "TST_HP_01 s_control",
                 "TST_HP_02 s_control",
+                "TST_HP_03 s_control",
                 "TST_BFT_TH_01 s_control",
+                "TST_GRI_01 s_control",
                 "TST_GRI_natgas s_control",
                 "TST_SRC_01 s_control",
-                "TST_GRI_01 s_control",
                 "TST_GRI_02 s_control",
                 "TST_DEM_01 s_process",
                 "TST_DEM_02 s_process",
-                "TST_BUS_TH s_process",
                 "TST_BUS_EL s_process",
+                "TST_BUS_TH s_process",
                 "TST_HP_01 s_potential",
                 "TST_HP_03 s_potential",
                 "TST_HP_02 s_potential",
@@ -2784,11 +2784,11 @@ function test_ooo_circle_middle_transformer_interconnections()
                 "TST_BFT_TH_01 s_process",
                 "TST_BFT_TH_01 s_load",
                 "TST_SRC_01 s_process",
-                "TST_GRI_natgas s_process",
                 "TST_GRI_01 s_process",
+                "TST_GRI_natgas s_process",
                 "TST_GRI_02 s_process",
-                "TST_BUS_TH s_distribute",
-                "TST_BUS_EL s_distribute"]
+                "TST_BUS_EL s_distribute",
+                "TST_BUS_TH s_distribute"]
 
     simulation_parameters = get_default_sim_params()
 

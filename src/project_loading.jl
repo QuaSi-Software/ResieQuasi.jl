@@ -2,7 +2,6 @@
 # energy system components from the project config file, as well as constructing certain
 # helpful information data structures from the inputs in the config
 using JSON: JSON
-using OrderedCollections: OrderedDict
 using Logging
 
 const HOURS_PER_SECOND::Float64 = 1.0 / 3600.0
@@ -559,6 +558,27 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="string",
         unit="-"
     ),
+    "enable_plot_downsampling" => (
+        default=true,
+        description="Toggle if big plots should be downsampled to keep the size of the " *
+                    "html file low enough to handle.",
+        display_name="Enable plot downsampling?",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "plot_downsampling_max_number_values" => (
+        default=10_000_000,
+        description="Defines the maximum number of values that are allowed in a plot. " *
+                    "Works together with plot downsampling.",
+        display_name="Maximum number of values in a plot",
+        required=false,
+        validations=[("self", "value_gt_num", 0)],
+        type=Integer,
+        json_type="number",
+        unit="-"
+    )
 )
 
 const SIMULATION_PARAMETERS_DEF = Dict{String,Any}(
@@ -1392,7 +1412,7 @@ end
 Constructs the dictionary of simulation parameters.
 
 # Arguments
--`project_config::Dict{String,Any}`: The project config
+-`project_config::AbstractDict{String,Any}`: The project config
 -`io_settings::Dict{String,Any}`: IO settings, already extracted from the project config
 # Returns
 -`Dict{String,Any}`: The simulation parameter dictionary
@@ -1570,7 +1590,6 @@ keys are checked first.
 - `Union{Tuple{AbstractDict,String},Nothing}`: The dictionary containing the parameter
   and its final key, or `nothing` if the path does not exist.
 """
-
 function resolve_parameter_path(config::AbstractDict, parameter_path::AbstractString)
     haskey(config, parameter_path) && return config, String(parameter_path)
 
@@ -1643,13 +1662,13 @@ required for the particular component. The `type` parameter must be present and 
 the symbol of the component class exactly. The structure is described in more detail in the
 accompanying documentation on the project file.
 """
-function load_components(config_ordered::AbstractDict{String,Any}, sim_params::Dict{String,Any})::Grouping
+function load_components(config::AbstractDict{String,Any}, sim_params::Dict{String,Any})::Grouping
     # convert OrderedDict to normal Dict to have a normal dict in all components as they do not
     # require any sorting
     to_dict(x) = x
     to_dict(x::OrderedDict) = Dict{String,Any}(k => to_dict(v) for (k, v) in x)
     to_dict(x::AbstractVector) = map(to_dict, x)
-    config = to_dict(config_ordered)
+    # config = to_dict(config_ordered)
 
     components = Grouping()
 
@@ -1717,7 +1736,7 @@ function load_components(config_ordered::AbstractDict{String,Any}, sim_params::D
                 continue
             end
             module_class = mapping[module_config["name"]]
-            push!(unit.controller.modules, module_class(module_config, components, sim_params, unit.uac))
+            push!(unit.controller.modules, module_class(to_dict(module_config), components, sim_params, unit.uac))
         end
     end
 
@@ -1866,7 +1885,7 @@ end
 Extract economic parameters form input file.
 
 Args:
--`project_config::Dict{String,Any}`: The project config data
+-`project_config::AbstractDict{String,Any}`: The project config data
 -`sim_params::Dict{String,Any}`: Simulation parameters, that have been extracted so far
 Return:
 -`Dict{String,Any}`: The economic parameters from the input file. If none are given,
@@ -1942,7 +1961,7 @@ end
 Extract emissions parameters form input file.
 
 Args:
--`project_config::Dict{String,Any}`: The project config data
+-`project_config::AbstractDict{String,Any}`: The project config data
 -`sim_params::Dict{String,Any}`: Simulation parameters, that have been extracted so far
 Return:
 -`Dict{String,Any}`: The emissions parameters from the input file. If none are given,

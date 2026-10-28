@@ -802,25 +802,35 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
             end
         end
     end
-    output_plot_time_unit = io_settings["output_plot_time_unit"]
-    if output_plot_time_unit == "seconds"
-        x = time_x
-    elseif output_plot_time_unit == "minutes"
-        x = time_x / 60
-    elseif output_plot_time_unit == "hours"
-        x = time_x / 60 / 60
-    else
-        if sim_params["start_date"] === nothing
-            start_date = Dates.DateTime("2015/1/1 00:00:00", "yyyy/m/d HH:MM:SS")
-            @info ("Date of first data point in output line plot is set to 01-01-2015 00:00:00, as the simulation start time is not given as date.")
-        else
-            start_date = sim_params["start_date_output"]
-        end
-        x = [add_ignoring_leap_days(start_date, Dates.Second(s)) for s in time_x]
-    end
 
     y = hcat(plot_data ? outputs_plot_data[:, 2:end] : zeros(Float64, size(outputs_plot_weather, 1), 0),
              plot_weather ? outputs_plot_weather[:, 2:end] : zeros(Float64, size(outputs_plot_data, 1), 0))
+
+    output_plot_time_unit = io_settings["output_plot_time_unit"]
+    if output_plot_time_unit == "seconds"
+        x0 = time_x[1]
+        dx = time_x[2] - x0
+    elseif output_plot_time_unit == "minutes"
+        x0 = time_x[1]
+        dx = (time_x[2] - x0) / 60
+    elseif output_plot_time_unit == "hours"
+        x0 = time_x[1]
+        dx = (time_x[2] - x0) / 60 / 60
+    else
+        x0 = sim_params["start_date_output"]
+        dx = sim_params["time_step_seconds"] * 1000
+        y = EnergySystems.add_leap_day_values(y, x0,
+                                              sim_params["time_step_seconds"],
+                                              sim_params["end_date"])
+    end
+
+    # downsamle y and x to reduce file size with long simulations
+    dec_f = 1
+    if io_settings["enable_plot_downsampling"]
+        max_n_vals = io_settings["plot_downsampling_max_number_values"]
+        y, dec_f = EnergySystems.downsampling_for_plots(y, 1; max_n_values=max_n_vals)
+        dx *= dec_f
+    end
 
     if io_settings["fixed_output_precision"] > 0
         y = round.(y; sigdigits=io_settings["fixed_output_precision"])
@@ -829,9 +839,9 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
     traces = GenericTrace[]
     for i in axes(y, 2)
         if plot_all
-            trace = scatter(; x=x, y=y[:, i], mode="lines", name=labels[i])
+            trace = scatter(; x0=x0, dx=dx, y=y[:, i], mode="lines", name=labels[i])
         else
-            trace = scatter(; x=x, y=scale_fact[i] * y[:, i], mode="lines", name=labels[i])
+            trace = scatter(; x0=x0, dx=dx, y=scale_fact[i] * y[:, i], mode="lines", name=labels[i])
             if axis[i] == "right"
                 trace.yaxis = "y2"
             else  # default is left axis
@@ -841,6 +851,14 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
         push!(traces, trace)
     end
 
+    title = "Plot of outputs as defined in the input-file. Attention: Energies are given " *
+            "within the simulation time step of $(Int(sim_params["time_step_seconds"])) s."
+    if dec_f > 1
+        title *= "<br><sup>For plot performance reasons the plot got downsampled by factor " *
+                 "$dec_f. The values didn't get adjusted but just every $dec_f value gets" *
+                 " displayed.</sup>"
+    end
+
     if output_plot_time_unit == "date"
         leap_days_str = string.([Date(year, 2, 29)
                                  for year in
@@ -848,8 +866,7 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
                                  if isleapyear(year)])
 
         layout = Layout(;
-                        title_text="Plot of outputs as defined in the input-file. Attention: Energies are given within " *
-                                   "the simulation time step of $(Int(sim_params["time_step_seconds"])) s",
+                        title_text=title,
                         xaxis_title_text="Time [$(output_plot_time_unit)]",
                         yaxis_title_text="",
                         yaxis2=attr(; title="", overlaying="y", side="right"),
@@ -857,8 +874,7 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
                                    rangebreaks=[Dict("values" => leap_days_str)]))
     else
         layout = Layout(;
-                        title_text="Plot of outputs as defined in the input-file. Attention: Energies are given within " *
-                                   "the simulation time step of $(Int(sim_params["time_step_seconds"])) s",
+                        title_text=title,
                         xaxis_title_text="Time [$(output_plot_time_unit)]",
                         yaxis_title_text="",
                         yaxis2=attr(; title="", overlaying="y", side="right"))
@@ -871,7 +887,8 @@ end
 
 """
     create_sankey(output_all_sourcenames, output_all_targetnames, output_all_values,
-                  medium_of_interfaces, nr_of_interfaces, io_settings, sim_params)
+                  medium_of_interfaces, nr_of_interfaces, components, io_settings,
+                  sim_params)
 
 create a sankey plot. 
 Inputs:
@@ -879,12 +896,14 @@ output_all_sourcenames and *sinknames are vectors with names of the source and s
 output_all_values are logs with data from each timestep in the shape [timestep,interface].
 medium_of_interface is a vector of the medium corresponding to each interface
 nr_of_interfaces is the total number of interfaces in the current energy system
+components is the grouping of all components of the energy system
 """
 function create_sankey(output_all_sourcenames::Vector{Any},
                        output_all_targetnames::Vector{Any},
                        output_all_values::Matrix{Float64},
                        medium_of_interfaces::Vector{Any},
                        nr_of_interfaces::Int64,
+                       components::Grouping,
                        io_settings::Dict{String,Any},
                        sim_params::Dict{String,Any})
 
@@ -946,7 +965,15 @@ function create_sankey(output_all_sourcenames::Vector{Any},
     # prepare data for sankey diagram and create sankey
     # set label of blocks
     block_labels = union(output_all_sourcenames, output_all_targetnames)
-    block_labels_unique = Dict(blockname => i for (i, blockname) in enumerate(block_labels))
+
+    # Storages are moved to the end of the block list which places them consistently to the
+    # right of the buses they are connected to.
+    storage_uacs = [unit.uac for unit in values(components)
+                    if unit.sys_function == EnergySystems.sf_storage]
+    block_labels = vcat([label for label in block_labels if !(label in storage_uacs)],
+                        [label for label in block_labels if label in storage_uacs])
+
+    block_labels_unique = OrderedDict(blockname => i for (i, blockname) in enumerate(block_labels))
     output_all_source_num = [block_labels_unique[blockname] for blockname in output_all_sourcenames]
     output_all_target_num = [block_labels_unique[blockname] for blockname in output_all_targetnames]
 

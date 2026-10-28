@@ -7,7 +7,7 @@ using ResieQuasi.Profiles
 include("../../test_util.jl")
 
 function test_many_to_one()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_SRC_01" => Dict{String,Any}(
             "type" => "FlexibleSupply",
             "medium" => "m_h_w_ht1",

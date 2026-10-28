@@ -29,6 +29,7 @@ export check_balances_of_components, check_balances_of_interfaces, Component, ea
 
 using ..Profiles
 using UUIDs
+using OrderedCollections: OrderedDict
 
 """
 Custom exception `InputError` used to signify that an input was not correctly set up,
@@ -101,7 +102,7 @@ abstract type Component end
 """
 Convenience alias to a dict mapping UAC keys to a component.
 """
-const Grouping = Dict{String,Component}
+const Grouping = OrderedDict{String,Component}
 
 """
 Convenience alias for temperatures which can be a number or "nothing".
@@ -1516,7 +1517,7 @@ function plot_optional_figures_begin(unit::Component,
 end
 
 """
-    plot_optional_figures_end(unit, sim_params, output_path)
+    plot_optional_figures_end(unit, sim_params, output_path, io_settings)
 
 Plot optional figures that are potentially created at the end of the simulation for each 
 component.
@@ -1525,11 +1526,13 @@ component.
 - `unit::Component`: The unit that plots additional figures
 - `sim_params::Dict{String,Any}`: Simulation parameters of ReSiE
 - `output_path::String`: The output folder as string (absolute/relative) for the additional plots
+- `io_settings::Dict{String,Any}`: IO settings
  
 # Returns:
 - Bool: True if a figure was created, false if no figure was created
 """
-function plot_optional_figures_end(unit::Component, sim_params::Dict{String,Any}, output_path::String)
+function plot_optional_figures_end(unit::Component, sim_params::Dict{String,Any},
+                                   output_path::String, io_settings::Dict{String,Any})::Bool
     # default implementation is to do nothing
     return false
 end
@@ -1708,18 +1711,18 @@ function extract_parameter(x::Type{Component}, config::AbstractDict{String,Any},
 end
 
 """
-    extract_control_parameters(x::Type{Component}, config::Dict{String,Any})::Dict{String,Any}
+    extract_control_parameters(x::Type{Component}, config::AbstractDict{String,Any})::Dict{String,Any}
 
 Extracts the control parameters from the config ready to be given to the `Controller` constructor.
 
 # Args
 - `x::Type{Component}`: Not a required input, instead used for leveraging multiple
     dispatch for type-specific methods that may invoke the base method.
-- `config::Dict{String,Any}`: The config with the raw parameters
+- `config::AbstractDict{String,Any}`: The config with the raw parameters
 # Returns
 - `Dict{String,Any}`: The extracted parameters
 """
-function extract_control_parameters(x::Type{Component}, config::Dict{String,Any})::Dict{String,Any}
+function extract_control_parameters(x::Type{Component}, config::AbstractDict{String,Any})::Dict{String,Any}
     # TODO: for now this just carries the subconfig, if any, over to the Controller
     # constructor. in the future we want to have those, as well as the control module,
     # parameters being handled the same as the component parameters via a SSOT approach
@@ -1978,18 +1981,18 @@ function conditionals_apply(name::String, extracted::Dict{String,Any}, type_def:
 end
 
 """
-    validate_mutex_params(config::Dict{String,Any}, uac::String, type_def::Dict{String,Any})
+    validate_mutex_params(config::AbstractDict{String,Any}, uac::String, type_def::Dict{String,Any})
 
 Validates the given component parameter config for mutex conditionals.
 
 If a mutex conditional is triggered, throws an InputError.
 
 # Arguments
-- `config::Dict{String,Any}`: The component parameter config
+- `config::AbstractDict{String,Any}`: The component parameter config
 - `uac::String`: The UAC of the component, mostly used in error messages
 - `type_def::Dict{String,Any}`: Parameter definitions for the type
 """
-function validate_mutex_params(config::Dict{String,Any}, uac::String, type_def::Dict{String,Any})
+function validate_mutex_params(config::AbstractDict{String,Any}, uac::String, type_def::Dict{String,Any})
     for (name, value) in pairs(config)
         if name in keys(type_def) && isdefined(type_def[name], :conditionals)
             for cond in type_def[name].conditionals
@@ -2036,7 +2039,7 @@ function validate_config(x::Type{Component}, extracted::Dict{String,Any}, uac::S
         # check if it is required but has a value of nothing (meaning both the default is
         # nothing and no value was given). but also check if conditionals would "turn off"
         # the parameter in any case, in which case the value does not matter
-        if type_def[name].required && value === nothing 
+        if type_def[name].required && value === nothing
             if conditionals_apply(name, extracted, type_def)
                 throw(InputError("Required parameter `$name` in component `$uac` has no given value and no default."))
             else
@@ -2087,7 +2090,7 @@ function init_from_params(x::Type{Component}, uac::String, params::Dict{String,A
 end
 
 """
-    SSOT_parameter_constructor(T::Type, uac::String, config::Dict{String,Any},
+    SSOT_parameter_constructor(T::Type, uac::String, config::AbstractDict{String,Any},
                                sim_params::Dict{String,Any})::Tuple
 
 Base implementation of a Component-Subtype constructor using the single-source-of-truth
@@ -2096,7 +2099,7 @@ functionality for parameter parsing and validation.
 This is used by being called inside a constructor function and will return a tuple ready to
 be unrolled into the default constructor method and/or `new`. E.g.:
 ```
-function HeatPump(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+function HeatPump(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
     return new(SSOT_parameter_constructor(HeatPump, uac, config, sim_params)...)
 end
 ```
@@ -2105,12 +2108,12 @@ end
 - `T::Type`: The type on which the constructor is called. This is used to call the subtype-
     specific parameter functions, e.g. `extract_parameter`
 - `uac::String`: The UAC of the component
-- `config::Dict{String,Any}`: The config dict with the parameter values
+- `config::AbstractDict{String,Any}`: The config dict with the parameter values
 - `sim_params::Dict{String,Any}`: Simulation parameters
 # Returns
 - `Tuple`: The extracted and validated parameter values ready to be unrolled into `new`
 """
-function SSOT_parameter_constructor(T::Type, uac::String, config::Dict{String,Any},
+function SSOT_parameter_constructor(T::Type, uac::String, config::AbstractDict{String,Any},
                                     sim_params::Dict{String,Any})::Tuple
     constructor_errored = false
 
@@ -2927,7 +2930,7 @@ function merge_bus_chains(chains::Vector{Set{Component}},
 end
 
 """
-    check_balances_of_components(components, epsilon, io_settings)
+    check_balances_of_components(components, epsilon)
 
 Check the energy balance of the given components and return warnings of any violations.
 Only transformer are checked for their energy balance in the current time step.
@@ -2956,7 +2959,7 @@ function check_balances_of_components(components::Grouping,
 end
 
 """
-    check_balances_of_interfaces(components, epsilon, io_settings)
+    check_balances_of_interfaces(components, epsilon)
 
 Check the energy balance of all interfaces returning warnings of any violations.
 
@@ -3054,7 +3057,7 @@ Function to get specified data, either from a given constant value, a user-defin
 * If 'from_global_file_key' is set to a valid entry of the global weather file, this will be used.
 
 Inputs:
-- config::Dict{String, Any}: input file config
+- config::AbstractDict{String, Any}: input file config
 - sim_params::Dict{String, Any}: Project-wide simulation parameters
 - param_symbol::Union{Symbol, String}: will be used for info/warning messages (e.g., `:temperature`, `"temperature"`, etc.).
 - profile_file_key::String: The configuration key in `config` that points to a `.prf` file path (e.g. `"temperature_profile_file_path"`).
@@ -3068,7 +3071,7 @@ Returns:
 - profile_values::Union{Profile,Nothing}: If a profile is read out, it will be returned as second argument.
 
 """
-function get_parameter_profile_from_config(config::Dict{String,Any},
+function get_parameter_profile_from_config(config::AbstractDict{String,Any},
                                            sim_params::Dict{String,Any},
                                            param_symbol::Union{Symbol,String},
                                            profile_file_key::String,
@@ -3126,14 +3129,14 @@ function get_parameter_profile_from_config(config::Dict{String,Any},
 end
 
 """
-    load_profile_from_global_weather_file(config::Dict{String,Any}, from_global_file_key::String,
+    load_profile_from_global_weather_file(config::AbstractDict{String,Any}, from_global_file_key::String,
                                           sim_params::Dict{String,Any}, uac::String)
 
 Reads a profile file path from the given config and then loads and returns the profile from
 the global weather file.
 
 # Args
--`config::Dict{String,Any}`: The config from which to read the file path
+-`config::AbstractDict{String,Any}`: The config from which to read the file path
 -`from_global_file_key::String`: The key for the config containing the name of the profile
     in the global weather file
 -`sim_params::Dict{String,Any}`: Simulation parameters
@@ -3142,7 +3145,7 @@ the global weather file.
 -`Union{Nothing,Profile}`: The requested profile or nothing if the config does not contain
     the given key
 """
-function load_profile_from_global_weather_file(config::Dict{String,Any},
+function load_profile_from_global_weather_file(config::AbstractDict{String,Any},
                                                from_global_file_key::String,
                                                sim_params::Dict{String,Any},
                                                uac::String)
@@ -3168,21 +3171,21 @@ function load_profile_from_global_weather_file(config::Dict{String,Any},
 end
 
 """
-    load_optional_profile(config::Dict{String,Any}, parameter_name::String,
+    load_optional_profile(config::AbstractDict{String,Any}, parameter_name::String,
                           sim_params::Dict{String,Any})
 
 Reads the given config for the given key and then loads the profile or returns nothing if
 the key does not occur in the config.
 
 # Args
--`config::Dict{String,Any}`: The config that maybe contains the key
+-`config::AbstractDict{String,Any}`: The config that maybe contains the key
 -`parameter_name::String`: The key for the config with the profile file path
 -`sim_params::Dict{String,Any}`: Simulation parameters
 # Returns
 -`Union{Nothing,Profile}`: The requested profile or nothing if the config does not contain
     the given key
 """
-function load_optional_profile(config::Dict{String,Any}, parameter_name::String,
+function load_optional_profile(config::AbstractDict{String,Any}, parameter_name::String,
                                sim_params::Dict{String,Any})
     if haskey(config, parameter_name) && config[parameter_name] !== nothing
         path = config[parameter_name]
@@ -3206,7 +3209,7 @@ Function to determine the source of the solar diffuse radiation profile.
 The function also checks whether more than one temperature source is specified and throws a
 warning if this is the case.
 """
-function get_diff_solar_radiation_profile_from_config(config::Dict{String,Any}, sim_params::Dict{String,Any},
+function get_diff_solar_radiation_profile_from_config(config::AbstractDict{String,Any}, sim_params::Dict{String,Any},
                                                       uac::String)
     # check input
     if (haskey(config, "diffuse_solar_radiation_profile_file_path") +
@@ -3255,7 +3258,7 @@ and sources.
 The function also checks whether more than one wind speed source is specified and throws a
 warning if this is the case.
 """
-function get_wind_speed_profile_from_config(config::Dict{String,Any}, sim_params::Dict{String,Any}, uac::String)
+function get_wind_speed_profile_from_config(config::AbstractDict{String,Any}, sim_params::Dict{String,Any}, uac::String)
     # check input
     if (haskey(config, "wind_speed_profile_file_path") +
         haskey(config, "wind_speed_from_global_file") +
@@ -3351,4 +3354,245 @@ function all_component_parameters()::Dict{String,Any}
     return all_parameters
 end
 
+"""
+    add_leap_day_values(values::AbstractArray, start_date::DateTime, 
+                        time_step_second::UInt, end_date::DateTime)::AbstractArray
+
+Add values for leap_days so x0 and dx can be used in plots together with rangebreaks.
+Added values are the same as the next real value.
+
+# Arguments
+- `values::AbstractArray`: Data array that leap day values get added too
+- `start_date::DateTime`: start date of the values
+- `time_step_second::UInt`: time step of the values in seconds
+- `end_date::DateTime`: end date of the values
+
+# Returns
+- `AbstractArray`: values data array with added leap day values
+"""
+function add_leap_day_values(values::AbstractArray, start_date::DateTime,
+                             time_step_second::UInt, end_date::DateTime)::AbstractArray
+    dates = collect(start_date:Second(time_step_second):end_date)
+    leap_mask = (month.(dates) .== 2) .& (day.(dates) .== 29)
+    y_with_leap = fill(NaN, length(dates), size(values, 2))
+    y_with_leap[.!leap_mask, :] .= values
+    for i in reverse(findall(leap_mask))
+        y_with_leap[i, :] .= y_with_leap[i + 1, :]
+    end
+    return y_with_leap
+end
+
+"""
+    downsampling_for_plots(values::AbstractArray, time_dim::Int64; 
+                           max_n_values::Union{Int64, Nothing}=50_000_000, 
+                           decimation_factor::Union{Int64, Nothing}=nothing)::Tuple{AbstractArray,Int64}
+
+Downsamples an array 'values' on dimension 'time_dim' to reduce file size for plotting.
+If decimation_factor is given, it always takes priority of max_n_values.
+At least one of max_n_values or decimation_factor has to be given.
+
+# Arguments
+- `values::AbstractArray`: Data array to be downsampled
+- `time_dim::Int64`: Dimension of array that carries time steps & is going to be downsampled
+- `max_n_values::Union{Int64,Nothing}=50_000_000`: Maximum number of values in the array after 
+                                                 downsampling
+- `decimation_factor::Union{Int64,Nothing}=nothing`: Factor to be downsampled by
+
+# Returns
+- `AbstractArray`: Downsampled data array
+- `Int64`: decimation_factor
+"""
+function downsampling_for_plots(values::AbstractArray, time_dim::Int64;
+                                max_n_values::Union{Int64,Nothing}=50_000_000,
+                                decimation_factor::Union{Int64,Nothing}=nothing)::Tuple{AbstractArray,Int64}
+    if max_n_values <= 0
+        @error "max_n_values must be > 0 for downsampling"
+    end
+    n_vals = prod(size(values))
+    if isnothing(decimation_factor) && !isnothing(max_n_values)
+        decimation_factor = ceil(Int, n_vals / max_n_values)
+    elseif isnothing(decimation_factor) && isnothing(max_n_values)
+        @error "At least one of max_n_values or decimation_factor has to be given for" *
+               "function downsampling_for_plots()"
+    end
+
+    if decimation_factor > 1
+        values = collect(selectdim(values, time_dim, 1:decimation_factor:size(values, time_dim)))
+        @info "Values for plot got downsampled by factor $decimation_factor to reduce " *
+              "file size."
+    end
+    return values, decimation_factor
+end
+
+"""
+    save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArray, 
+                    base_plot::PlotlyJS.Plot, sim_params::Dict{String,Any}; 
+                    digits::Int=2, render_time_ms::Number=40, 
+                    play_time_ms::Number=20_000, max_n_values=50_000_000)
+
+Create custom HTML file for 3D slider graph to improve performance.
+
+Order of values MUST be y,x,t with reference to PloltyJS surface plot.
+base_plot defines the layout and type of plots (example in SeasonalThermalStorage and 
+GeothermalHeatCollector)
+
+# Arguments
+- `output_path::AbstractString`: Target path of the generated HTML file.
+- `values_y_x_t::AbstractArray`: 3D data array with dimensions `(y, x, t) with reference to 
+                                 PloltyJS surface plot`.
+- `base_plot::PlotlyJS.Plot`: Base PlotlyJS plot defining the visual style, layout, and
+                              trace type.
+- `sim_params::Dict{String,Any}`: Simulation parameters
+- `digits::Int=2`: Number of decimal places used for rounding data.
+- `render_time_ms::Number=40`: Approximate render time per frame in milliseconds.
+- `play_time_ms::Number=20_000`: Target total playback duration for the slider animation.
+"""
+function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArray,
+                          base_plot::PlotlyJS.Plot, sim_params::Dict{String,Any};
+                          digits::Int=2, render_time_ms::Number=40,
+                          play_time_ms::Number=20_000)
+    values_y_x_t, decimation_factor = downsampling_for_plots(values_y_x_t, 3)
+    ny, nx, nt = size(values_y_x_t)
+
+    jumped_frames = ceil(Int, (nt * render_time_ms) / play_time_ms)
+    values_int = round.(Int, vec(values_y_x_t) .* 10 ^ digits)
+    plot_json = JSON.lower(base_plot)
+
+    time_step = sim_params["time_step_seconds"] * decimation_factor
+    timestamps = Array{String}(undef, nt)
+    for i in 1:nt
+        timestamps[i] = string(add_ignoring_leap_days(sim_params["start_date_output"],
+                                                      Dates.Second((i - 1) * time_step)))
+    end
+    timestamps = replace.(timestamps, 'T' => ' ')
+
+    open(output_path, "w") do io
+        print(io,
+              """
+              <!DOCTYPE html>
+              <html>
+              <head>
+              <meta charset="utf-8" />
+              <script src="$(PlotlyJS.PlotlyBase.cdn_url())"></script>
+              <style>
+                  html, body { height: 100%; margin: 0; font-family: sans-serif; }
+                  body { display: flex; flex-direction: column; }
+                  #plot { flex: 1 1 auto; min-height: 0; }
+                  #controls { display: flex; align-items: center; gap: 12px; padding: 8px 16px; }
+                  #slider { flex: 1 1 auto; }
+                  #label { min-width: 110px; }
+              </style>
+              </head>
+              <body>
+              <div id="plot"></div>
+              <div id="controls">
+                  <button id="play" type="button">Play</button>
+                  <button id="fastplay" type="button">&gt;&gt;&gt;</button>
+                  <input id="slider" type="range" min="0" max="$(nt - 1)" step="1" value="0" />
+                  <span id="label">Time: 1</span>
+              </div>
+              <script type="application/json" id="temps">[""")
+        join(io, values_int, ',')
+        print(io,
+              """]</script>
+              <script>const timestamps = $(JSON.json(timestamps));</script>
+              <script type="text/javascript">
+              (function () {
+                  const NX = $(nx), NY = $(ny), NT = $(nt), N = NX * NY;
+                  const raw = JSON.parse(document.getElementById("temps").textContent);
+                  const T = new Float64Array(raw.length);
+                  for (let i = 0; i < raw.length; i++) T[i] = raw[i] / $(10 ^ digits);
+
+                  const gd = document.getElementById("plot");
+                  const slider = document.getElementById("slider");
+                  const label = document.getElementById("label");
+                  const playBtn = document.getElementById("play");
+                  const fastplayBtn = document.getElementById("fastplay");
+
+                  function zData(step) {
+                      const off = step * N;
+                      const surf = new Array(NY);
+                      for (let j = 0; j < NY; j++) {
+                          const row = new Array(NX);
+                          for (let i = 0; i < NX; i++) row[i] = T[off + i * NY + j];
+                          surf[j] = row;
+                      }
+                      return [surf, Array.from(T.subarray(off, off + N))];
+                  }
+
+                  // render only the latest requested step and never queue up redraws
+                  let busy = false, pending = null, playing = false, lastStepTime = 0;
+                  function requestStep(step) {
+                      pending = step;
+                      label.textContent = timestamps[step];
+                      if (!busy) flush();
+                  }
+                  function flush() {
+                      if (pending === null) { busy = false; return; }
+                      const step = pending;
+                      pending = null;
+                      busy = true;
+                      Plotly.restyle(gd, { z: zData(step) }, [0, 1])
+                          .then(function () { requestAnimationFrame(flush); });
+                  }
+                  function tick(timestamp) {
+                      if (!playing) return;
+                      if (!busy && timestamp - lastStepTime >= $(render_time_ms)) {
+                          lastStepTime = timestamp
+                          const step = (parseInt(slider.value) + $(jumped_frames)) % NT;
+                          slider.value = step;
+                          requestStep(step);
+                      }
+                      requestAnimationFrame(tick);
+                  }
+                  function slow_tick(timestamp) {
+                      if (!playing) return;
+                      if (!busy) {
+                          lastStepTime = timestamp
+                          const step = (parseInt(slider.value) + 1) % NT
+                          slider.value = step
+                          requestStep(step);
+                      }
+                      requestAnimationFrame(slow_tick);
+                  }
+
+                  // Plotly upsamples surfaces on non-uniform grids (up to 720 points per axis)
+                  // on every update, which dominates the redraw time. The colors are
+                  // interpolated on the GPU anyway, so the refinement is switched off.
+                  function disableSurfaceRefinement() {
+                      const scene = gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene._scene;
+                      if (!scene || !scene.traces) return;
+                      Object.values(scene.traces).forEach(function (trace) {
+                          if (trace.data && trace.data.type === "surface") {
+                              trace.refineData = false;
+                              trace.dataScaleX = 1;
+                              trace.dataScaleY = 1;
+                          }
+                      });
+                  }
+
+                  const fig = $(JSON.json(plot_json));
+                  Plotly.newPlot(gd, fig.data, fig.layout, { responsive: true, displaylogo: false })
+                      .then(function () {
+                          disableSurfaceRefinement();
+                          requestStep(0);
+                          slider.addEventListener("input", function () { requestStep(parseInt(slider.value)); });
+                          playBtn.addEventListener("click", function () {
+                              playing = !playing;
+                              playBtn.textContent = playing ? "Pause" : "Play";
+                              if (playing) requestAnimationFrame(slow_tick);
+                          });
+                          fastplayBtn.addEventListener("click", function () {
+                              playing = !playing;
+                              fastplayBtn.textContent = playing ? "Pause" : ">>>";
+                              if (playing) requestAnimationFrame(tick);
+                          });
+                      });
+              })();
+              </script>
+              </body>
+              </html>
+              """)
+    end
+end
 end
