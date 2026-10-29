@@ -24,7 +24,10 @@
         "emissions_plot_file_path": "./test/scenarios/multi_family_house_economy_emissions/emissions_plot.html",
         "output_emissions_csv": true,
         "emissions_csv_file_path": "./test/scenarios/multi_family_house_economy_emissions/emissions_results.csv",
-        "plot_price_and_emission_profiles": false
+        "plot_price_and_emission_profiles": true,
+        "price_and_emission_profile_file_path": "./test/scenarios/multi_family_house_economy_emissions/price_and_emissions_profiles.html",
+        "enable_plot_downsampling": true,
+        "plot_downsampling_max_number_values": 1000000
     },
     "simulation_parameters": {
         "start": "01.01.2024 00:00",

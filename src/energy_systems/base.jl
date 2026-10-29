@@ -3355,21 +3355,24 @@ function all_component_parameters()::Dict{String,Any}
 end
 
 """
-    add_leap_day_values(values::AbstractArray, sim_params::Dict{String,Any})
+    add_leap_day_values(values::AbstractArray, start_date::DateTime, 
+                        time_step_second::UInt, end_date::DateTime)::AbstractArray
 
 Add values for leap_days so x0 and dx can be used in plots together with rangebreaks.
 Added values are the same as the next real value.
 
 # Arguments
 - `values::AbstractArray`: Data array that leap day values get added too
-- `sim_params::Dict{String,Any}`: Simulation parameters
+- `start_date::DateTime`: start date of the values
+- `time_step_second::UInt`: time step of the values in seconds
+- `end_date::DateTime`: end date of the values
 
 # Returns
 - `AbstractArray`: values data array with added leap day values
 """
-function add_leap_day_values(values::AbstractArray,
-                             sim_params::Dict{String,Any})::AbstractArray
-    dates = collect(sim_params["start_date_output"]:Second(sim_params["time_step_seconds"]):sim_params["end_date"])
+function add_leap_day_values(values::AbstractArray, start_date::DateTime,
+                             time_step_second::UInt, end_date::DateTime)::AbstractArray
+    dates = collect(start_date:Second(time_step_second):end_date)
     leap_mask = (month.(dates) .== 2) .& (day.(dates) .== 29)
     y_with_leap = fill(NaN, length(dates), size(values, 2))
     y_with_leap[.!leap_mask, :] .= values
@@ -3413,8 +3416,8 @@ function downsampling_for_plots(values::AbstractArray, time_dim::Int64;
                "function downsampling_for_plots()"
     end
 
-    values = collect(selectdim(values, time_dim, 1:decimation_factor:size(values, time_dim)))
     if decimation_factor > 1
+        values = collect(selectdim(values, time_dim, 1:decimation_factor:size(values, time_dim)))
         @info "Values for plot got downsampled by factor $decimation_factor to reduce " *
               "file size."
     end

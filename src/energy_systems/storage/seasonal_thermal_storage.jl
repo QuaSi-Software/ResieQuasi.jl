@@ -1470,9 +1470,11 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     # ====================================
     # Plot temperature distribution over time    
     # ====================================
-    y = add_leap_day_values(unit.temp_distribution_output, sim_params)
     x0 = sim_params["start_date_output"]
     dx = sim_params["time_step_seconds"] * 1000
+
+    y = add_leap_day_values(unit.temp_distribution_output, x0,
+                            sim_params["time_step_seconds"], sim_params["end_date"])
 
     # downsamle y and x to reduce file size with long simulations
     dec_f = 1
@@ -1498,9 +1500,9 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
 
     title = "Temperature distribution over time in STES $(unit.uac)"
     if dec_f > 1
-        title *= "<br>For plot performance reasons the plot got downsampled by factor " *
+        title *= "<br><sup>For plot performance reasons the plot got downsampled by factor " *
                  "$dec_f. The values didn't get adjusted but just every $dec_f value gets" *
-                 " displayed."
+                 " displayed.</sup>"
     end
 
     leap_days_str = string.([Date(year, 2, 29)
@@ -1521,9 +1523,11 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     # ====================================
     # Plot temperature differences to surrounding over time    
     # ====================================
-    y = add_leap_day_values(unit.temp_difference_to_surrounding_output, sim_params)
     x0 = sim_params["start_date_output"]
     dx = sim_params["time_step_seconds"] * 1000
+
+    y = add_leap_day_values(unit.temp_difference_to_surrounding_output, x0,
+                            sim_params["time_step_seconds"], sim_params["end_date"])
 
     # downsamle y and x to reduce file size with long simulations
     dec_f = 1
@@ -1554,9 +1558,9 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
     title = "Temperature difference to surrounding over time in STES $(unit.uac) " *
             "(positive: storage is colder than surrounding)"
     if dec_f > 1
-        title *= "<br>For plot performance reasons the plot got downsampled by factor " *
+        title *= "<br><sup>For plot performance reasons the plot got downsampled by factor " *
                  "$dec_f. The values didn't get adjusted but just every $dec_f value gets" *
-                 " displayed."
+                 " displayed.</sup>"
     end
 
     leap_days_str = string.([Date(year, 2, 29)
