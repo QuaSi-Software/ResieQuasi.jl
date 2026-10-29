@@ -1076,6 +1076,20 @@ function create_sankey(output_all_sourcenames::Vector{Any},
         colors_for_medium_RGBA = colors_for_medium
     end
 
+    # get simulation duration
+    simulation_duration = sub_ignoring_leap_days(sim_params["end_date"], sim_params["start_date_output"]) +
+                          Millisecond(Second(sim_params["time_step_seconds"]))
+    remaining = div(Dates.value(simulation_duration), 60_000) # integer minutes
+    parts = String[]
+    for (factor, unit) in ((525_600, "year"), (1_440, "day"), (60, "hour"), (1, "min"))
+        value, remaining = divrem(remaining, factor)
+        if value > 0
+            suffix = value > 1 && unit != "min" ? "s" : ""
+            push!(parts, "$value $unit$suffix")
+        end
+    end
+    simulation_duration_string = isempty(parts) ? "0 min" : join(parts, " ")
+
     # create plot
     p = plot(sankey(;
                     node=attr(; pad=25,
@@ -1088,7 +1102,9 @@ function create_sankey(output_all_sourcenames::Vector{Any},
                               value=output_all_value_sum,
                               label=medium_labels,
                               color=colors_for_medium_RGBA)),
-             Layout(; title_text="Sankey diagram of system topology and energy flows",
+             Layout(;
+                    title_text="Sankey diagram of system topology and energy flows" *
+                               "<br><sup>Simulation duration: $simulation_duration_string</sup>",
                     font_size=14))
 
     # save plot
