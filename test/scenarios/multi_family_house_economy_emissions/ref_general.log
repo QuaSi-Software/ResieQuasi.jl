@@ -27,26 +27,26 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\multi_family_house_economy_emissions\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 438/8760 in 0.612 s. ETA: 11.6280 s
-[Info] Progress: 876/8760 in 0.476 s. ETA: 8.5680 s
-[Info] Progress: 1314/8760 in 0.486 s. ETA: 8.2620 s
-[Info] Progress: 1752/8760 in 0.501 s. ETA: 8.0160 s
-[Info] Progress: 2190/8760 in 0.469 s. ETA: 7.0350 s
-[Info] Progress: 2628/8760 in 0.414 s. ETA: 5.7960 s
-[Info] Progress: 3066/8760 in 0.4 s. ETA: 5.2000 s
-[Info] Progress: 3504/8760 in 0.347 s. ETA: 4.1640 s
-[Info] Progress: 3942/8760 in 0.378 s. ETA: 4.1580 s
-[Info] Progress: 4380/8760 in 0.355 s. ETA: 3.5500 s
-[Info] Progress: 4818/8760 in 0.367 s. ETA: 3.3030 s
-[Info] Progress: 5256/8760 in 0.356 s. ETA: 2.8480 s
-[Info] Progress: 5694/8760 in 0.398 s. ETA: 2.7860 s
-[Info] Progress: 6132/8760 in 0.501 s. ETA: 3.0060 s
-[Info] Progress: 6570/8760 in 0.378 s. ETA: 1.8900 s
-[Info] Progress: 7008/8760 in 0.417 s. ETA: 1.6680 s
-[Info] Progress: 7446/8760 in 0.391 s. ETA: 1.1730 s
-[Info] Progress: 7884/8760 in 0.459 s. ETA: 0.9180 s
-[Info] Progress: 8322/8760 in 0.474 s. ETA: 0.4740 s
-[Info] Progress: 8760/8760 in 0.43 s. ETA: 0.0000 s
+[Info] Progress: 438/8760 in 0.388 s. ETA: 7.3720 s
+[Info] Progress: 876/8760 in 0.38 s. ETA: 6.8400 s
+[Info] Progress: 1314/8760 in 0.297 s. ETA: 5.0490 s
+[Info] Progress: 1752/8760 in 0.348 s. ETA: 5.5680 s
+[Info] Progress: 2190/8760 in 0.352 s. ETA: 5.2800 s
+[Info] Progress: 2628/8760 in 0.298 s. ETA: 4.1720 s
+[Info] Progress: 3066/8760 in 0.267 s. ETA: 3.4710 s
+[Info] Progress: 3504/8760 in 0.263 s. ETA: 3.1560 s
+[Info] Progress: 3942/8760 in 0.244 s. ETA: 2.6840 s
+[Info] Progress: 4380/8760 in 0.241 s. ETA: 2.4100 s
+[Info] Progress: 4818/8760 in 0.272 s. ETA: 2.4480 s
+[Info] Progress: 5256/8760 in 0.246 s. ETA: 1.9680 s
+[Info] Progress: 5694/8760 in 0.27 s. ETA: 1.8900 s
+[Info] Progress: 6132/8760 in 0.262 s. ETA: 1.5660 s
+[Info] Progress: 6570/8760 in 0.247 s. ETA: 1.2350 s
+[Info] Progress: 7008/8760 in 0.325 s. ETA: 1.3000 s
+[Info] Progress: 7446/8760 in 0.331 s. ETA: 0.9930 s
+[Info] Progress: 7884/8760 in 0.308 s. ETA: 0.6160 s
+[Info] Progress: 8322/8760 in 0.313 s. ETA: 0.3130 s
+[Info] Progress: 8760/8760 in 0.351 s. ETA: 0.0000 s
 [Info] -- Finished time step loop
 [Info] Line plot created and saved to .\test\scenarios\multi_family_house_economy_emissions\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\multi_family_house_economy_emissions\sankey_plot.html
@@ -55,3 +55,6 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Economic results exported to .\test\scenarios\multi_family_house_economy_emissions\economic_results.csv
 [Info] Emissions plot created and saved to .\test\scenarios\multi_family_house_economy_emissions\emissions_plot.html
 [Info] Emissions results exported to .\test\scenarios\multi_family_house_economy_emissions\emissions_results.csv
+[Info] Values for plot got downsampled by factor 4 to reduce file size.
+[Info] Values for plot got downsampled by factor 4 to reduce file size.
+[Info] Utilized price and emission profiles exported as plot to .\test\scenarios\multi_family_house_economy_emissions\price_and_emissions_profiles.html
