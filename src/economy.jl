@@ -677,7 +677,7 @@ function plot_economic_results(result::EconomicResult, output_file_path::String,
                     annotations=ann)
 
     p = plot(traces, layout)
-    savefig(p, output_file_path)
+    savefig(p, prepare_output_path(output_file_path))
 
     return true
 end
@@ -687,7 +687,7 @@ function write_economic_results_to_CSV(economic_result::EconomicResult, filepath
     start_year = year(sim_params["start_date_output"])
 
     # write data to file
-    open(filepath, "w") do file_handle
+    open(prepare_output_path(filepath), "w") do file_handle
         write(file_handle, "\ufeff")  # UTF-8 BOM for Excel
         write(file_handle, "Economic results\n")
         write(file_handle, "Note: Costs are positive, revenues are negative.\n")
@@ -922,7 +922,7 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
                     legend=attr(; x=1.05, y=1.0, xanchor="left", yanchor="top"),
                     margin_t=t)
     p = plot(traces, layout)
-    savefig(p, output_file_path)
+    savefig(p, prepare_output_path(output_file_path))
 
     return true
 end

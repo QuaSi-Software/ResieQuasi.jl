@@ -45,5 +45,3 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] -- Finished time step loop
 [Info] Line plot created and saved to .\test\scenarios\interconnected_STES\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\interconnected_STES\sankey_plot.html
-[Info] general log saved to .\test\scenarios\interconnected_STES\general.log
-[Info] balanceWarn log saved to .\test\scenarios\interconnected_STES\balanceWarn.log

@@ -28,5 +28,3 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] -- Finished time step loop
 [Info] Line plot created and saved to .\test\scenarios\heating_and_cooling\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\heating_and_cooling\sankey_plot.html
-[Info] general log saved to .\test\scenarios\heating_and_cooling\general.log
-[Info] balanceWarn log saved to .\test\scenarios\heating_and_cooling\balanceWarn.log

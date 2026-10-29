@@ -1,7 +1,7 @@
 {
     "io_settings": {
         "auxiliary_info": true,
-        "auxiliary_info_file": "./test/scenarios/multisector_district/auxiliary_info.md",
+        "auxiliary_info_file_path": "./test/scenarios/multisector_district/auxiliary_info.md",
         "fixed_output_precision": 10,
         "sankey_plot": "default",
         "sankey_plot_file_path": "./test/scenarios/multisector_district/sankey_plot.html",
@@ -141,7 +141,7 @@
     "simulation_parameters": {
         "start": "01.01.2024 00:00",
         "end": "31.12.2024 23:45",
-        "start_end_unit": "dd.mm.yyyy HH:MM",
+        "start_date_format": "dd.mm.yyyy HH:MM",
         "time_step": 15,
         "time_step_unit": "minutes",
         "weather_file_path": "./profiles/weather/TRY2015_Stuttgart.epw"
@@ -393,7 +393,7 @@
             "output_refs": [
                 "TST_HTP_01"
             ],
-            "ambient_temperature_from_global_file": "temp_ambient_air",
+            "use_ambient_temperature_from_weather_file": true,
             "volume": 7655.5,
             "hr_ratio": 2,
             "sidewall_angle": 90,

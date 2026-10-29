@@ -36,7 +36,7 @@ Create a CSV path derived from `parameter_study_csv_path`.
 function parameter_study_csv_path(sim_params::Dict{String,Any},
                                   io_settings::Dict{String,Any},
                                   suffix::String)::String
-    base_path = sim_params["run_path"](io_settings["parameter_study_csv_path"])
+    base_path = sim_params["run_path"](io_settings["parameter_study_csv_path_prefix"])
     directory, filename = splitdir(base_path)
     root, _ = splitext(filename)
     return joinpath(directory, "$(root)_$(suffix).csv")
@@ -60,10 +60,7 @@ end
 function write_sensitivity_csv(file_path::String,
                                header::Vector{String},
                                rows::Vector{<:AbstractVector})::String
-    directory = dirname(file_path)
-    isempty(directory) || mkpath(directory)
-
-    open(file_path, "w") do io
+    open(prepare_output_path(file_path), "w") do io
         println(io, join(sensitivity_csv_escape.(header), ';'))
         for row in rows
             println(io, join(sensitivity_csv_escape.(row), ';'))
@@ -166,6 +163,9 @@ function write_local_sensitivity_csv(file_path::String,
     return write_sensitivity_csv(file_path, header, rows)
 end
 
+# Local-sensitivity plots use the actual post-canonicalisation lower/reference/upper
+# values. For integer parameters the displayed Δp may therefore differ from the
+# configured local_variation (for example +/-20% instead of +/-10%).
 # Format percentages consistently in plot labels. A decimal comma is used to keep
 # compact labels such as `+2,34 %` easy to read.
 function format_plot_percent(value::Real; signed::Bool=false)::String
@@ -258,8 +258,7 @@ function create_global_sensitivity_plot(parameter_keys::Vector{String},
     file_path = parameter_study_plot_path(sim_params,
                                           io_settings,
                                           "global_sensitivity")
-    mkpath(dirname(file_path))
-    savefig(plot_object, file_path)
+    savefig(plot_object, prepare_output_path(file_path))
     return file_path
 end
 
@@ -437,7 +436,7 @@ function create_local_sensitivity_response_overview_plot(sensitivity_results::Ve
     layout = Layout(;
                     title=attr(;
                                text="Local sensitivity responses overview" *
-                                    "<br><sup>Δp = parameter change; Δo = objective change. " *
+                                    "<br><sup>Δp = actual parameter change (after integer rounding); Δo = objective change. " *
                                     "Objective reference: " *
                                     "$(round(reference_objective; sigdigits=8)).</sup>",
                                x=0.5,
@@ -467,8 +466,7 @@ function create_local_sensitivity_response_overview_plot(sensitivity_results::Ve
     file_path = parameter_study_plot_path(sim_params,
                                           io_settings,
                                           "local_sensitivity_response_overview")
-    mkpath(dirname(file_path))
-    savefig(plot_object, file_path)
+    savefig(plot_object, prepare_output_path(file_path))
 
     return file_path
 end
@@ -700,7 +698,7 @@ function create_local_sensitivity_response_trends_plot(sensitivity_results::Vect
     layout_values[:title] = attr(;
                                  text="Trend of local sensitivity responses" *
                                       "<br><sup>Parameter changes share one percentage scale; " *
-                                      "tick labels show parameter change and absolute value. " *
+                                      "tick labels show actual parameter change and absolute value (after integer rounding). " *
                                       "The dotted line marks the reference objective.</sup>",
                                  x=0.5,
                                  xanchor="center")
@@ -719,8 +717,7 @@ function create_local_sensitivity_response_trends_plot(sensitivity_results::Vect
     file_path = parameter_study_plot_path(sim_params,
                                           io_settings,
                                           "local_sensitivity_response_trends")
-    mkpath(dirname(file_path))
-    savefig(plot_object, file_path)
+    savefig(plot_object, prepare_output_path(file_path))
     return file_path
 end
 
@@ -1289,7 +1286,7 @@ function create_matrix_plot(results::Vector{Any},
     file_path = parameter_study_plot_path(sim_params,
                                           io_settings,
                                           "matrix_plot")
-    savefig(p, file_path)
+    savefig(p, prepare_output_path(file_path))
 
     # Add the same toolbar style used by the other interactive parameter-study
     # plots. The graph occupies the viewport space remaining below the toolbar.
@@ -1377,12 +1374,12 @@ is_finite_number(value)::Bool = value isa Real && isfinite(Float64(value))
 """
     parameter_study_plot_path(sim_params, io_settings, suffix)
 
-Create a plot path derived from `parameter_study_plots_path`.
+Create a plot path derived from `parameter_study_plots_path_prefix`.
 """
 function parameter_study_plot_path(sim_params::Dict{String,Any},
                                    io_settings::Dict{String,Any},
                                    suffix::String)::String
-    base_path = sim_params["run_path"](io_settings["parameter_study_plots_path"])
+    base_path = sim_params["run_path"](io_settings["parameter_study_plots_path_prefix"])
     dir, filename = splitdir(base_path)
     root, _ = splitext(filename)
     ext = ".html"
@@ -1854,7 +1851,7 @@ function create_objective_convergence_plot(results::Vector{Any},
                                           io_settings,
                                           "convergence")
 
-    savefig(plot_object, file_path)
+    savefig(plot_object, prepare_output_path(file_path))
 
     if spec.is_multiobjective &&
        length(available_objective_keys) > 1
@@ -2217,8 +2214,7 @@ function create_objective_parameter_plots(results::Vector{Any},
         return ""
     end
 
-    mkpath(dirname(file_path))
-    savefig(p, file_path)
+    savefig(p, prepare_output_path(file_path))
 
     explorer_sense_keys = unique(vcat(spec.objective_keys,
                                       configured_objective_params))
@@ -2435,7 +2431,7 @@ function create_parallel_coordinates_plot(results::Vector{Any},
     file_path = parameter_study_plot_path(sim_params,
                                           io_settings,
                                           "parallel_coordinates")
-    savefig(p, file_path)
+    savefig(p, prepare_output_path(file_path))
     inject_parallel_axis_zoom_controls!(file_path,
                                         param_names,
                                         spec.objective_keys,
@@ -2801,8 +2797,7 @@ function create_interactive_3d_parameter_study_plot(results::Vector{Any},
         return ""
     end
 
-    mkpath(dirname(file_path))
-    savefig(p, file_path)
+    savefig(p, prepare_output_path(file_path))
 
     inject_3d_axis_selection_controls!(file_path,
                                        axis_data,

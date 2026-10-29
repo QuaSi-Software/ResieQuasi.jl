@@ -30,5 +30,3 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Summary CSV-file with outputs created and written to .\test\scenarios\chpp_two_hyst\out_aggregated.csv
 [Info] Line plot created and saved to .\test\scenarios\chpp_two_hyst\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\chpp_two_hyst\sankey_plot.html
-[Info] general log saved to .\test\scenarios\chpp_two_hyst\general.log
-[Info] balanceWarn log saved to .\test\scenarios\chpp_two_hyst\balanceWarn.log

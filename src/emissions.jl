@@ -330,7 +330,7 @@ function plot_emissions_results(result::EmissionsResult,
                     legend=attr(; x=1.05, y=1.0, xanchor="left", yanchor="top"))
 
     p = plot(traces, layout)
-    savefig(p, output_file_path)
+    savefig(p, prepare_output_path(output_file_path))
 
     return true
 end
@@ -345,7 +345,7 @@ function write_emissions_results_to_CSV(emissions_result::EmissionsResult,
     observation_period_in_years = Int(sim_params["emissions_parameters"]["observation_period_in_years"])
     start_year = year(sim_params["start_date_output"])
 
-    open(filepath, "w") do file_handle
+    open(prepare_output_path(filepath), "w") do file_handle
         write(file_handle, "\ufeff")  # UTF-8 BOM for Excel
         write(file_handle, "Emissions results\n")
         write(file_handle, "Note: Positive values are emissions, negative values are credits / avoided emissions.\n")

@@ -65,5 +65,3 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Economic results exported to .\test\scenarios\district_economy_emissions\economic_results.csv
 [Info] Emissions plot created and saved to .\test\scenarios\district_economy_emissions\emissions_plot.html
 [Info] Emissions results exported to .\test\scenarios\district_economy_emissions\emissions_results.csv
-[Info] general log saved to .\test\scenarios\district_economy_emissions\general.log
-[Info] balanceWarn log saved to .\test\scenarios\district_economy_emissions\balanceWarn.log

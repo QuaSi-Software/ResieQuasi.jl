@@ -1488,6 +1488,19 @@ function distribute!(unit::Component)
 end
 
 """
+    auxiliary_plot_path(output_directory, filename, sim_params)
+
+Return an auxiliary-plot file path in the configured output directory. During parameter
+studies, use the same filename prefix as the other per-variant simulation outputs.
+"""
+function auxiliary_plot_path(output_directory::AbstractString,
+                             filename::AbstractString,
+                             sim_params::Dict{String,Any})::String
+    prefix = get(sim_params, "output_filename_prefix", "")
+    return joinpath(output_directory, prefix * filename)
+end
+
+"""
     plot_optional_figures_begin(unit, output_path, output_formats, sim_params)
 
 Plot optional figures that are potentially created after initialisation of each 
@@ -1750,8 +1763,8 @@ function check_validation_at_least_one(validation::Tuple, extracted::Dict{String
     end
 
     names = validation[2:end]
-    if sum([haskey(extracted, u) && !isnothing(extracted[u]) ? 1 : 0 for u in names]) < 1
-        throw(InputError("At least one of the following parameters of component `$uac` must not be nothing: " *
+    if sum([haskey(extracted, u) && extracted[u] !== nothing && extracted[u] !== false ? 1 : 0 for u in names]) < 1
+        throw(InputError("At least one of the following parameters of component `$uac` must be specified or enabled: " *
                          join(names, ", ")))
     end
 end
@@ -2051,7 +2064,7 @@ function validate_config(x::Type{Component}, extracted::Dict{String,Any}, uac::S
         if name in keys(type_def) && isdefined(type_def[name], :options)
             items = isa(value, Vector) ? value : [value]
             for item in items
-                if !any(occursin.(type_def[name].options, item))
+                if !(item in type_def[name].options)
                     options_str = join(("`$option`" for option in type_def[name].options), ", ")
                     throw(InputError("Given value `$item` is not in the allowed options " *
                                      "for parameter `$name` of component `$uac`. " *
@@ -3044,7 +3057,8 @@ end
                                       sim_params,
                                       param_symbol,
                                       profile_file_key,
-                                      from_global_file_key,
+                                      from_weather_file_key,
+                                      weather_key,
                                       constant_key,
                                       uac;
                                       required=false)
@@ -3054,14 +3068,15 @@ Function to get specified data, either from a given constant value, a user-defin
                               If required=true, an error message will be thrown                              
 * If a constant value is set, this will be used as first argument
 * If a profile_file_key is given, the data will be read from the user-defined profile.
-* If 'from_global_file_key' is set to a valid entry of the global weather file, this will be used.
+* If `from_weather_file_key` is `true`, the fixed `weather_key` from the global weather file is used.
 
 Inputs:
 - config::AbstractDict{String, Any}: input file config
 - sim_params::Dict{String, Any}: Project-wide simulation parameters
 - param_symbol::Union{Symbol, String}: will be used for info/warning messages (e.g., `:temperature`, `"temperature"`, etc.).
 - profile_file_key::String: The configuration key in `config` that points to a `.prf` file path (e.g. `"temperature_profile_file_path"`).
-- from_global_file_key::String: The configuration key in `config` that names a field in `weather_data` (e.g. `"temperature_from_global_file"`).
+- from_weather_file_key::String: Boolean configuration key (e.g. `"use_ambient_temperature_from_weather_file"`).
+- weather_key::String: Fixed weather-data field to read (e.g. `"temp_ambient_air"`).
 - constant_key::String: The configuration key in `config` for a constant parameter value (e.g. `"constant_temperature"`).
 - uac::String: The calling unit uac as string for log/info/error messages
 - required:Bool=false: flag if an error (true) or info (false) should be thrown in case no data is given
@@ -3075,13 +3090,14 @@ function get_parameter_profile_from_config(config::AbstractDict{String,Any},
                                            sim_params::Dict{String,Any},
                                            param_symbol::Union{Symbol,String},
                                            profile_file_key::String,
-                                           from_global_file_key::String,
+                                           from_weather_file_key::String,
+                                           weather_key::String,
                                            constant_key::String,
                                            uac::String;
                                            required::Bool=false)
     # Count how many sources are specified 
     sources_specified = (haskey(config, profile_file_key) ? 1 : 0) +
-                        (haskey(config, from_global_file_key) ? 1 : 0) +
+                        (get(config, from_weather_file_key, false) === true ? 1 : 0) +
                         (haskey(config, constant_key) ? 1 : 0)
     if sources_specified > 1
         @warn "For '$uac', the '$param_symbol' is specified with two or more sources in the input file!"
@@ -3102,19 +3118,12 @@ function get_parameter_profile_from_config(config::AbstractDict{String,Any},
         return nothing, Profile(path, sim_params)
     end
 
-    # 3. If the config says to read from the global weather data
-    if haskey(config, from_global_file_key) && haskey(sim_params, "weather_data")
-        field_name_str = config[from_global_file_key]
-        # Check if it matches a field in weather_data
-        wd = sim_params["weather_data"]
-        field_symbols = fieldnames(typeof(wd))
-        if any(occursin(field_name_str, string(sym)) for sym in field_symbols)
-            @info "For '$uac', the '$param_symbol' is taken from the project-wide weather file: $field_name_str"
-            return nothing, getfield(wd, Symbol(field_name_str))
-        else
-            @error "In '$uac', the '$param_symbol' given as '$field_name_str' must be one of: " *
-                   "$(join(string.(field_symbols), ", "))."
-            throw(InputError())
+    # 3. If enabled, use the fixed profile from the global weather file.
+    if haskey(config, from_weather_file_key)
+        profile = load_profile_from_weather_file(config, from_weather_file_key,
+                                                 weather_key, sim_params, uac)
+        if profile !== nothing
+            return nothing, profile
         end
     end
 
@@ -3129,7 +3138,7 @@ function get_parameter_profile_from_config(config::AbstractDict{String,Any},
 end
 
 """
-    load_profile_from_global_weather_file(config::AbstractDict{String,Any}, from_global_file_key::String,
+    load_profile_from_global_weather_file(config::AbstractDict{String,Any}, from_weather_param_name::String,
                                           sim_params::Dict{String,Any}, uac::String)
 
 Reads a profile file path from the given config and then loads and returns the profile from
@@ -3137,37 +3146,59 @@ the global weather file.
 
 # Args
 -`config::AbstractDict{String,Any}`: The config from which to read the file path
--`from_global_file_key::String`: The key for the config containing the name of the profile
-    in the global weather file
+-`from_weather_param_name::String`: The key for the config containing the name of the profile in the global weather file
+-`weather_key::String`: The weather key
 -`sim_params::Dict{String,Any}`: Simulation parameters
 -`uac::String`: The UAC of the component, used for error messages
 # Returns
--`Union{Nothing,Profile}`: The requested profile or nothing if the config does not contain
-    the given key
+-`Union{Nothing,Profile}`: The requested profile or nothing if the config does not contain the given key
 """
-function load_profile_from_global_weather_file(config::AbstractDict{String,Any},
-                                               from_global_file_key::String,
-                                               sim_params::Dict{String,Any},
-                                               uac::String)
-    if !haskey(config, from_global_file_key)
-        return nothing
+function load_profile_from_weather_file(config::AbstractDict{String,Any},
+                                        from_weather_param_name::String,
+                                        weather_key::String,
+                                        sim_params::Dict{String,Any},
+                                        uac::String)
+    enabled = get(config, from_weather_param_name, false)
+    if !(enabled isa Bool)
+        throw(InputError("Parameter `$from_weather_param_name` of component `$uac` " *
+                         "must be a Boolean (true or false)."))
     end
+    enabled || return nothing
 
     if !haskey(sim_params, "weather_data")
-        throw(InputError("For component $uac a global weather file key was given, but " *
-                         "no global weather file is set (or it failed to load)."))
+        throw(InputError("Component `$uac` enables `$from_weather_param_name`, but no " *
+                         "project-wide weather file is available."))
     end
 
-    wd = sim_params["weather_data"]
-    field_name_str = config[from_global_file_key]
-    field_symbols = fieldnames(typeof(wd))
-    if any(occursin(field_name_str, string(sym)) for sym in field_symbols)
-        return getfield(wd, Symbol(field_name_str))
-    else
-        throw(InputError("For component $uac the global weather file key, given as " *
-                         "'$field_name_str', must be one of: " *
-                         "$(join(string.(field_symbols), ", "))."))
+    weather_data = sim_params["weather_data"]
+    field_name = Symbol(weather_key)
+    if !hasfield(typeof(weather_data), field_name)
+        throw(InputError("Weather key `$weather_key` requested by `$from_weather_param_name` " *
+                         "of component `$uac` is not available."))
     end
+    return getfield(weather_data, field_name)
+end
+
+"""
+    load_profile_from_weather_file(config, param_name, param_def, sim_params, uac)
+
+Load a weather profile using the fixed field from its SSOT definition.
+Inactive `is_true` conditions suppress loading; mutex conflicts are validated separately.
+"""
+function load_profile_from_weather_file(config::AbstractDict{String,Any},
+                                        param_name::String,
+                                        param_def::NamedTuple,
+                                        sim_params::Dict{String,Any},
+                                        uac::String)
+    for conditional in get(param_def, :conditionals, ())
+        if length(conditional) >= 2 && conditional[2] == "is_true" &&
+           get(config, conditional[1], false) !== true
+            return nothing
+        end
+    end
+
+    return load_profile_from_weather_file(config, param_name, param_def.weather_key,
+                                          sim_params, uac)
 end
 
 """
@@ -3203,7 +3234,7 @@ Function to determine the source of the solar diffuse radiation profile.
 * If a diffuse_solar_radiation_profile_file_path is given, the diffuse solar radiation will be
   read from the user-defined profile.
 * If a constant_diffuse_solar_radiation is set, this will be used.
-* If diffuse_solar_radiation_from_global_file is set to a valid entry ("difHorIrr") of the
+* If use_diffuse_solar_radiation_from_weather_file is true, use "difHorIrr" from the
   global weather file, this will be used.
 
 The function also checks whether more than one temperature source is specified and throws a
@@ -3213,7 +3244,7 @@ function get_diff_solar_radiation_profile_from_config(config::AbstractDict{Strin
                                                       uac::String)
     # check input
     if (haskey(config, "diffuse_solar_radiation_profile_file_path") +
-        haskey(config, "diffuse_solar_radiation_from_global_file") +
+        (get(config, "use_diffuse_solar_radiation_from_weather_file", false) === true) +
         haskey(config, "constant_diffuse_solar_radiation")) > 1
         # end of condition
         @warn "Two or more diffuse radiation profile sources for $(uac) have been specified in the input file!"
@@ -3226,17 +3257,9 @@ function get_diff_solar_radiation_profile_from_config(config::AbstractDict{Strin
     elseif haskey(config, "constant_diffuse_solar_radiation") && config["constant_diffuse_solar_radiation"] isa Number
         @info "For '$uac', a constant diffuse solar radiation of $(config["constant_diffuse_solar_radiation"]) Wh/m^2 is set."
         return nothing
-    elseif haskey(config, "diffuse_solar_radiation_from_global_file") && haskey(sim_params, "weather_data")
-        if any(occursin(config["diffuse_solar_radiation_from_global_file"], string(field_name))
-               for field_name in fieldnames(typeof(sim_params["weather_data"])))
-            @info "For '$uac', the diffuse solar radiation profile is taken from the project-wide weather file: " *
-                  "$(config["diffuse_solar_radiation_from_global_file"])"
-            return getfield(sim_params["weather_data"], Symbol(config["diffuse_solar_radiation_from_global_file"]))
-        else
-            @error "For '$uac', the'diffuse_solar_radiation_from_global_file' has to be one of: " *
-                   "$(join(string.(fieldnames(typeof(sim_params["weather_data"]))), ", "))."
-            throw(InputError())
-        end
+    elseif haskey(config, "use_diffuse_solar_radiation_from_weather_file")
+        return load_profile_from_weather_file(config, "use_diffuse_solar_radiation_from_weather_file", "difHorIrr",
+                                              sim_params, uac)
     else
         @info "For '$uac', no diffuse solar radiation is set."
         return nothing
@@ -3252,7 +3275,7 @@ and sources.
 * If a wind_speed_profile_file_path is given, the wind speed will be read from the
   user-defined profile.
 * If a constant_wind_speed is set, this will be used.
-* If wind_speed_from_global_file is set to a valid entry ("wind_speed") of the global
+* If use_wind_speed_from_weather_file is true, use "wind_speed" from the global
   weather file, this will be used.
 
 The function also checks whether more than one wind speed source is specified and throws a
@@ -3261,7 +3284,7 @@ warning if this is the case.
 function get_wind_speed_profile_from_config(config::AbstractDict{String,Any}, sim_params::Dict{String,Any}, uac::String)
     # check input
     if (haskey(config, "wind_speed_profile_file_path") +
-        haskey(config, "wind_speed_from_global_file") +
+        (get(config, "use_wind_speed_from_weather_file", false) === true) +
         haskey(config, "constant_wind_speed")) > 1
         # end of condition
         @warn "Two or more wind speed profile sources for $(uac) have been specified in the input file!"
@@ -3272,17 +3295,10 @@ function get_wind_speed_profile_from_config(config::AbstractDict{String,Any}, si
         @info "For '$uac', the wind speed profile is taken from the user-defined .prf file."
         return Profile(config["wind_speed_profile_file_path"], sim_params)
     elseif haskey(config, "constant_wind_speed") && config["constant_wind_speed"] isa Number
-        @info "For '$uac', a constant wind speed of $(config["constant_wind_speed"]) °C is set."
+        @info "For '$uac', a constant wind speed of $(config["constant_wind_speed"]) m/s is set."
         return nothing
-    elseif haskey(config, "wind_speed_from_global_file") && haskey(sim_params, "weather_data")
-        if any(occursin(config["wind_speed_from_global_file"], string(field_name))
-               for field_name in fieldnames(typeof(sim_params["weather_data"])))
-            @info "For '$uac', the wind speed profile is taken from the project-wide weather file: $(config["wind_speed_from_global_file"])"
-            return getfield(sim_params["weather_data"], Symbol(config["wind_speed_from_global_file"]))
-        else
-            @error "For '$uac', the'wind_speed_from_global_file' has to be one of: $(join(string.(fieldnames(typeof(sim_params["weather_data"]))), ", "))"
-            throw(InputError())
-        end
+    elseif haskey(config, "use_wind_speed_from_weather_file")
+        return load_profile_from_weather_file(config, "use_wind_speed_from_weather_file", "wind_speed", sim_params, uac)
     else
         @info "For '$uac', no wind speed is set."
         return nothing

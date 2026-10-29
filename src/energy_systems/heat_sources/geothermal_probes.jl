@@ -266,7 +266,7 @@ const GEOTHERMAL_PROBES_COMPONENT_PARAMETERS = Dict(
     ),
     "max_probe_temperature_loading" => (
         default=nothing,
-        description="Maximum allowed probe temperature during loading",
+        description="Maximum allowed temperature of the probe during loading, limits also the input temperature.",
         display_name="Max probe temp (loading)",
         required=false,
         type=Temperature,
@@ -275,7 +275,7 @@ const GEOTHERMAL_PROBES_COMPONENT_PARAMETERS = Dict(
     ),
     "min_probe_temperature_unloading" => (
         default=nothing,
-        description="Minimum allowed probe temperature during unloading",
+        description="Minimum allowed output temperature during unloading at the beginning of the time step.",
         display_name="Min probe temp (unloading)",
         required=false,
         type=Temperature,
@@ -421,6 +421,28 @@ const GEOTHERMAL_PROBES_COMPONENT_PARAMETERS = Dict(
         type=Bool,
         json_type="boolean",
         unit="-"
+    ),
+    "use_load_aggregation" => (
+        default=true,
+        description="Use Claesson-Javed load aggregation for the temporal superposition of the g-function. " *
+                    "If false, the complete load history is evaluated in every temperature calculation.",
+        display_name="Use load aggregation",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "load_aggregation_cells_per_level" => (
+        default=200,
+        description="Number of aggregation cells per level for the Claesson-Javed load aggregation. " *
+                    "Higher values increase the temporal resolution of the load history and improve " *
+                    "agreement with full temporal superposition, at the cost of additional computation time.",
+        display_name="Load aggregation cells per level",
+        required=false,
+        validations=[("self", "value_gte_num", 1.0)],
+        type=Int,
+        json_type="integer",
+        unit="-"
     )
 )
 
@@ -485,8 +507,10 @@ mutable struct GeothermalProbes <: Component
     max_input_energy::Float64
     # output temperature in current time step, calculated in control()
     current_max_output_temperature::Temperature
-    # input temperature in current time step, calculated in control()
+    # minimum temperature required at the warm probe inlet during loading, calculated in control()
     current_min_input_temperature::Temperature
+    # the actual delivered energy-weighted output temperature
+    current_mean_output_temperature::Temperature
     soil_undisturbed_ground_temperature::Temperature
     soil_heat_conductivity::Float64
     soil_density::Float64
@@ -552,6 +576,17 @@ mutable struct GeothermalProbes <: Component
     # flag indicating if the load step has already been performed in the current time step
     load_done::Bool
 
+    # use Claesson-Javed load aggregation for temporal superposition of the g-function
+    use_load_aggregation::Bool
+    # number of aggregation cells per level
+    load_aggregation_cells_per_level::Int
+    # widths of the load aggregation cells in simulation time steps
+    load_aggregation_cell_widths::Vector{Int}
+    # dimensional response-factor increments of the aggregation cells in K/(W/m)
+    load_aggregation_response_increments::Vector{Float64}
+    # aggregated specific thermal loads in W/m
+    load_aggregation_loads::Vector{Float64}
+
     function GeothermalProbes(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         new(SSOT_parameter_constructor(GeothermalProbes, uac, config, sim_params)...)
     end
@@ -616,6 +651,7 @@ function init_from_params(x::Type{GeothermalProbes}, uac::String, params::Dict{S
             0.0, # max_input_energy
             0.0, # current_max_output_temperature
             0.0, # current_max_input_temperature
+            0.0, # current_mean_output_temperature
             params["soil_undisturbed_ground_temperature"],
             params["soil_heat_conductivity"],
             params["soil_density"],
@@ -656,7 +692,12 @@ function init_from_params(x::Type{GeothermalProbes}, uac::String, params::Dict{S
             0.0,     # fluid_reynolds_number
             nothing, # probe_coordinates
             false,   # process_done
-            false)   # load_done
+            false,   # load_done
+            params["use_load_aggregation"],
+            params["load_aggregation_cells_per_level"],
+            Int[],     # load_aggregation_cell_widths
+            Float64[], # load_aggregation_response_increments
+            Float64[]) # load_aggregation_loads
 end
 
 function initialise!(unit::GeothermalProbes, sim_params::Dict{String,Any})
@@ -685,6 +726,10 @@ function initialise!(unit::GeothermalProbes, sim_params::Dict{String,Any})
 
     # calculate g-function and get number of probes in the probe field
     unit.g_function, unit.number_of_probes, unit.probe_coordinates = calculate_g_function(unit, sim_params)
+
+    if unit.use_load_aggregation
+        initialise_load_aggregation!(unit, sim_params["number_of_time_steps"])
+    end
 
     # calculate max energies
     unit.max_output_energy = sim_params["watt_to_wh"](unit.max_output_power * unit.probe_depth * unit.number_of_probes)
@@ -777,12 +822,38 @@ function calculate_g_function(unit::Component, sim_params::Dict{String,Any})
                                                                 sim_params["time_step_seconds"])
 
     # Interpolation between grid points of library, to get g-function values for each time-step.
-    simulation_end_timestamp = Int(sim_params["number_of_time_steps"] * sim_params["time_step_seconds"])
+    # Load aggregation needs the response factor at the end of the oldest aggregation cell, which can lie
+    # slightly beyond the actual simulation horizon.
+    required_time_steps = sim_params["number_of_time_steps"]
+    if unit.use_load_aggregation
+        required_time_steps = sum(load_aggregation_cell_widths(sim_params["number_of_time_steps"],
+                                                               unit.load_aggregation_cells_per_level))
+    end
+    simulation_end_timestamp = Int(required_time_steps * sim_params["time_step_seconds"])
+
     if library_time_grid_absolute[end] < simulation_end_timestamp
-        @error "The duration of the time horizon given for the g_function of \"$(unit.uac)\" does not cover " *
-               "the complete simulation time! Reduce the simulation time or provide a g-function with longer time horizon."
+        function format_duration(seconds::Real)
+            days = seconds / 86400
+            if days >= 730
+                return "$(round(days / 365; digits=2)) years"
+            elseif days >= 2
+                return "$(round(days; digits=1)) days"
+            else
+                return "$(round(seconds / 3600; digits=1)) hours"
+            end
+        end
+
+        @error "The g-function provided for geothermal probe \"$(unit.uac)\" does not cover " *
+               "the complete time range required by the simulation. " *
+               "The available g-function covers $(format_duration(library_time_grid_absolute[end])), " *
+               "but $(format_duration(simulation_end_timestamp)) are required." *
+               (unit.use_load_aggregation ?
+                " With Claesson-Javed load aggregation, the required horizon can be slightly longer " *
+                "than the simulation period because complete aggregation cells are used." :
+                "")
         throw(InputError())
     end
+
     # ensure that the transformation can be made
     if simulation_end_timestamp < library_time_grid_absolute[2]
         simulation_end_timestamp = library_time_grid_absolute[2] + sim_params["time_step_seconds"]
@@ -838,7 +909,7 @@ function plot_optional_figures_begin(unit::GeothermalProbes, output_path::String
              margin=15Plots.mm)
     fig_name = "probe_field_g_funcion_$(unit.uac)"
     for output_format in output_formats
-        savefig(p, output_path * "/" * fig_name * "." * output_format)
+        savefig(p, auxiliary_plot_path(output_path, fig_name * "." * output_format, sim_params))
     end
 
     if unit.probe_coordinates !== nothing
@@ -863,7 +934,7 @@ function plot_optional_figures_begin(unit::GeothermalProbes, output_path::String
                     margin=10Plots.mm)
         fig_name = "probe_field_geometry_$(unit.uac)"
         for output_format in output_formats
-            savefig(p, output_path * "/" * fig_name * "." * output_format)
+            savefig(p, auxiliary_plot_path(output_path, fig_name * "." * output_format, sim_params))
         end
         # throw not needed values away
         unit.probe_coordinates = nothing
@@ -1172,14 +1243,88 @@ function get_g_values_from_library(unit::Component,
 end
 
 """
+    load_aggregation_cell_widths(number_of_time_steps::Integer, cells_per_level::Integer)::Vector{Int}
+
+Builds the Claesson-Javed aggregation cell widths. The width doubles after every
+`cells_per_level` cells. The oldest cell is kept at its full width, as in the
+published method and the pygfunction implementation.
+"""
+function load_aggregation_cell_widths(number_of_time_steps::Integer, cells_per_level::Integer)::Vector{Int}
+    widths = Int[]
+    covered_time_steps = 0
+    cell_index = 0
+
+    while covered_time_steps < number_of_time_steps
+        cell_index += 1
+        level = cld(cell_index, cells_per_level)
+        width = 2^(level - 1)
+        push!(widths, width)
+        covered_time_steps += width
+    end
+
+    return widths
+end
+
+"""
+    initialise_load_aggregation!(unit::GeothermalProbes, number_of_time_steps::Integer)
+
+Initialises the energy-conserving Claesson-Javed load aggregation used for the
+temporal superposition of the g-function.
+"""
+function initialise_load_aggregation!(unit::GeothermalProbes, number_of_time_steps::Integer)
+    widths = load_aggregation_cell_widths(number_of_time_steps, unit.load_aggregation_cells_per_level)
+
+    unit.load_aggregation_cell_widths = widths
+    unit.load_aggregation_loads = zeros(Float64, length(widths))
+    unit.load_aggregation_response_increments = zeros(Float64, length(widths))
+
+    # For a cell spanning load ages (a+1):b, the response-factor increment is
+    # (g[b] - g[a]) / (2*pi*lambda). This is mathematically equivalent to the
+    # complete superposition with load changes when every cell has width one.
+    previous_g_value = 0.0
+    cumulative_width = 0
+    for i in eachindex(widths)
+        cumulative_width += widths[i]
+        current_g_value = unit.g_function[cumulative_width]
+        unit.load_aggregation_response_increments[i] = (current_g_value - previous_g_value) /
+                                                       (2 * pi * unit.soil_heat_conductivity)
+        previous_g_value = current_g_value
+    end
+
+    return nothing
+end
+
+"""
+    advance_load_aggregation!(unit::GeothermalProbes)
+
+Advances the Claesson-Javed load history by one simulation time step. The
+update is performed from the oldest to the newest cell so that it can be done
+in-place while preserving the values from the previous time step. The first
+cell is cleared and subsequently filled by the current load when the
+temperature is evaluated.
+"""
+function advance_load_aggregation!(unit::GeothermalProbes)
+    loads = unit.load_aggregation_loads
+    widths = unit.load_aggregation_cell_widths
+
+    for i in length(loads):-1:2
+        inverse_width = 1.0 / widths[i]
+        loads[i] = (1.0 - inverse_width) * loads[i] + inverse_width * loads[i - 1]
+    end
+    loads[1] = 0.0
+
+    return nothing
+end
+
+"""
     check_temperature_and_get_max_energy(unit::GeothermalProbes,
                                          sim_params::Dict{String,Any},
                                          temperature_output::Temperature,
                                          limit_max_output_energy_to_avoid_pulsing::Bool)
 
 Checks if a requested output temperature is within the allowed operational range for the geothermal probe.
-I no temperature is given, the function sets the temperature to the mean temperature that will be reached with maximum 
-energy draw during the whole time step.
+If no temperature is requested, the current probe outlet temperature at the beginning of
+the time step is communicated.
 The function also determines the maximum extractable energy for the given temperature. Here, the temperature is
 handled either as turn-on temperature (limit_max_output_energy_to_avoid_pulsing=false) or the max energy in the current
 time step is limited to avoid pulsing (limit_max_output_energy_to_avoid_pulsing=true).
@@ -1205,9 +1350,9 @@ function check_temperature_and_get_max_energy(unit::GeothermalProbes,
     function calculate_output_temp_after_max_energy(unit::GeothermalProbes, sim_params::Dict{String,Any})
         unit.energy_in_out_per_probe_meter[unit.time_index] = -unit.max_output_energy /
                                                               (unit.probe_depth * unit.number_of_probes)
-        output_temp_after_max_energy = calculate_new_fluid_temperature(unit, sim_params["wh_to_watts"])
+        fluid_temp_after_max_energy = calculate_new_fluid_temperature(unit, sim_params["wh_to_watts"])
         unit.energy_in_out_per_probe_meter[unit.time_index] = 0.0
-        return output_temp_after_max_energy
+        return fluid_temp_after_max_energy + unit.unloading_temperature_spread / 2
     end
 
     # get min and max output temperature of geothermal probe
@@ -1215,9 +1360,9 @@ function check_temperature_and_get_max_energy(unit::GeothermalProbes,
 
     # check temperatures and get the max_energy
     if temperature_output === nothing
-        # no temperature information is given, set temperature so that the maximum energy can be used
-        return (source_max_out_temperature + calculate_output_temp_after_max_energy(unit, sim_params)) / 2,
-               unit.max_output_energy
+        # no temperature information is given, set temperature to the temperature of the probe output
+        # at the beginning of the time step. This can be slightly optimistic, but should level out over time.
+        return source_max_out_temperature, unit.max_output_energy
     elseif source_min_out_temperature !== nothing && temperature_output < source_min_out_temperature ||
            temperature_output > source_max_out_temperature
         # the requested temperature is higher than the current output temperature or
@@ -1250,8 +1395,16 @@ function control(unit::GeothermalProbes,
     # time index, necessary for g-function approach
     unit.time_index = unit.time_index + 1
 
+    if unit.use_load_aggregation
+        advance_load_aggregation!(unit)
+    end
+
     # get output temperature for energy output and set temperature and max_energy to output interface
     unit.current_max_output_temperature = unit.fluid_temperature + unit.unloading_temperature_spread / 2
+
+    # check whether probe field is currently allowed to unload
+    probe_can_unload = unit.min_probe_temperature_unloading === nothing ||
+                       unit.current_max_output_temperature >= unit.min_probe_temperature_unloading
 
     # calculate maximum energy in dependence of the output temperature(s)
     exchanges = balance_on(unit.output_interfaces[unit.m_heat_out], unit.output_interfaces[unit.m_heat_out].target)
@@ -1261,21 +1414,33 @@ function control(unit::GeothermalProbes,
     uac_out = Stringing[]
     for exchange in exchanges
         target_uac = exchange.purpose_uac
-        # no check for possibly written max energy --> is done by set_max_energy!() for 1-to-1 connections and for a 
-        # connection to a bus, the interface is only used by the current component
-        success, temperature, max_energy = determine_temperature_and_energy(unit.controller,
-                                                                            components,
-                                                                            unit.uac,
-                                                                            target_uac,
-                                                                            sim_params)
-        if !success
-            # no control module is provided between source and target
-            # set temperature to exchange.temperature_min --> can also be nothing, but in case it is given we will use it
-            # if no control module is used
-            temperature, max_energy = check_temperature_and_get_max_energy(unit,
-                                                                           sim_params,
-                                                                           exchange.temperature_min,
-                                                                           unit.limit_max_output_energy_to_avoid_pulsing)
+
+        if !probe_can_unload
+            temperature = nothing
+            max_energy = 0.0
+        else
+            # no check for possibly written max energy --> is done by set_max_energy!() for 1-to-1 connections and for a 
+            # connection to a bus, the interface is only used by the current component
+            success, temperature, max_energy = determine_temperature_and_energy(unit.controller,
+                                                                                components,
+                                                                                unit.uac,
+                                                                                target_uac,
+                                                                                sim_params)
+            if !success
+                # no control module is provided between source and target
+                # set temperature to exchange.temperature_min --> can also be nothing, but in case it is given we will use it
+                # if no control module is used
+                temperature, max_energy = check_temperature_and_get_max_energy(unit,
+                                                                               sim_params,
+                                                                               exchange.temperature_min,
+                                                                               unit.limit_max_output_energy_to_avoid_pulsing)
+            elseif temperature !== nothing &&
+                   unit.min_probe_temperature_unloading !== nothing &&
+                   temperature < unit.min_probe_temperature_unloading
+                # A controller-selected operating temperature must remain within the probe's bounds.
+                # In particular, constant-temperature negotiation does not clamp its configured value.
+                temperature, max_energy = nothing, 0.0
+            end
         end
 
         push!(max_energy_out, max_energy)
@@ -1299,15 +1464,18 @@ function control(unit::GeothermalProbes,
 
     # get input temperature for energy input (regeneration) and set temperature and max_energy to input interface
     if unit.regeneration
-        unit.current_min_input_temperature = unit.fluid_temperature - unit.loading_temperature_spread / 2 # of geothermal probe field 
+        # During regeneration, fluid enters the probe at the warm side of the temperature spread.
+        # Its inlet temperature must be at least this value to heat the probe field.
+        unit.current_min_input_temperature = unit.fluid_temperature + unit.loading_temperature_spread / 2
 
+        # Check the hottest fluid temperature at the beginning of the time step, not the cold outlet.
         if unit.max_probe_temperature_loading !== nothing &&
            unit.current_min_input_temperature > unit.max_probe_temperature_loading
             set_max_energy!(unit.input_interfaces[unit.m_heat_in], 0.0, unit.current_min_input_temperature, nothing)
             unit.current_max_input_energy = 0.0
         else
             set_max_energy!(unit.input_interfaces[unit.m_heat_in], unit.max_input_energy,
-                            unit.current_min_input_temperature, nothing)
+                            unit.current_min_input_temperature, unit.max_probe_temperature_loading)
             unit.current_max_input_energy = unit.max_input_energy
         end
     end
@@ -1323,8 +1491,8 @@ Returns a tuple containing the current minimum and maximum output temperatures f
 - `sim_params::Dict{String,Any}`: simulation parameters
 
 # Returns
-- `Tuple{Temperature, Temperature}`: A tuple where the first element is the minimum probe temperature during unloading, 
-                                     and the second element is the current maximum output temperature.
+- `Tuple{Temperature, Temperature}`: The minimum permitted probe outlet temperature
+                                     and the currently available source outlet temperature.
 """
 function get_output_temperature_bounds(unit::GeothermalProbes,
                                        sim_params::Dict{String,Any})::Tuple{Temperature,Temperature}
@@ -1461,20 +1629,37 @@ function calculate_new_fluid_temperature(unit::GeothermalProbes, wh2w::Function)
     end
 
     # calculate new average fluid temperature with g-function approach
-    if unit.time_index == 1
-        unit.power_in_out_difference_per_probe_meter[unit.time_index] = wh2w(unit.energy_in_out_per_probe_meter[unit.time_index])
-    else
-        unit.power_in_out_difference_per_probe_meter[unit.time_index] = wh2w(unit.energy_in_out_per_probe_meter[unit.time_index] -
-                                                                             unit.energy_in_out_per_probe_meter[unit.time_index - 1])
-    end
+    current_specific_power = wh2w(unit.energy_in_out_per_probe_meter[unit.time_index])
 
-    current_temperature_difference = sum(reverse(unit.power_in_out_difference_per_probe_meter[1:(unit.time_index)]) .*
-                                         unit.g_function[1:(unit.time_index)]) / (2 * pi * unit.soil_heat_conductivity)
+    if unit.use_load_aggregation
+        # The first aggregation cell always represents the current time step.
+        # Repeated calls within the same time step (e.g. during root finding) only
+        # overwrite this current load and therefore do not modify the past history.
+        unit.load_aggregation_loads[1] = current_specific_power
+
+        current_temperature_difference = 0.0
+        @inbounds for i in eachindex(unit.load_aggregation_loads)
+            current_temperature_difference += unit.load_aggregation_loads[i] *
+                                              unit.load_aggregation_response_increments[i]
+        end
+    else
+        # Original full-history temporal superposition.
+        if unit.time_index == 1
+            unit.power_in_out_difference_per_probe_meter[unit.time_index] = current_specific_power
+        else
+            unit.power_in_out_difference_per_probe_meter[unit.time_index] = wh2w(unit.energy_in_out_per_probe_meter[unit.time_index] -
+                                                                                 unit.energy_in_out_per_probe_meter[unit.time_index - 1])
+        end
+
+        current_temperature_difference = sum(reverse(unit.power_in_out_difference_per_probe_meter[1:(unit.time_index)]) .*
+                                             unit.g_function[1:(unit.time_index)]) /
+                                         (2 * pi * unit.soil_heat_conductivity)
+    end
 
     borehole_current_wall_temperature = unit.soil_undisturbed_ground_temperature + current_temperature_difference
 
     fluid_temperature = borehole_current_wall_temperature +
-                        wh2w(unit.energy_in_out_per_probe_meter[unit.time_index]) * borehole_thermal_resistance
+                        current_specific_power * borehole_thermal_resistance
     return fluid_temperature
 end
 
@@ -1587,11 +1772,13 @@ function process(unit::GeothermalProbes, sim_params::Dict{String,Any})
     if energy_demanded >= -sim_params["epsilon"]
         handle_component_update!(unit, "process", sim_params)
         set_max_energy!(unit.output_interfaces[unit.m_heat_out], 0.0)
+        unit.current_mean_output_temperature = 0.0
         return
     end
 
     unit.output_temperatures_last_timestep = temp_min_all_non_empty(exchanges)
     energy_delivered = 0.0
+    energy_weighted_output_temperature = 0.0
     for exchange in exchanges
         demanded_on_interface = exchange.balance + exchange.energy_potential
         if demanded_on_interface >= -sim_params["epsilon"]
@@ -1609,6 +1796,14 @@ function process(unit::GeothermalProbes, sim_params::Dict{String,Any})
         used_heat = abs(demanded_on_interface)
         add!(outface, used_heat, exchange.temperature_min, exchange.temperature_max, exchange.purpose_uac)
         energy_delivered -= used_heat
+        energy_weighted_output_temperature += used_heat * exchange.temperature_max
+    end
+
+    # set the current_mean_output_temperature
+    if energy_delivered == 0.0
+        unit.current_mean_output_temperature = 0.0
+    else
+        unit.current_mean_output_temperature = energy_weighted_output_temperature / abs(energy_delivered)
     end
 
     # write output heat flux into vector
@@ -1657,8 +1852,8 @@ function load(unit::GeothermalProbes, sim_params::Dict{String,Any})
 
         if exchange.temperature_max !== nothing &&
            exchange.temperature_max < unit.current_min_input_temperature
-            # we can only take in energy if it's at a higher/equal temperature than the
-            # tank's upper limit for temperatures
+            # We can only accept heat when the source reaches the required warm
+            # inlet temperature of the geothermal probe.
             continue
         end
 
@@ -1691,9 +1886,10 @@ function output_values(unit::GeothermalProbes)::Vector{String}
 
     append!(output_vals,
             [string(unit.m_heat_out) * ":OUT",
-             "new_fluid_temperature",
+             "mean_fluid_temperature",
              "current_max_output_temperature",
              "current_min_input_temperature",
+             "current_mean_output_temperature",
              "fluid_reynolds_number"])
     return output_vals
 end
@@ -1703,12 +1899,14 @@ function output_value(unit::GeothermalProbes, key::OutputKey)::Float64
         return calculate_energy_flow(unit.input_interfaces[key.medium])
     elseif key.value_key == "OUT"
         return calculate_energy_flow(unit.output_interfaces[key.medium])
-    elseif key.value_key == "new_fluid_temperature"
+    elseif key.value_key == "mean_fluid_temperature"
         return unit.fluid_temperature
     elseif key.value_key == "current_max_output_temperature"
         return unit.current_max_output_temperature
     elseif key.value_key == "current_min_input_temperature"
         return unit.current_min_input_temperature
+    elseif key.value_key == "current_mean_output_temperature"
+        return unit.current_mean_output_temperature
     elseif key.value_key == "fluid_reynolds_number"
         return unit.fluid_reynolds_number
     end

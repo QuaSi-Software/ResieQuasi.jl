@@ -22,15 +22,15 @@
         "plot_price_and_emission_profiles": false,
         "price_and_emission_profile_file_path": "./test/scenarios/multi_family_house_param_variation/price_and_emissions_profiles.html",
         "output_parameter_study_csv": true,
-        "parameter_study_csv_path": "./test/scenarios/multi_family_house_param_variation/parameter_study",
+        "parameter_study_csv_path_prefix": "./test/scenarios/multi_family_house_param_variation/parameter_study",
         "write_parameter_study_csv_continuously": false,
         "output_parameter_study_plots": true,
-        "parameter_study_plots_path": "./test/scenarios/multi_family_house_param_variation/parameter_study_plots"
+        "parameter_study_plots_path_prefix": "./test/scenarios/multi_family_house_param_variation/parameter_study_plots"
     },
     "simulation_parameters": {
         "start": "01.01.2024 00:00",
         "end": "31.01.2024 23:45",
-        "start_end_unit": "dd.mm.yyyy HH:MM",
+        "start_date_format": "dd.mm.yyyy HH:MM",
         "time_step": 120,
         "time_step_unit": "minutes",
         "epsilon": 1e-06,
@@ -44,7 +44,7 @@
     "emissions_parameters": {
         "calculate_emissions": true,
         "observation_period_in_years": 20,
-        "include_embodied_emissions": false,
+        "include_embodied_emissions": true,
         "repeat_method": "all"
     },
     "parameter_study": {
@@ -55,11 +55,13 @@
                     "range_start": 0,
                     "range_stop": 3,
                     "range_length": 3
-                },
-                "economic_parameters.lifetime_years": {
-                    "start": 15.0,
-                    "range_start": 10,
-                    "range_stop": 20,
+                }
+            },
+            "Building_Probes": {
+                "number_of_probes_y": {
+                    "start": 3,
+                    "range_start": 2,
+                    "range_stop": 7,
                     "range_length": 3
                 }
             },
@@ -75,11 +77,13 @@
             }
         },
         "objective_params": {
-            "emissions": ["total_emissions"]
+            "emissions": ["total_emissions"],
+            "economic": ["total_annuity"]
         },
         "objective_function": "linear",
         "objective_factors": {
-            "emissions total_emissions": 1.0
+            "emissions total_emissions": 1.0,
+            "economic total_annuity": 0.1
         },
         "disable_all_simulation_outputs": true,
         "parameter_variation": {
@@ -286,19 +290,36 @@
                 "subsidy_max": -1.0
             }
         },
-        "Ambient_heat": {
-            "type": "GridSupply",
+        "Building_Probes": {
+            "type": "GeothermalProbes",
             "output_refs": {
-                "medium": "Building_HP"
+                "m_heat_out": "Building_HP"
             },
-            "medium": "m_h_w_lt1",
-            "is_source": true,
-            "temperature_from_global_file": "temp_ambient_air",
+            "borehole_spacing": 5,
+            "limit_max_output_energy_to_avoid_pulsing": false,
+            "model_type": "simplified",
+            "number_of_probes_x": 1,
+            "number_of_probes_y": 3,
+            "probe_field_geometry": "rectangle",
+            "regeneration": false,
+            "use_load_aggregation": true,
             "economic_parameters": {
-                "constant_energy_price": 0.0
+                "lifetime_years": 50,
+                "capex_specific": "linear:100",
+                "capex_price_change_rate_per_year": 0.012,
+                "maintenance_inspection_rate_per_year": 0.01,
+                "maintenance_inspection_price_change_rate_per_year": 0.0,
+                "repair_rate_per_year": 0.02,
+                "repair_price_change_rate_per_year": 0.0,
+                "operational_labour_hours_per_year": 0.0,
+                "subsidy_rate_of_capex": 0.0,
+                "subsidy_max": -1.0
             },
             "emissions_parameters": {
-                "constant_energy_emissions": 0.0
+                "lifetime_years": 50,
+                "embodied_emissions_change_rate_per_year": 0.0,
+                "embodied_emissions_specific": "linear:5000.0",
+                "embodied_emissions_specific_scale": 1
             }
         },
         "Building_BUS_thermal": {

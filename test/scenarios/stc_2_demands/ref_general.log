@@ -46,5 +46,3 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Summary CSV-file with outputs created and written to .\test\scenarios\stc_2_demands\out_aggregated.csv
 [Info] Line plot created and saved to .\test\scenarios\stc_2_demands\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\stc_2_demands\sankey_plot.html
-[Info] general log saved to .\test\scenarios\stc_2_demands\general.log
-[Info] balanceWarn log saved to .\test\scenarios\stc_2_demands\balanceWarn.log

@@ -55,5 +55,3 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] -- Finished time step loop
 [Info] Line plot created and saved to .\test\scenarios\low_ex_district_heating\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\low_ex_district_heating\sankey_plot.html
-[Info] general log saved to .\test\scenarios\low_ex_district_heating\general.log
-[Info] balanceWarn log saved to .\test\scenarios\low_ex_district_heating\balanceWarn.log

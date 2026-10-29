@@ -6,7 +6,7 @@
         "csv_output_weather": false,
         "write_csv_continuously": false,
         "auxiliary_info": true,
-        "auxiliary_info_file": "./output/auxiliary_info.md",
+        "auxiliary_info_file_path": "./output/auxiliary_info.md",
         "auxiliary_plots": false,
         "sankey_plot_file_path": "./output/output_sankey.html",
         "sankey_plot": "default",
@@ -30,7 +30,7 @@
     "simulation_parameters": {
         "start": "01.01.2024 00:00",
         "end": "31.12.2024 23:45",
-        "start_end_unit": "dd.mm.yyyy HH:MM",
+        "start_date_format": "dd.mm.yyyy HH:MM",
         "time_step": 60,
         "time_step_unit": "minutes",
         "epsilon": 1e-06,
@@ -76,7 +76,7 @@
             }
         },
         "Building_el_demand": {
-            "type": "Demand",
+            "type": "FixedSink",
             "output_refs": {},
             "medium": "m_e_ac_230v",
             "energy_profile_file_path": "./profiles/examples/district/demand_electricity_living_2690_square_meter.prf",
@@ -90,7 +90,7 @@
 
         },
         "Building_heating_demand": {
-            "type": "Demand",
+            "type": "FixedSink",
             "output_refs": {},
             "medium": "m_h_w_ht1",
             "energy_profile_file_path": "./profiles/examples/district/demand_heating_EH55_living_2690_square_meter.prf",
@@ -104,7 +104,7 @@
             }
         },
         "Building_DHW_demand": {
-            "type": "Demand",
+            "type": "FixedSink",
             "output_refs": {},
             "medium": "m_h_w_ht1",
             "energy_profile_file_path": "./profiles/examples/district/demand_DHW_living_2690_square_meter.prf",
@@ -240,7 +240,7 @@
             },
             "medium": "m_h_w_lt1",
             "is_source": true,
-            "temperature_from_global_file": "temp_ambient_air",
+            "use_ambient_temperature_from_weather_file": true,
             "economic_parameters": {
                 "constant_energy_price": 0.0
             },
