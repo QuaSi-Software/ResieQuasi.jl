@@ -204,7 +204,7 @@ mutable struct FixedSupply <: Component
     rho_medium::Floathing
     cp_medium::Floathing
 
-    function FixedSupply(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function FixedSupply(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         return new(SSOT_parameter_constructor(FixedSupply, uac, config, sim_params)...)
     end
 end
@@ -221,8 +221,8 @@ function emissions_parameters(x::Type{FixedSupply})::Dict{String,Any}
     return deepcopy(FIXED_SUPPLY_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{FixedSupply}, config::Dict{String,Any}, param_name::String, param_def::NamedTuple,
-                           sim_params::Dict{String,Any}, uac::String)
+function extract_parameter(x::Type{FixedSupply}, config::AbstractDict{String,Any}, param_name::String,
+                           param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
     if param_name == "use_ambient_temperature_from_weather_file"
         return load_profile_from_weather_file(config, param_name, param_def, sim_params, uac)
     elseif param_name == "temperature_profile_file_path"
@@ -234,8 +234,8 @@ function extract_parameter(x::Type{FixedSupply}, config::Dict{String,Any}, param
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{FixedSupply}, config::Dict{String,Any}, extracted::Dict{String,Any}, uac::String,
-                         sim_params::Dict{String,Any}, param_type::String)
+function validate_config(x::Type{FixedSupply}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
+                         uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(FixedSupply)
         uac = uac * " - economic_parameters"

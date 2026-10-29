@@ -587,7 +587,7 @@ mutable struct GeothermalProbes <: Component
     # aggregated specific thermal loads in W/m
     load_aggregation_loads::Vector{Float64}
 
-    function GeothermalProbes(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function GeothermalProbes(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         new(SSOT_parameter_constructor(GeothermalProbes, uac, config, sim_params)...)
     end
 end
@@ -604,12 +604,12 @@ function emissions_parameters(x::Type{GeothermalProbes})::Dict{String,Any}
     return deepcopy(GEOTHERMAL_PROBES_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{GeothermalProbes}, config::Dict{String,Any}, param_name::String,
+function extract_parameter(x::Type{GeothermalProbes}, config::AbstractDict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{GeothermalProbes}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{GeothermalProbes}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(GeothermalProbes)

@@ -567,7 +567,7 @@ mutable struct SolarthermalCollector <: Component
     # mean of ambient temperature over the whole simulation time; used for irradiance calculations
     mean_ambient_temperature::Float64
 
-    function SolarthermalCollector(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function SolarthermalCollector(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         new(SSOT_parameter_constructor(SolarthermalCollector, uac, config, sim_params)...)
     end
 end
@@ -584,7 +584,7 @@ function emissions_parameters(x::Type{SolarthermalCollector})::Dict{String,Any}
     return deepcopy(SOLARTHERMAL_COLLECTOR_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{SolarthermalCollector}, config::Dict{String,Any}, param_name::String,
+function extract_parameter(x::Type{SolarthermalCollector}, config::AbstractDict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
     if param_name in ("use_ambient_temperature_from_weather_file", "use_beam_solar_radiation_from_weather_file",
                       "use_infrared_sky_radiation_from_weather_file", "use_diffuse_solar_radiation_from_weather_file",
@@ -606,7 +606,7 @@ function extract_parameter(x::Type{SolarthermalCollector}, config::Dict{String,A
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{SolarthermalCollector}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{SolarthermalCollector}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(SolarthermalCollector)

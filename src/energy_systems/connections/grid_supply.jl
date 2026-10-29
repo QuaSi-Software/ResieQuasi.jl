@@ -120,7 +120,7 @@ mutable struct GridSupply <: Component
 
     output_sum::Float64
 
-    function GridSupply(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function GridSupply(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         return new(SSOT_parameter_constructor(GridSupply, uac, config, sim_params)...)
     end
 end
@@ -137,7 +137,7 @@ function emissions_parameters(x::Type{GridSupply})::Dict{String,Any}
     return deepcopy(GRID_SUPPLY_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{GridSupply}, config::Dict{String,Any}, param_name::String,
+function extract_parameter(x::Type{GridSupply}, config::AbstractDict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
     if param_name == "use_ambient_temperature_from_weather_file"
         return load_profile_from_weather_file(config, param_name, param_def, sim_params, uac)
@@ -150,7 +150,7 @@ function extract_parameter(x::Type{GridSupply}, config::Dict{String,Any}, param_
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{GridSupply}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{GridSupply}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(GridSupply)

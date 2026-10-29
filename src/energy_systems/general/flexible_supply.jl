@@ -159,7 +159,7 @@ mutable struct FlexibleSupply <: Component
     constant_power::Union{Nothing,Float64}
     constant_temperature::Temperature
 
-    function FlexibleSupply(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function FlexibleSupply(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         return new(SSOT_parameter_constructor(FlexibleSupply, uac, config, sim_params)...)
     end
 end
@@ -176,7 +176,7 @@ function emissions_parameters(x::Type{FlexibleSupply})::Dict{String,Any}
     return deepcopy(FLEXIBLE_SUPPLY_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{FlexibleSupply}, config::Dict{String,Any}, param_name::String,
+function extract_parameter(x::Type{FlexibleSupply}, config::AbstractDict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
     if param_name == "use_ambient_temperature_from_weather_file"
         return load_profile_from_weather_file(config, param_name, param_def, sim_params, uac)
@@ -189,7 +189,7 @@ function extract_parameter(x::Type{FlexibleSupply}, config::Dict{String,Any}, pa
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{FlexibleSupply}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{FlexibleSupply}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(FlexibleSupply)

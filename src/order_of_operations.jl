@@ -257,19 +257,21 @@ end
 Sort the given components into buckets by their system function.
 """
 function categorize_by_function(components)
-    return [[unit for unit in each(components)
+    sorted_components = sort(collect(each(components)), by=x->x.uac)
+
+    return [[unit for unit in sorted_components
              if unit.sys_function == EnergySystems.sf_fixed_source],
-            [unit for unit in each(components)
+            [unit for unit in sorted_components
              if unit.sys_function == EnergySystems.sf_fixed_sink],
-            [unit for unit in each(components)
+            [unit for unit in sorted_components
              if unit.sys_function == EnergySystems.sf_bus],
-            [unit for unit in each(components)
+            [unit for unit in sorted_components
              if unit.sys_function == EnergySystems.sf_transformer],
-            [unit for unit in each(components)
+            [unit for unit in sorted_components
              if unit.sys_function == EnergySystems.sf_storage],
-            [unit for unit in each(components)
+            [unit for unit in sorted_components
              if unit.sys_function == EnergySystems.sf_flexible_source],
-            [unit for unit in each(components)
+            [unit for unit in sorted_components
              if unit.sys_function == EnergySystems.sf_flexible_sink]]
 end
 
@@ -2088,7 +2090,7 @@ For busses with proxy busses, only the proxy busses are taken into account.
 - `components::Array{Grouping}`: All components of the current energy system
 
 # Returns
-- `final_paths::Dict{Array{Array}}`: A dictionary containing parallel branches. The key is (start_point_uac, end_point_uac).
+- `final_paths::OrderedDict{Array{Array}}`: A dictionary containing parallel branches. The key is (start_point_uac, end_point_uac).
                                      Each key contains a vector of vectors where each one holds one path from start_point
                                      to the end_point. A path consists of the components, including the start_point and 
                                      end_point components.
@@ -2121,7 +2123,7 @@ function find_parallels(components)
     end
 
     function filter_paths(paths)
-        paths_dict = Dict{Tuple,Vector{Vector}}()
+        paths_dict = OrderedDict{Tuple,Vector{Vector}}()
         for path in paths
             start_unit = path[1]
             end_unit = path[end]
@@ -2160,7 +2162,7 @@ function find_parallels(components)
         end
 
         # filter for parallel paths that contain more than one variant from A to B
-        return Dict(collect(filter(paths -> length(paths[2]) > 1, paths_dict)))
+        return OrderedDict(collect(filter(paths -> length(paths[2]) > 1, paths_dict)))
     end
 
     # find all possible paths between all components in current energy system
@@ -2224,7 +2226,7 @@ function find_parallels(components)
     end
 
     # build new dict with the updated unique paths
-    final_paths = Dict()
+    final_paths = OrderedDict()
     for paths in values(parallel_paths)
         for path in paths
             key = (path[1].uac, path[end].uac)
@@ -2850,7 +2852,7 @@ end
 """
     reorder_distribution_of_busses(simulation_order, components, components_by_function)
 
-Reorder the distribution of busses so that for chains of busses larger than one the proxy
+Reorder the distribution of busses so that for chains of busses, larger than one, the proxy
 bus for that chain is distributed first.
 """
 function reorder_distribution_of_busses(simulation_order, components, components_by_function)

@@ -20,26 +20,26 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\electrolyser_single_bus\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 33/672 in 3.505 s. ETA: 67.8695 s
-[Info] Progress: 66/672 in 0.05 s. ETA: 0.9182 s
-[Info] Progress: 99/672 in 0.046 s. ETA: 0.7987 s
-[Info] Progress: 132/672 in 0.045 s. ETA: 0.7364 s
-[Info] Progress: 165/672 in 0.049 s. ETA: 0.7528 s
-[Info] Progress: 198/672 in 0.184 s. ETA: 2.6429 s
-[Info] Progress: 231/672 in 0.039 s. ETA: 0.5212 s
-[Info] Progress: 264/672 in 0.039 s. ETA: 0.4822 s
-[Info] Progress: 297/672 in 0.037 s. ETA: 0.4205 s
-[Info] Progress: 330/672 in 0.042 s. ETA: 0.4249 s
-[Info] Progress: 363/672 in 0.048 s. ETA: 0.4495 s
-[Info] Progress: 396/672 in 0.042 s. ETA: 0.3513 s
-[Info] Progress: 429/672 in 0.043 s. ETA: 0.3166 s
-[Info] Progress: 462/672 in 0.043 s. ETA: 0.2736 s
-[Info] Progress: 495/672 in 0.041 s. ETA: 0.2199 s
-[Info] Progress: 528/672 in 0.148 s. ETA: 0.6458 s
-[Info] Progress: 561/672 in 0.037 s. ETA: 0.1245 s
-[Info] Progress: 594/672 in 0.038 s. ETA: 0.0898 s
-[Info] Progress: 627/672 in 0.04 s. ETA: 0.0545 s
-[Info] Progress: 660/672 in 0.042 s. ETA: 0.0153 s
+[Info] Progress: 33/672 in 4.152 s. ETA: 80.3978 s
+[Info] Progress: 66/672 in 0.057 s. ETA: 1.0467 s
+[Info] Progress: 99/672 in 0.057 s. ETA: 0.9897 s
+[Info] Progress: 132/672 in 0.051 s. ETA: 0.8345 s
+[Info] Progress: 165/672 in 0.162 s. ETA: 2.4889 s
+[Info] Progress: 198/672 in 0.054 s. ETA: 0.7756 s
+[Info] Progress: 231/672 in 0.05 s. ETA: 0.6682 s
+[Info] Progress: 264/672 in 0.066 s. ETA: 0.8160 s
+[Info] Progress: 297/672 in 0.084 s. ETA: 0.9545 s
+[Info] Progress: 330/672 in 0.069 s. ETA: 0.7151 s
+[Info] Progress: 363/672 in 0.115 s. ETA: 1.0768 s
+[Info] Progress: 396/672 in 0.122 s. ETA: 1.0204 s
+[Info] Progress: 429/672 in 0.06 s. ETA: 0.4418 s
+[Info] Progress: 462/672 in 0.052 s. ETA: 0.3309 s
+[Info] Progress: 495/672 in 0.049 s. ETA: 0.2628 s
+[Info] Progress: 528/672 in 0.073 s. ETA: 0.3185 s
+[Info] Progress: 561/672 in 0.064 s. ETA: 0.2153 s
+[Info] Progress: 594/672 in 0.096 s. ETA: 0.2269 s
+[Info] Progress: 627/672 in 0.05 s. ETA: 0.0682 s
+[Info] Progress: 660/672 in 0.05 s. ETA: 0.0182 s
 [Info] -- Finished time step loop
 [Info] CSV-file with outputs written to .\test\scenarios\electrolyser_single_bus\out.csv
 [Info] Summary CSV-file with outputs created and written to .\test\scenarios\electrolyser_single_bus\out_aggregated.csv
