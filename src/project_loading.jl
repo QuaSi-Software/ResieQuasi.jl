@@ -2874,7 +2874,7 @@ function configure_optimiser_backend!(optimiser, optimiser_config, normalised_bo
         end
 
         if !isnothing(optimiser_config["max_runs"]) && optimiser_config["max_runs"] < 100 && :N in fieldnames(alg)
-            @warn "'max_runs' is smaller than the default population size of 100. This may lead to poor results."
+            @warn "'max_runs' is smaller than the default population size of 100. This may lead to poor results." maxlog=1
             kwargs_alg[:N] = max(2, ceil(Int, optimiser_config["max_runs"] / 4))
         end
 
