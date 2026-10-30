@@ -668,6 +668,7 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
         results["error"] = ""
 
     catch e
+        # handle Ctr+C
         if e isa InterruptException
             if cancel_flag !== nothing
                 cancel_flag[] = true
@@ -675,21 +676,17 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
             rethrow()
         end
 
-        if !isnothing(parameter_study_results_path) && filesize(parameter_study_results_path) == 0
-            throw(e)
+        # propagate errors from standalone simulations
+        if isnothing(parameter_set)
+            rethrow()
         end
 
-        if sim_params["parameter_study"]["runtime"]["enabled"]
-            for key in sim_params["parameter_study"]["runtime"]["objective_params_keys"]
-                results[key] = NaN
-            end
-
-            results["objective"] = Inf
+        # for parameter study, set the results to inf and save exact error message
+        for key in sim_params["parameter_study"]["runtime"]["objective_params_keys"]
+            results[key] = NaN
         end
-
-        # save exact error message to output file
-        error_message = sprint(showerror, e)
-        full_error_message = error_message * "\n" * sprint(Base.show_backtrace, catch_backtrace())
+        results["objective"] = Inf
+        full_error_message = sprint(showerror, e) * "\n" * sprint(Base.show_backtrace, catch_backtrace())
         @globalInfo full_error_message
         results["error"] = "\"" * replace(full_error_message, "\"" => "\"\"") * "\"\n"
     finally
