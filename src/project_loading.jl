@@ -1434,6 +1434,7 @@ Constructs the dictionary of simulation parameters.
 # Arguments
 -`project_config::AbstractDict{String,Any}`: The project config
 -`io_settings::Dict{String,Any}`: IO settings, already extracted from the project config
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable simulation preparation data.
 # Returns
 -`Dict{String,Any}`: The simulation parameter dictionary
 """
@@ -1573,6 +1574,7 @@ Construct and prepare parameters, energy system components and the order of oper
 # Arguments
 -`project_config::AbstractDict{String,Any}`: The project config
 -`run_ID::UUID`: The run ID used in the run registry
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable simulation preparation data.
 # Returns
 -`Dict{String,Any}`: Simulation parameters
 -`Dict{String,Any}`: IO settings
@@ -2874,7 +2876,7 @@ function configure_optimiser_backend!(optimiser, optimiser_config, normalised_bo
         end
 
         if !isnothing(optimiser_config["max_runs"]) && optimiser_config["max_runs"] < 100 && :N in fieldnames(alg)
-            @warn "'max_runs' is smaller than the default population size of 100. This may lead to poor results."
+            @warn "'max_runs' is smaller than the default population size of 100. This may lead to poor results." maxlog=1
             kwargs_alg[:N] = max(2, ceil(Int, optimiser_config["max_runs"] / 4))
         end
 
