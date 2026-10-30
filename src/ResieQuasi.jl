@@ -27,8 +27,9 @@ mutable struct SimulationRun
 end
 
 # this registry should be the only global state in the package and contains the state for
-# ongoing or paused simulation runs
+# ongoing or paused simulation runs. Is has its own global ReentrantLock 
 current_runs::Dict{UUID,SimulationRun} = Dict{UUID,SimulationRun}()
+const RUN_REGISTRY_LOCK = ReentrantLock()
 
 """
     get_run(id)
@@ -41,7 +42,9 @@ Get the simulation run container for the given ID.
 - `SimulationRun`: The simulation run container
 """
 function get_run(id::UUID)::SimulationRun
-    return current_runs[id]
+    return lock(RUN_REGISTRY_LOCK) do
+        current_runs[id]
+    end
 end
 
 """
@@ -53,7 +56,10 @@ Closes the given run, removing it from the run registry.
 - `id:UUID`: The ID of the run
 """
 function close_run(id::UUID)
-    delete!(current_runs, id)
+    lock(RUN_REGISTRY_LOCK) do
+        delete!(current_runs, id)
+    end
+    return nothing
 end
 
 """
@@ -642,7 +648,7 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
         sim_params["output_filename_prefix"] = output_filename_prefix
         @info "-- Simulation setup complete in $(seconds(now() - start)) s"
 
-        lock(run_lock) do
+        lock(RUN_REGISTRY_LOCK) do
             current_runs[run_ID] = SimulationRun(sim_params, io_settings, components, operations)
         end
 
