@@ -1434,6 +1434,7 @@ Constructs the dictionary of simulation parameters.
 # Arguments
 -`project_config::AbstractDict{String,Any}`: The project config
 -`io_settings::Dict{String,Any}`: IO settings, already extracted from the project config
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable simulation preparation data.
 # Returns
 -`Dict{String,Any}`: The simulation parameter dictionary
 """
@@ -1573,6 +1574,7 @@ Construct and prepare parameters, energy system components and the order of oper
 # Arguments
 -`project_config::AbstractDict{String,Any}`: The project config
 -`run_ID::UUID`: The run ID used in the run registry
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable simulation preparation data.
 # Returns
 -`Dict{String,Any}`: Simulation parameters
 -`Dict{String,Any}`: IO settings

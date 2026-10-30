@@ -1206,6 +1206,8 @@ reuse already completed simulation results where possible. They can also run sta
 - `sim_params::Dict{String,Any}`: Simulation and parameter-study parameters.
 - `project_config::OrderedDict{String,Any}`: Base project configuration used to generate
   simulation variants.
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable 
+  simulation preparation data.
 
 # Returns
 - `Bool`: Flag if the parameter study was successful (true) or not (false).

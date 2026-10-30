@@ -616,6 +616,7 @@ Run a single simulation sample with given parameters.
 - `output_lock::ReentrantLock`: Lock for file at parameter_study_results_path
 - `suppress_all_output::Bool=false`: Bool that can be set to suppress the generation of all outputs written to hard drive.
 - `cancel_flag::Union{Nothing,Threads.Atomic{Bool}}`: Flag to pass STR+C down to all parallel runs
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable simulation preparation data.
 # Returns
 - `OrderedDict{String,Union{Float64, Int64, String}}`: Results of the simulation run
 """
