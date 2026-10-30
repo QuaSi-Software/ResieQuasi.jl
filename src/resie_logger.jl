@@ -33,6 +33,8 @@ mutable struct CustomLogger <: Logging.AbstractLogger
     log_to_console::Bool
     log_to_file::Bool
     min_level::Logging.LogLevel
+    lock::ReentrantLock
+    message_counts::Dict{Any,Int}
 end
 
 function set_min_log_level!(logger::CustomLogger,
@@ -108,38 +110,53 @@ Current implementation:
 Logging.min_enabled_level(logger::CustomLogger) = logger.min_level
 Logging.shouldlog(logger::CustomLogger, level, _module, group, id) = level >= logger.min_level
 function Logging.handle_message(logger::CustomLogger, level, message, _module, group, id, file, line; kwargs...)
-    # log to console
-    if logger.log_to_console
-        if level.level == BalanceWarning.level  # directly comparing the levels here as this is easier to implement
-            handle_BalanceWarning_message(level, message)
-        elseif level.level == GlobalInfo.level
-            handle_GlobalInfo_message(level, message)
-        else
-            default_logger = ConsoleLogger(stderr, logger.min_level)
-            Logging.handle_message(default_logger, level, message, _module, group, id, file, line; kwargs...)
-        end
-    end
+    lock(logger.lock) do
+        # count for maxlog
+        maxlog = get(kwargs, :maxlog, nothing)
 
-    # log to file
-    if logger.log_to_file
-        # create log message
-        if level > Logging.LogLevel(BalanceWarning.level)
-            log_message = string("[", level, "] ", message, " (", file, ":", line, ")")
-        else # no julia file path for log level below BalanceWarning
-            log_message = string("[", level, "] ", message)
+        if maxlog isa Integer
+            count = get(logger.message_counts, id, 0)
+
+            if count >= maxlog
+                return nothing
+            end
+
+            logger.message_counts[id] = count + 1
         end
 
-        # write log message to file
-        if level.level == BalanceWarning.level
-            println(logger.io_balanceWarnings, log_message)
-        else
-            println(logger.io_general, log_message)
+        # log to console
+        if logger.log_to_console
+            if level.level == BalanceWarning.level  # directly comparing the levels here as this is easier to implement
+                handle_BalanceWarning_message(level, message)
+            elseif level.level == GlobalInfo.level
+                handle_GlobalInfo_message(level, message)
+            else
+                default_logger = ConsoleLogger(stderr, logger.min_level)
+                Logging.handle_message(default_logger, level, message, _module, group, id, file, line; kwargs...)
+            end
         end
 
-        # flush message to log files if an error occurs
-        if level >= Logging.LogLevel(2000)  # error
-            flush(logger.io_general)
-            flush(logger.io_balanceWarnings)
+        # log to file
+        if logger.log_to_file
+            # create log message
+            if level > Logging.LogLevel(BalanceWarning.level)
+                log_message = string("[", level, "] ", message, " (", file, ":", line, ")")
+            else # no julia file path for log level below BalanceWarning
+                log_message = string("[", level, "] ", message)
+            end
+
+            # write log message to file
+            if level.level == BalanceWarning.level
+                println(logger.io_balanceWarnings, log_message)
+            else
+                println(logger.io_general, log_message)
+            end
+
+            # flush message to log files if an error occurs
+            if level >= Logging.LogLevel(2000)  # error
+                flush(logger.io_general)
+                flush(logger.io_balanceWarnings)
+            end
         end
     end
 end
@@ -229,8 +246,13 @@ function start_logger(log_to_console::Bool,
         log_file_general = nothing
         log_file_balanceWarn = nothing
     end
-    logger = CustomLogger(log_file_general, log_file_balanceWarn, log_to_console, log_to_file, min_log_level)
-
+    logger = CustomLogger(log_file_general,
+                          log_file_balanceWarn,
+                          log_to_console,
+                          log_to_file,
+                          min_log_level,
+                          ReentrantLock(),
+                          Dict{Any,Int}())
     if log_to_file
         time_now = Dates.format(now(), "yyyy-mm-dd HH:MM:SS")
         println(log_file_general, "ReSiE general log file of simulation started at: $(time_now)")
