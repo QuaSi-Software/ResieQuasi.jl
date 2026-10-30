@@ -105,23 +105,21 @@ function evaluate_parameter_set!(evaluated_parameter_sets::Vector{Any}, io_setti
     # Share both completed and in-flight simulations across all optimiser workers.
     # Only the first caller creates a task, so identical canonical integer points
     # are not simulated multiple times, even with threaded optimisation.
-    simulation_task = lock(results_lock) do
-        get!(runtime["evaluation_tasks"], cache_key) do
-            Threads.@spawn begin
-                run_ID = uuid4()
-                results = run_simulation_sample(io_settings, sim_params, parameter_study_results_path, project_config,
-                                                parameter_set, run_ID, run_lock, output_lock;
-                                                suppress_all_output=parameter_study["disable_all_simulation_outputs"],
-                                                cancel_flag=cancel_flag,
-                                                preparation_cache=preparation_cache)
-                lock(results_lock) do
-                    push!(evaluated_parameter_sets, results)
-                end
-                return results
-            end
-        end
+    run_ID = uuid4()
+    results = run_simulation_sample(io_settings,
+                                    sim_params,
+                                    parameter_study_results_path,
+                                    project_config,
+                                    parameter_set,
+                                    run_ID,
+                                    run_lock,
+                                    output_lock;
+                                    suppress_all_output=parameter_study["disable_all_simulation_outputs"],
+                                    cancel_flag=cancel_flag,
+                                    preparation_cache=preparation_cache)
+    lock(results_lock) do
+        push!(evaluated_parameter_sets, results)
     end
-    results = fetch(simulation_task)
     return objective_for_parameter_study(results, parameter_study)
 end
 
@@ -1153,7 +1151,6 @@ function perform_parameter_study(io_settings::Dict{String,Any},
     end
 
     parameter_study = sim_params["parameter_study"]
-    parameter_study["runtime"]["evaluation_tasks"] = Dict{Tuple,Task}()
 
     # calculate inputs that should be cashed
     if preparation_cache !== nothing
