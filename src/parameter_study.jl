@@ -1219,35 +1219,33 @@ function perform_parameter_study(io_settings::Dict{String,Any},
                                  project_config::OrderedDict{String,Any};
                                  preparation_cache::Union{Nothing,PreparationCache}=nothing)::Tuple{Bool,Vector{Any},
                                                                                                     Vector{Any}}
-    # establish overarching locks for parallelization
+
+    # parameter study configuration
+    parameter_study = sim_params["parameter_study"]
+
+    # shared state for parallel simulations
     run_lock = ReentrantLock()
     output_lock = ReentrantLock()
     results_lock = ReentrantLock()
+    cancel_parameter_study = Threads.Atomic{Bool}(false)  # handle interruption via STR+C for parallel parameter-study runs
 
-    parameter_study_results_path = parameter_study_csv_path(sim_params, io_settings, "all_results")
-    open(prepare_output_path(parameter_study_results_path), "w") do file_handle
-    end
+    # result storage
+    evaluated_parameter_sets = Vector{Any}()
+    local_sensitivity_evaluated_parameter_sets = Vector{Any}()
 
-    parameter_study = sim_params["parameter_study"]
-
-    # Cache complete parameter tuples only for studies involving integers.
-    # A continuous parameter with a different value always gives a new key.
+    # cache identical parameter sets for studies with integer parameters
     evaluation_cache = any(T <: Integer for T in parameter_study["runtime"]["parameter_types"]) ?
                        ParameterEvaluationCache() : nothing
 
-    # calculate inputs that should be cached
+    # prepare parameter study output file
+    parameter_study_results_path = parameter_study_csv_path(sim_params, io_settings, "all_results")
+    close(open(prepare_output_path(parameter_study_results_path), "w"))
+
+    # precompute reusable simulation inputs
     if preparation_cache !== nothing
         @globalInfo "Preparing reusable data for repeated simulation runs..."
-        warmup_run_ID = uuid4()
-        prepare_inputs(project_config, warmup_run_ID; preparation_cache=preparation_cache)
+        prepare_inputs(project_config, uuid4(); preparation_cache=preparation_cache)
     end
-
-    # handle interruption via STR+C for parallel parameter-study runs
-    cancel_parameter_study = Threads.Atomic{Bool}(false)
-
-    # prepare result vectors
-    evaluated_parameter_sets = Vector{Any}()
-    local_sensitivity_evaluated_parameter_sets = Vector{Any}()
 
     # Generic function using physical simulation parameter values. Results from the primary
     # study and global sensitivity are appended to evaluated_parameter_sets.
