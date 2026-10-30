@@ -1237,9 +1237,13 @@ function perform_parameter_study(io_settings::Dict{String,Any},
     evaluation_cache = any(T <: Integer for T in parameter_study["runtime"]["parameter_types"]) ?
                        ParameterEvaluationCache() : nothing
 
-    # prepare parameter study output file
-    parameter_study_results_path = parameter_study_csv_path(sim_params, io_settings, "all_results")
-    close(open(prepare_output_path(parameter_study_results_path), "w"))
+    # prepare parameter study output file if requested
+    if io_settings["output_parameter_study_csv"]
+        parameter_study_results_path = parameter_study_csv_path(sim_params, io_settings, "all_results")
+        close(open(prepare_output_path(parameter_study_results_path), "w"))
+    else
+        parameter_study_results_path = nothing
+    end
 
     # precompute reusable simulation inputs
     if preparation_cache !== nothing
@@ -1382,7 +1386,9 @@ function perform_parameter_study(io_settings::Dict{String,Any},
                 "$(length(evaluated_parameter_sets) + length(local_sensitivity_evaluated_parameter_sets)) total runs completed. ----"
 
     # write results to parameter-study result file if not written continuously
-    if !io_settings["write_parameter_study_csv_continuously"] && !isempty(evaluated_parameter_sets)
+    if !isnothing(parameter_study_results_path) &&
+       !io_settings["write_parameter_study_csv_continuously"] &&
+       !isempty(evaluated_parameter_sets)
         write_parameter_study_results(parameter_study_results_path, evaluated_parameter_sets)
     end
 
