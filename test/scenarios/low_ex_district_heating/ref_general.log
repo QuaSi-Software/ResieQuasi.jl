@@ -2,7 +2,7 @@ ReSiE general log file of simulation started at: 2000-01-01 00:00:00
 This log file contains general warnings, errors and information written by ReSiE
 ---------------------------------
 [Info] Logging set up
-[GlobalInfo] Loading weather data... (.\src\resie_logger.jl:82)
+[GlobalInfo] Loading weather data... (.\src\resie_logger.jl:84)
 [Info] The EPW weather dataset from 'Neu-Stuttgart' with 8760 data points was successfully read.
 [Info] The timestamp of the profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation was shifted by 1800 seconds.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation has been extended by one timestep at the begin by doubling the first value.
@@ -32,26 +32,26 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\low_ex_district_heating\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 37/744 in 0.07 s. ETA: 1.3376 s
-[Info] Progress: 74/744 in 0.055 s. ETA: 0.9959 s
-[Info] Progress: 111/744 in 0.049 s. ETA: 0.8383 s
-[Info] Progress: 148/744 in 0.137 s. ETA: 2.2068 s
-[Info] Progress: 185/744 in 0.053 s. ETA: 0.8007 s
-[Info] Progress: 222/744 in 0.053 s. ETA: 0.7477 s
-[Info] Progress: 259/744 in 0.056 s. ETA: 0.7341 s
-[Info] Progress: 296/744 in 0.054 s. ETA: 0.6538 s
-[Info] Progress: 333/744 in 0.041 s. ETA: 0.4554 s
-[Info] Progress: 370/744 in 0.063 s. ETA: 0.6368 s
-[Info] Progress: 407/744 in 0.054 s. ETA: 0.4918 s
-[Info] Progress: 444/744 in 0.058 s. ETA: 0.4703 s
-[Info] Progress: 481/744 in 0.063 s. ETA: 0.4478 s
-[Info] Progress: 518/744 in 0.062 s. ETA: 0.3787 s
-[Info] Progress: 555/744 in 0.06 s. ETA: 0.3065 s
-[Info] Progress: 592/744 in 0.063 s. ETA: 0.2588 s
-[Info] Progress: 629/744 in 0.07 s. ETA: 0.2176 s
-[Info] Progress: 666/744 in 0.057 s. ETA: 0.1202 s
-[Info] Progress: 703/744 in 0.084 s. ETA: 0.0931 s
-[Info] Progress: 740/744 in 0.157 s. ETA: 0.0170 s
+[Info] Progress: 37/744 in 0.097 s. ETA: 1.8535 s
+[Info] Progress: 74/744 in 0.074 s. ETA: 1.3400 s
+[Info] Progress: 111/744 in 0.081 s. ETA: 1.3686 s
+[Info] Progress: 148/744 in 0.064 s. ETA: 1.0309 s
+[Info] Progress: 185/744 in 0.076 s. ETA: 1.1482 s
+[Info] Progress: 222/744 in 0.143 s. ETA: 2.0175 s
+[Info] Progress: 259/744 in 0.121 s. ETA: 1.5861 s
+[Info] Progress: 296/744 in 0.066 s. ETA: 0.7991 s
+[Info] Progress: 333/744 in 0.054 s. ETA: 0.5998 s
+[Info] Progress: 370/744 in 0.061 s. ETA: 0.6166 s
+[Info] Progress: 407/744 in 0.073 s. ETA: 0.6649 s
+[Info] Progress: 444/744 in 0.065 s. ETA: 0.5270 s
+[Info] Progress: 481/744 in 0.055 s. ETA: 0.3909 s
+[Info] Progress: 518/744 in 0.063 s. ETA: 0.3848 s
+[Info] Progress: 555/744 in 0.066 s. ETA: 0.3371 s
+[Info] Progress: 592/744 in 0.064 s. ETA: 0.2629 s
+[Info] Progress: 629/744 in 0.058 s. ETA: 0.1803 s
+[Info] Progress: 666/744 in 0.063 s. ETA: 0.1328 s
+[Info] Progress: 703/744 in 0.064 s. ETA: 0.0709 s
+[Info] Progress: 740/744 in 0.065 s. ETA: 0.0070 s
 [Info] -- Finished time step loop
 [Info] Line plot created and saved to .\test\scenarios\low_ex_district_heating\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\low_ex_district_heating\sankey_plot.html
