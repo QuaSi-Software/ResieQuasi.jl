@@ -49,6 +49,10 @@ Starting with v1.0.0 breaking changes in the project file concerning component m
 * Place storages consistently on the right side of the bus in Sankey plots to improve readability of complex systems
 * Adapt example input files so they can be imported by SUSI without errors
 * Update tests, examples and scenario reference results where needed
+* Fix bug of parameter `output_parameter_study_csv` beeing ignored in some cases
+* Improve error handling in `run_simulation_sample` that depended on the existence of the CSV results file
+* Add a lock for `current_runs` to avoid rare freezings during multi-thread simulations
+* Add support for a `maxlog` parameter in the CustomLogger used in ReSiE to allow warnings to be shown only once
 
 ### Version 1.0.3
 * Replaced GLMakie with PlotlyJS to reduce dependencies, compile time and ability to save certain plots as html.
