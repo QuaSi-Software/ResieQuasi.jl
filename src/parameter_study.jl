@@ -8,7 +8,84 @@ using LinearAlgebra
 using Statistics
 using Random
 
-# Shared parameter-study evaluation
+# structs to hold the simulation result in cash to avoid simulating the same parameter set multiple times
+mutable struct ParameterEvaluationEntry
+    completed::Base.Event
+    result::Any
+    failure::Any
+end
+
+mutable struct ParameterEvaluationCache
+    lock::ReentrantLock
+    entries::Dict{Tuple,ParameterEvaluationEntry}
+end
+
+ParameterEvaluationCache() = ParameterEvaluationCache(ReentrantLock(), Dict{Tuple,ParameterEvaluationEntry}())
+
+"""
+    get_or_run_parameter_set!(cache, key, run_simulation)
+
+Return a cached simulation result or run the simulation if not cached.
+
+Ensures thread-safe deduplication: concurrent requests for the same parameter
+set share one simulation, while different parameter sets run in parallel.
+Failed simulations are not cached, allowing subsequent retries.
+
+# Arguments
+- `cache::ParameterEvaluationCache`: Shared simulation result cache.
+- `key::Tuple`: Tuple of canonical parameter values.
+- `run_simulation::Function`: Function executing the simulation.
+
+# Returns
+- The cached or newly computed simulation result.
+"""
+function get_or_run_parameter_set!(cache::ParameterEvaluationCache,
+                                   key::Tuple, run_simulation::Function)
+    # hold the lock only to select the owner of this parameter set
+    entry, is_owner = lock(cache.lock) do
+        if haskey(cache.entries, key)
+            return cache.entries[key], false
+        end
+
+        new_entry = ParameterEvaluationEntry(Base.Event(), nothing, nothing)
+        cache.entries[key] = new_entry
+        return new_entry, true
+    end
+
+    if !is_owner
+        # event is persistent: a late waiter also sees an earlier notification
+        wait(entry.completed)
+        return lock(cache.lock) do
+            entry.failure === nothing || throw(entry.failure)
+            return entry.result
+        end
+    end
+
+    try
+        # no other run present, start new run
+        result = run_simulation()
+        lock(cache.lock) do
+            entry.result = result
+            # Do not retain failed runs. Already waiting callers still see this
+            # attempt's result; subsequent calls may retry the simulation
+            if get(result, "error", "") != ""
+                delete!(cache.entries, key)
+            end
+            notify(entry.completed)
+        end
+        return result
+    catch err
+        lock(cache.lock) do
+            entry.failure = err
+            if get(cache.entries, key, nothing) === entry
+                delete!(cache.entries, key)
+            end
+            # always release callers waiting for this simulation
+            notify(entry.completed)
+        end
+        rethrow()
+    end
+end
 
 """
     create_parameter_variant(io_settings, sim_params, project_config, parameter_set)
@@ -83,6 +160,9 @@ compatible with optimisation algorithms and sensitivity calculations.
 - `output_lock::ReentrantLock`: Lock for file at parameter_study_results_path
 - `results_lock::ReentrantLock`: Lock for evaluated_parameter_sets
 - `cancel_flag::Union{Nothing,Threads.Atomic{Bool}}`: Flag to pass STR+C down to all parallel runs
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable simulation preparation data.
+- `evaluation_cache::Union{Nothing,ParameterEvaluationCache}`: Optional thread-safe cache to prevent duplicate 
+   simulations and reuse results.
 # Returns
 - `Union{Array{Float64},Float64}`: Objective value used by the configured study
 """
@@ -94,34 +174,42 @@ function evaluate_parameter_set!(evaluated_parameter_sets::Vector{Any}, io_setti
                                  output_lock::ReentrantLock,
                                  results_lock::ReentrantLock;
                                  cancel_flag::Union{Nothing,Threads.Atomic{Bool}}=nothing,
-                                 preparation_cache::Union{Nothing,PreparationCache}=nothing)::Union{Array{Float64},
-                                                                                                    Float64}
+                                 preparation_cache::Union{Nothing,PreparationCache}=nothing,
+                                 evaluation_cache::Union{Nothing,ParameterEvaluationCache}=nothing)::Union{Array{Float64},
+                                                                                                           Float64}
     parameter_study = sim_params["parameter_study"]
     runtime = parameter_study["runtime"]
     values = canonical_study_values(parameter_values, runtime)
     parameter_set = Dict{String,Any}(zip(runtime["parameter_keys"], values))
-    cache_key = Tuple(values)
 
-    # Share both completed and in-flight simulations across all optimiser workers.
-    # Only the first caller creates a task, so identical canonical integer points
-    # are not simulated multiple times, even with threaded optimisation.
-    simulation_task = lock(results_lock) do
-        get!(runtime["evaluation_tasks"], cache_key) do
-            Threads.@spawn begin
-                run_ID = uuid4()
-                results = run_simulation_sample(io_settings, sim_params, parameter_study_results_path, project_config,
-                                                parameter_set, run_ID, run_lock, output_lock;
-                                                suppress_all_output=parameter_study["disable_all_simulation_outputs"],
-                                                cancel_flag=cancel_flag,
-                                                preparation_cache=preparation_cache)
-                lock(results_lock) do
-                    push!(evaluated_parameter_sets, results)
-                end
-                return results
-            end
-        end
+    # simulate the sample if not already stored in cash
+    function simulate_once()
+        run_ID = uuid4()
+        results = run_simulation_sample(io_settings,
+                                        sim_params,
+                                        parameter_study_results_path,
+                                        project_config,
+                                        parameter_set,
+                                        run_ID,
+                                        run_lock,
+                                        output_lock;
+                                        suppress_all_output=parameter_study["disable_all_simulation_outputs"],
+                                        cancel_flag=cancel_flag,
+                                        preparation_cache=preparation_cache)
+        return results
     end
-    results = fetch(simulation_task)
+
+    results = if evaluation_cache === nothing
+        simulate_once()
+    else
+        get_or_run_parameter_set!(evaluation_cache, Tuple(values), simulate_once)
+    end
+
+    # add all simulation results to result container, even if they were taken from cache
+    lock(results_lock) do
+        push!(evaluated_parameter_sets, results)
+    end
+
     return objective_for_parameter_study(results, parameter_study)
 end
 
@@ -535,20 +623,6 @@ function find_evaluated_parameter_set(evaluated_parameter_sets::Vector{Any},
         return result
     end
     return nothing
-end
-
-function get_or_evaluate_parameter_set!(evaluate_physical_values::Function,
-                                        evaluated_parameter_sets::Vector{Any},
-                                        parameter_keys::Vector{String},
-                                        parameter_values::AbstractVector{<:Real})
-    result = find_evaluated_parameter_set(evaluated_parameter_sets, parameter_keys, parameter_values)
-    if isnothing(result)
-        evaluate_physical_values(Float64.(parameter_values))
-        result = find_evaluated_parameter_set(evaluated_parameter_sets, parameter_keys, parameter_values)
-    end
-
-    isnothing(result) && error("No result was stored for the evaluated parameter point.")
-    return result
 end
 
 """
@@ -1132,6 +1206,8 @@ reuse already completed simulation results where possible. They can also run sta
 - `sim_params::Dict{String,Any}`: Simulation and parameter-study parameters.
 - `project_config::OrderedDict{String,Any}`: Base project configuration used to generate
   simulation variants.
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable 
+  simulation preparation data.
 
 # Returns
 - `Bool`: Flag if the parameter study was successful (true) or not (false).
@@ -1143,31 +1219,37 @@ function perform_parameter_study(io_settings::Dict{String,Any},
                                  project_config::OrderedDict{String,Any};
                                  preparation_cache::Union{Nothing,PreparationCache}=nothing)::Tuple{Bool,Vector{Any},
                                                                                                     Vector{Any}}
-    # establish overarching locks for parallelization
+
+    # parameter study configuration
+    parameter_study = sim_params["parameter_study"]
+
+    # shared state for parallel simulations
     run_lock = ReentrantLock()
     output_lock = ReentrantLock()
     results_lock = ReentrantLock()
+    cancel_parameter_study = Threads.Atomic{Bool}(false)  # handle interruption via STR+C for parallel parameter-study runs
 
-    parameter_study_results_path = parameter_study_csv_path(sim_params, io_settings, "all_results")
-    open(prepare_output_path(parameter_study_results_path), "w") do file_handle
-    end
-
-    parameter_study = sim_params["parameter_study"]
-    parameter_study["runtime"]["evaluation_tasks"] = Dict{Tuple,Task}()
-
-    # calculate inputs that should be cashed
-    if preparation_cache !== nothing
-        @globalInfo "Preparing reusable data for repeated simulation runs..."
-        warmup_run_ID = uuid4()
-        prepare_inputs(project_config, warmup_run_ID; preparation_cache=preparation_cache)
-    end
-
-    # handle interruption via STR+C for parallel parameter-study runs
-    cancel_parameter_study = Threads.Atomic{Bool}(false)
-
-    # prepare result vectors
+    # result storage
     evaluated_parameter_sets = Vector{Any}()
     local_sensitivity_evaluated_parameter_sets = Vector{Any}()
+
+    # cache identical parameter sets for studies with integer parameters
+    evaluation_cache = any(T <: Integer for T in parameter_study["runtime"]["parameter_types"]) ?
+                       ParameterEvaluationCache() : nothing
+
+    # prepare parameter study output file if requested
+    if io_settings["output_parameter_study_csv"]
+        parameter_study_results_path = parameter_study_csv_path(sim_params, io_settings, "all_results")
+        close(open(prepare_output_path(parameter_study_results_path), "w"))
+    else
+        parameter_study_results_path = nothing
+    end
+
+    # precompute reusable simulation inputs
+    if preparation_cache !== nothing
+        @globalInfo "Preparing reusable data for repeated simulation runs..."
+        prepare_inputs(project_config, uuid4(); preparation_cache=preparation_cache)
+    end
 
     # Generic function using physical simulation parameter values. Results from the primary
     # study and global sensitivity are appended to evaluated_parameter_sets.
@@ -1186,7 +1268,8 @@ function perform_parameter_study(io_settings::Dict{String,Any},
                                        output_lock,
                                        results_lock;
                                        cancel_flag=cancel_parameter_study,
-                                       preparation_cache=preparation_cache)
+                                       preparation_cache=preparation_cache,
+                                       evaluation_cache=evaluation_cache)
     end
 
     @globalInfo "---- Simulation setup completed. ----"
@@ -1303,7 +1386,9 @@ function perform_parameter_study(io_settings::Dict{String,Any},
                 "$(length(evaluated_parameter_sets) + length(local_sensitivity_evaluated_parameter_sets)) total runs completed. ----"
 
     # write results to parameter-study result file if not written continuously
-    if !io_settings["write_parameter_study_csv_continuously"] && !isempty(evaluated_parameter_sets)
+    if !isnothing(parameter_study_results_path) &&
+       !io_settings["write_parameter_study_csv_continuously"] &&
+       !isempty(evaluated_parameter_sets)
         write_parameter_study_results(parameter_study_results_path, evaluated_parameter_sets)
     end
 

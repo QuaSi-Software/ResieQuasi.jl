@@ -2,7 +2,7 @@ ReSiE general log file of simulation started at: 2000-01-01 00:00:00
 This log file contains general warnings, errors and information written by ReSiE
 ---------------------------------
 [Info] Logging set up
-[GlobalInfo] Loading weather data... (.\src\resie_logger.jl:82)
+[GlobalInfo] Loading weather data... (.\src\resie_logger.jl:84)
 [Info] The EPW weather dataset from 'Neu-Stuttgart' with 8760 data points was successfully read.
 [Info] The timestamp of the profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation was shifted by 1800 seconds.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation has been extended by one timestep at the begin by doubling the first value.
@@ -17,26 +17,26 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\simple_geothermal_collector\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 37/744 in 0.693 s. ETA: 13.2419 s
-[Info] Progress: 74/744 in 0.083 s. ETA: 1.5030 s
-[Info] Progress: 111/744 in 0.067 s. ETA: 1.1462 s
-[Info] Progress: 148/744 in 0.069 s. ETA: 1.1115 s
-[Info] Progress: 185/744 in 0.067 s. ETA: 1.0122 s
-[Info] Progress: 222/744 in 0.071 s. ETA: 1.0017 s
-[Info] Progress: 259/744 in 0.061 s. ETA: 0.7996 s
-[Info] Progress: 296/744 in 0.064 s. ETA: 0.7749 s
-[Info] Progress: 333/744 in 0.073 s. ETA: 0.8109 s
-[Info] Progress: 370/744 in 0.069 s. ETA: 0.6975 s
-[Info] Progress: 407/744 in 0.063 s. ETA: 0.5738 s
-[Info] Progress: 444/744 in 0.069 s. ETA: 0.5595 s
-[Info] Progress: 481/744 in 0.074 s. ETA: 0.5260 s
-[Info] Progress: 518/744 in 0.069 s. ETA: 0.4215 s
-[Info] Progress: 555/744 in 0.057 s. ETA: 0.2912 s
-[Info] Progress: 592/744 in 0.076 s. ETA: 0.3122 s
-[Info] Progress: 629/744 in 0.072 s. ETA: 0.2238 s
-[Info] Progress: 666/744 in 0.068 s. ETA: 0.1434 s
-[Info] Progress: 703/744 in 0.096 s. ETA: 0.1064 s
-[Info] Progress: 740/744 in 0.073 s. ETA: 0.0079 s
+[Info] Progress: 37/744 in 0.692 s. ETA: 13.2228 s
+[Info] Progress: 74/744 in 0.589 s. ETA: 10.6657 s
+[Info] Progress: 111/744 in 0.064 s. ETA: 1.0949 s
+[Info] Progress: 148/744 in 0.079 s. ETA: 1.2725 s
+[Info] Progress: 185/744 in 0.063 s. ETA: 0.9518 s
+[Info] Progress: 222/744 in 0.064 s. ETA: 0.9029 s
+[Info] Progress: 259/744 in 0.114 s. ETA: 1.4943 s
+[Info] Progress: 296/744 in 0.058 s. ETA: 0.7023 s
+[Info] Progress: 333/744 in 0.077 s. ETA: 0.8553 s
+[Info] Progress: 370/744 in 0.065 s. ETA: 0.6570 s
+[Info] Progress: 407/744 in 0.055 s. ETA: 0.5009 s
+[Info] Progress: 444/744 in 0.096 s. ETA: 0.7784 s
+[Info] Progress: 481/744 in 0.049 s. ETA: 0.3483 s
+[Info] Progress: 518/744 in 0.077 s. ETA: 0.4703 s
+[Info] Progress: 555/744 in 0.068 s. ETA: 0.3474 s
+[Info] Progress: 592/744 in 0.071 s. ETA: 0.2917 s
+[Info] Progress: 629/744 in 0.067 s. ETA: 0.2082 s
+[Info] Progress: 666/744 in 0.08 s. ETA: 0.1686 s
+[Info] Progress: 703/744 in 0.076 s. ETA: 0.0842 s
+[Info] Progress: 740/744 in 0.089 s. ETA: 0.0096 s
 [Info] -- Finished time step loop
 [Info] CSV-file with outputs written to .\test\scenarios\simple_geothermal_collector\out.csv
 [Info] Summary CSV-file with outputs created and written to .\test\scenarios\simple_geothermal_collector\out_aggregated.csv

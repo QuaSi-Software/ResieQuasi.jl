@@ -2,7 +2,7 @@ ReSiE general log file of simulation started at: 2000-01-01 00:00:00
 This log file contains general warnings, errors and information written by ReSiE
 ---------------------------------
 [Info] Logging set up
-[GlobalInfo] Loading weather data... (.\src\resie_logger.jl:82)
+[GlobalInfo] Loading weather data... (.\src\resie_logger.jl:84)
 [Info] The EPW weather dataset from 'Neu-Stuttgart' with 8760 data points was successfully read.
 [Info] The timestamp of the profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation was shifted by 1800 seconds.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation has been extended by one timestep at the begin by doubling the first value.
@@ -22,26 +22,26 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\interconnected_STES\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 438/8760 in 4.509 s. ETA: 85.6710 s
-[Info] Progress: 876/8760 in 1.715 s. ETA: 30.8700 s
-[Info] Progress: 1314/8760 in 1.709 s. ETA: 29.0530 s
-[Info] Progress: 1752/8760 in 1.759 s. ETA: 28.1440 s
-[Info] Progress: 2190/8760 in 1.78 s. ETA: 26.7000 s
-[Info] Progress: 2628/8760 in 1.83 s. ETA: 25.6200 s
-[Info] Progress: 3066/8760 in 1.948 s. ETA: 25.3240 s
-[Info] Progress: 3504/8760 in 1.814 s. ETA: 21.7680 s
-[Info] Progress: 3942/8760 in 1.686 s. ETA: 18.5460 s
-[Info] Progress: 4380/8760 in 1.684 s. ETA: 16.8400 s
-[Info] Progress: 4818/8760 in 1.668 s. ETA: 15.0120 s
-[Info] Progress: 5256/8760 in 1.665 s. ETA: 13.3200 s
-[Info] Progress: 5694/8760 in 1.633 s. ETA: 11.4310 s
-[Info] Progress: 6132/8760 in 1.671 s. ETA: 10.0260 s
-[Info] Progress: 6570/8760 in 1.642 s. ETA: 8.2100 s
-[Info] Progress: 7008/8760 in 1.654 s. ETA: 6.6160 s
-[Info] Progress: 7446/8760 in 1.639 s. ETA: 4.9170 s
-[Info] Progress: 7884/8760 in 1.58 s. ETA: 3.1600 s
-[Info] Progress: 8322/8760 in 1.555 s. ETA: 1.5550 s
-[Info] Progress: 8760/8760 in 1.609 s. ETA: 0.0000 s
+[Info] Progress: 438/8760 in 6.024 s. ETA: 114.4560 s
+[Info] Progress: 876/8760 in 2.192 s. ETA: 39.4560 s
+[Info] Progress: 1314/8760 in 2.197 s. ETA: 37.3490 s
+[Info] Progress: 1752/8760 in 1.993 s. ETA: 31.8880 s
+[Info] Progress: 2190/8760 in 2.228 s. ETA: 33.4200 s
+[Info] Progress: 2628/8760 in 2.984 s. ETA: 41.7760 s
+[Info] Progress: 3066/8760 in 2.762 s. ETA: 35.9060 s
+[Info] Progress: 3504/8760 in 2.786 s. ETA: 33.4320 s
+[Info] Progress: 3942/8760 in 2.62 s. ETA: 28.8200 s
+[Info] Progress: 4380/8760 in 2.916 s. ETA: 29.1600 s
+[Info] Progress: 4818/8760 in 2.528 s. ETA: 22.7520 s
+[Info] Progress: 5256/8760 in 2.513 s. ETA: 20.1040 s
+[Info] Progress: 5694/8760 in 2.417 s. ETA: 16.9190 s
+[Info] Progress: 6132/8760 in 2.162 s. ETA: 12.9720 s
+[Info] Progress: 6570/8760 in 2.036 s. ETA: 10.1800 s
+[Info] Progress: 7008/8760 in 2.051 s. ETA: 8.2040 s
+[Info] Progress: 7446/8760 in 1.982 s. ETA: 5.9460 s
+[Info] Progress: 7884/8760 in 1.867 s. ETA: 3.7340 s
+[Info] Progress: 8322/8760 in 1.953 s. ETA: 1.9530 s
+[Info] Progress: 8760/8760 in 2.086 s. ETA: 0.0000 s
 [Info] -- Finished time step loop
 [Info] Line plot created and saved to .\test\scenarios\interconnected_STES\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\interconnected_STES\sankey_plot.html

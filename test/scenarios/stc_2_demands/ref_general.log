@@ -2,7 +2,7 @@ ReSiE general log file of simulation started at: 2000-01-01 00:00:00
 This log file contains general warnings, errors and information written by ReSiE
 ---------------------------------
 [Info] Logging set up
-[GlobalInfo] Loading weather data... (.\src\resie_logger.jl:82)
+[GlobalInfo] Loading weather data... (.\src\resie_logger.jl:84)
 [Info] The EPW weather dataset from 'Neu-Stuttgart' with 8760 data points was successfully read.
 [Info] The time zone given in the EPW weather file was overwritten by the one given in the input file: 1.0
 [Info] The timestamp of the profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation was shifted by 1800 seconds.
@@ -21,26 +21,26 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\stc_2_demands\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 33/672 in 0.001 s. ETA: 0.0194 s
-[Info] Progress: 66/672 in 0.0 s. ETA: 0.0000 s
-[Info] Progress: 99/672 in 0.015 s. ETA: 0.2605 s
-[Info] Progress: 132/672 in 0.005 s. ETA: 0.0818 s
+[Info] Progress: 33/672 in 0.004 s. ETA: 0.0775 s
+[Info] Progress: 66/672 in 0.004 s. ETA: 0.0735 s
+[Info] Progress: 99/672 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 132/672 in 0.009 s. ETA: 0.1473 s
 [Info] Progress: 165/672 in 0.0 s. ETA: 0.0000 s
-[Info] Progress: 198/672 in 0.014 s. ETA: 0.2011 s
-[Info] Progress: 231/672 in 0.006 s. ETA: 0.0802 s
-[Info] Progress: 264/672 in 0.004 s. ETA: 0.0495 s
-[Info] Progress: 297/672 in 0.005 s. ETA: 0.0568 s
-[Info] Progress: 330/672 in 0.0 s. ETA: 0.0000 s
-[Info] Progress: 363/672 in 0.0 s. ETA: 0.0000 s
-[Info] Progress: 396/672 in 0.018 s. ETA: 0.1505 s
+[Info] Progress: 198/672 in 0.024 s. ETA: 0.3447 s
+[Info] Progress: 231/672 in 0.013 s. ETA: 0.1737 s
+[Info] Progress: 264/672 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 297/672 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 330/672 in 0.014 s. ETA: 0.1451 s
+[Info] Progress: 363/672 in 0.006 s. ETA: 0.0562 s
+[Info] Progress: 396/672 in 0.002 s. ETA: 0.0167 s
 [Info] Progress: 429/672 in 0.005 s. ETA: 0.0368 s
-[Info] Progress: 462/672 in 0.005 s. ETA: 0.0255 s
-[Info] Progress: 495/672 in 0.005 s. ETA: 0.0268 s
-[Info] Progress: 528/672 in 0.005 s. ETA: 0.0218 s
-[Info] Progress: 561/672 in 0.006 s. ETA: 0.0202 s
-[Info] Progress: 594/672 in 0.006 s. ETA: 0.0142 s
-[Info] Progress: 627/672 in 0.001 s. ETA: 0.0014 s
-[Info] Progress: 660/672 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 462/672 in 0.004 s. ETA: 0.0255 s
+[Info] Progress: 495/672 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 528/672 in 0.0 s. ETA: 0.0000 s
+[Info] Progress: 561/672 in 0.013 s. ETA: 0.0437 s
+[Info] Progress: 594/672 in 0.003 s. ETA: 0.0071 s
+[Info] Progress: 627/672 in 0.007 s. ETA: 0.0095 s
+[Info] Progress: 660/672 in 0.006 s. ETA: 0.0022 s
 [Info] -- Finished time step loop
 [Info] CSV-file with outputs written to .\test\scenarios\stc_2_demands\out.csv
 [Info] Summary CSV-file with outputs created and written to .\test\scenarios\stc_2_demands\out_aggregated.csv

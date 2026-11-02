@@ -27,8 +27,9 @@ mutable struct SimulationRun
 end
 
 # this registry should be the only global state in the package and contains the state for
-# ongoing or paused simulation runs
+# ongoing or paused simulation runs. Is has its own global ReentrantLock 
 current_runs::Dict{UUID,SimulationRun} = Dict{UUID,SimulationRun}()
+const RUN_REGISTRY_LOCK = ReentrantLock()
 
 """
     get_run(id)
@@ -41,7 +42,9 @@ Get the simulation run container for the given ID.
 - `SimulationRun`: The simulation run container
 """
 function get_run(id::UUID)::SimulationRun
-    return current_runs[id]
+    return lock(RUN_REGISTRY_LOCK) do
+        current_runs[id]
+    end
 end
 
 """
@@ -53,7 +56,10 @@ Closes the given run, removing it from the run registry.
 - `id:UUID`: The ID of the run
 """
 function close_run(id::UUID)
-    delete!(current_runs, id)
+    lock(RUN_REGISTRY_LOCK) do
+        delete!(current_runs, id)
+    end
+    return nothing
 end
 
 """
@@ -610,6 +616,7 @@ Run a single simulation sample with given parameters.
 - `output_lock::ReentrantLock`: Lock for file at parameter_study_results_path
 - `suppress_all_output::Bool=false`: Bool that can be set to suppress the generation of all outputs written to hard drive.
 - `cancel_flag::Union{Nothing,Threads.Atomic{Bool}}`: Flag to pass STR+C down to all parallel runs
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable simulation preparation data.
 # Returns
 - `OrderedDict{String,Union{Float64, Int64, String}}`: Results of the simulation run
 """
@@ -642,7 +649,7 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
         sim_params["output_filename_prefix"] = output_filename_prefix
         @info "-- Simulation setup complete in $(seconds(now() - start)) s"
 
-        lock(run_lock) do
+        lock(RUN_REGISTRY_LOCK) do
             current_runs[run_ID] = SimulationRun(sim_params, io_settings, components, operations)
         end
 
@@ -661,6 +668,7 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
         results["error"] = ""
 
     catch e
+        # handle Ctr+C
         if e isa InterruptException
             if cancel_flag !== nothing
                 cancel_flag[] = true
@@ -668,21 +676,17 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
             rethrow()
         end
 
-        if !isnothing(parameter_study_results_path) && filesize(parameter_study_results_path) == 0
-            throw(e)
+        # propagate errors from standalone simulations
+        if isnothing(parameter_set)
+            rethrow()
         end
 
-        if sim_params["parameter_study"]["runtime"]["enabled"]
-            for key in sim_params["parameter_study"]["runtime"]["objective_params_keys"]
-                results[key] = NaN
-            end
-
-            results["objective"] = Inf
+        # for parameter study, set the results to inf and save exact error message
+        for key in sim_params["parameter_study"]["runtime"]["objective_params_keys"]
+            results[key] = NaN
         end
-
-        # save exact error message to output file
-        error_message = sprint(showerror, e)
-        full_error_message = error_message * "\n" * sprint(Base.show_backtrace, catch_backtrace())
+        results["objective"] = Inf
+        full_error_message = sprint(showerror, e) * "\n" * sprint(Base.show_backtrace, catch_backtrace())
         @globalInfo full_error_message
         results["error"] = "\"" * replace(full_error_message, "\"" => "\"\"") * "\"\n"
     finally
