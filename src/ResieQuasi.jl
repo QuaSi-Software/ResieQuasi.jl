@@ -545,7 +545,7 @@ function load_and_run(filepath::String,
     preparation_cache = PreparationCache()
 
     # set log level by operating mode
-    if logger !== nothing && auto_log_level === nothing
+    if logger !== nothing && auto_log_level
         Resie_Logger.set_min_log_level!(logger, get_min_log_level(project_config, logger))
     end
     io_settings = get_io_settings(project_config)
