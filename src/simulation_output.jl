@@ -3,26 +3,6 @@ using Dates
 using Random
 using CSV
 
-"""
-    prepare_output_path(path::AbstractString)::String
-
-Create the parent directory of an output file when the file is about to be written.
-The file path itself is returned unchanged; the output file is not created here.
-"""
-function prepare_output_path(path::AbstractString)::String
-    if isempty(strip(path))
-        throw(InputError("Invalid empty output file path."))
-    end
-
-    try
-        mkpath(dirname(path))
-    catch err
-        throw(InputError("Could not create output directory for `$path`: " * sprint(showerror, err)))
-    end
-
-    return String(path)
-end
-
 # Plots.jl / GR use shared backend state and must not be accessed concurrently.
 # Lock the entire plot operation, including creation, modification and saving.
 const PLOT_LOCK = ReentrantLock()

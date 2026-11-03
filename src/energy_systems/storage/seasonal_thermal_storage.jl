@@ -1637,7 +1637,7 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
                                          z=temps[1, :, :],
                                          cmin=Tmin,
                                          cmax=Tmax,
-                                         colorscale="RdYlBu_r",
+                                         colorscale="RdBu",
                                          showscale=true,
                                          colorbar=PlotlyJS.attr(; title="Temperature [°C]"))
         scatter_trace = PlotlyJS.scatter3d(; x=vec(repeat(z_abs', length(r_abs), 1)),

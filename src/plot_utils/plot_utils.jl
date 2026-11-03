@@ -17,6 +17,26 @@ end
 InputError() = InputError(nothing)
 
 """
+    prepare_output_path(path::AbstractString)::String
+
+Create the parent directory of an output file when the file is about to be written.
+The file path itself is returned unchanged; the output file is not created here.
+"""
+function prepare_output_path(path::AbstractString)::String
+    if isempty(strip(path))
+        throw(InputError("Invalid empty output file path."))
+    end
+
+    try
+        mkpath(dirname(path))
+    catch err
+        throw(InputError("Could not create output directory for `$path`: " * sprint(showerror, err)))
+    end
+
+    return String(path)
+end
+
+"""
     add_leap_day_values(values::AbstractArray, start_date::DateTime, 
                         time_step_second::UInt, end_date::DateTime)::AbstractArray
 
@@ -190,5 +210,6 @@ function html_plot_insertion(file_path::String, template_name::String,
     # return insertion
 end
 
-export html_plot_insertion, save_html_slider, downsampling_for_plots, add_leap_day_values
+export html_plot_insertion, save_html_slider, downsampling_for_plots, add_leap_day_values,
+       prepare_output_path
 end
