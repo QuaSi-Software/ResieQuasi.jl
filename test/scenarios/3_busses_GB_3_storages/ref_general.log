@@ -34,5 +34,3 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Summary CSV-file with outputs created and written to .\test\scenarios\3_busses_GB_3_storages\out_aggregated.csv
 [Info] Line plot created and saved to .\test\scenarios\3_busses_GB_3_storages\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\3_busses_GB_3_storages\sankey_plot.html
-[Info] general log saved to .\test\scenarios\3_busses_GB_3_storages\general.log
-[Info] balanceWarn log saved to .\test\scenarios\3_busses_GB_3_storages\balanceWarn.log

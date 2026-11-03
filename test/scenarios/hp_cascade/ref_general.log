@@ -30,5 +30,3 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Summary CSV-file with outputs created and written to .\test\scenarios\hp_cascade\out_aggregated.csv
 [Info] Line plot created and saved to .\output\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\hp_cascade\sankey_plot.html
-[Info] general log saved to .\test\scenarios\hp_cascade\general.log
-[Info] balanceWarn log saved to .\test\scenarios\hp_cascade\balanceWarn.log

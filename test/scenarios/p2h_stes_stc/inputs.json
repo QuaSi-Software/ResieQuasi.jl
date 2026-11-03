@@ -2,7 +2,7 @@
     "io_settings": {
         "csv_output_file_path": "./test/scenarios/p2h_stes_stc/out.csv",
         "auxiliary_info": true,
-        "auxiliary_info_file": "./test/scenarios/p2h_stes_stc/auxiliary_info.md",
+        "auxiliary_info_file_path": "./test/scenarios/p2h_stes_stc/auxiliary_info.md",
         "fixed_output_precision": 10,
         "sankey_plot_file_path": "./test/scenarios/p2h_stes_stc/sankey_plot.html",
         "sankey_plot": "default",
@@ -14,7 +14,7 @@
     "simulation_parameters": {
         "start": "01.06.2024 00:00",
         "end": "30.06.2024 23:00",
-        "start_end_unit": "dd.mm.yyyy HH:MM",
+        "start_date_format": "dd.mm.yyyy HH:MM",
         "time_step": 60,
         "time_step_unit": "minutes",
         "weather_file_path": "./profiles/weather/TRY2015_Stuttgart.epw",
@@ -33,11 +33,11 @@
                 "hysteresis_temp_on": 50,
                 "hysteresis_temp_off": 20
             }],
-            "ambient_temperature_from_global_file": "temp_ambient_air",
-            "beam_solar_radiation_from_global_file": "beamHorIrr",
-            "diffuse_solar_radiation_from_global_file": "difHorIrr",
-            "infrared_sky_radiation_from_global_file": "longWaveIrr",
-            "wind_speed_from_global_file": "wind_speed",
+            "use_ambient_temperature_from_weather_file": true,
+            "use_beam_solar_radiation_from_weather_file": true,
+            "use_diffuse_solar_radiation_from_weather_file": true,
+            "use_infrared_sky_radiation_from_weather_file": true,
+            "use_wind_speed_from_weather_file": true,
             "collector_gross_area": 15000.0,
             "tilt_angle": 30,
             "azimuth_angle": 0,
@@ -245,7 +245,7 @@
             "output_refs": [
                 "TST_BUS_01"
             ],
-            "ambient_temperature_from_global_file": "temp_ambient_air",
+            "use_ambient_temperature_from_weather_file": true,
             "volume": 150000,
             "m_heat_out": "m_h_w_ht1",
             "m_heat_in": "m_h_w_ht1",
