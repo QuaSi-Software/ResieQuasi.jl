@@ -1,5 +1,5 @@
 using PlotlyJS, Printf
-
+using ..PlotUtils
 export extend_profile
 
 # Calculate economic balance of the energy system simulation using the annuity method
@@ -856,11 +856,11 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     end
 
     if economic_result !== nothing
-        economic_profiles = EnergySystems.add_leap_day_values(economic_profiles, x0,
-                                                              sim_params["time_step_seconds"],
-                                                              end_date)
-        economic_profiles, _ = EnergySystems.downsampling_for_plots(economic_profiles, 1;
-                                                                    decimation_factor=dec_f)
+        economic_profiles = add_leap_day_values(economic_profiles, x0,
+                                                sim_params["time_step_seconds"],
+                                                end_date)
+        economic_profiles, _ = downsampling_for_plots(economic_profiles, 1;
+                                                      decimation_factor=dec_f)
         for (idx, profile) in enumerate(eachcol(economic_profiles))
             name = economic_profile_names[idx]
             push!(traces,
@@ -869,11 +869,11 @@ function plot_extended_price_and_emissions_profiles(economic_result::Any,
     end
 
     if emissions_result !== nothing
-        emissions_profiles = EnergySystems.add_leap_day_values(emissions_profiles, x0,
-                                                               sim_params["time_step_seconds"],
-                                                               end_date)
-        emissions_profiles, _ = EnergySystems.downsampling_for_plots(emissions_profiles, 1;
-                                                                     decimation_factor=dec_f)
+        emissions_profiles = add_leap_day_values(emissions_profiles, x0,
+                                                 sim_params["time_step_seconds"],
+                                                 end_date)
+        emissions_profiles, _ = downsampling_for_plots(emissions_profiles, 1;
+                                                       decimation_factor=dec_f)
         for (idx, profile) in enumerate(eachcol(emissions_profiles))
             name = emissions_profile_names[idx]
             push!(traces,

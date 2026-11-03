@@ -1,49 +1,6 @@
-using OteraEngine
+using ..PlotUtils
 # this file contains functionality for writing output and creating plots of the parameter-study results
 # including parameter variation, optimisation and sensitivity analysis.
-
-"""
-    html_plot_insertion(file_path::String, template_name::String, 
-                        replacements::Dict{String,Any}, insertion_location::String)::String
-
-Takes a separate html insertion file for interactive plots and processes it.
-"""
-function html_plot_insertion(file_path::String, template_name::String,
-                             replacements::Dict{Symbol,Any},
-                             insertion_location::String)
-    insertion_path = joinpath(@__DIR__, "plot_templates", "parameter_study_plots_insertions",
-                              template_name)
-    insertion = OteraEngine.Template(insertion_path)(; init=replacements)
-
-    html = read(file_path, String)
-
-    if insertion_location == "body" && occursin("</body>", html)
-        html = replace(html, "</body>" => insertion * "\n</body>"; count=1)
-    elseif insertion_location == "head" && occursin("</head>", html)
-        html = replace(html, "</head>" => insertion * "\n</head>"; count=1)
-    else
-        @error "insertion_location for html_plot_insertion has to be one of 'head' or 'body'"
-    end
-
-    write(file_path, html)
-
-    # insertion = read(insertion_path, String)
-
-    #TODO this check is not done by OteraEngine
-    # for (name, value) in replacements
-    #     placeholder = "{{$name}}"
-    #     if !occursin(placeholder, insertion)
-    #         @error "Missing placeholder $placeholder in parameter-study plot insertion $file_name."
-    #     end
-    #     insertion = replace(insertion, placeholder => value)
-    # end
-
-    # unresolved_placeholder = match(r"\{\{[A-Z0-9_]+\}\}", insertion)
-    # if !isnothing(unresolved_placeholder)
-    #     @error "Unresolved placeholder $(unresolved_placeholder.match) in parameter-study plot insertion $file_name."
-    # end
-    # return insertion
-end
 
 """
     parameter_study_csv_path(sim_params, io_settings, suffix)

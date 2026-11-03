@@ -77,6 +77,8 @@ include("profiles/solar_irradiance.jl")
 using .SolarIrradiance
 include("profiles/base.jl")
 using .Profiles
+include("plot_utils/plot_utils.jl")
+using .PlotUtils
 include("profiles/weatherdata.jl")
 using .Weatherdata
 

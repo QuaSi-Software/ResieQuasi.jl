@@ -3,7 +3,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<script src="{{PLOTLY_CDN_URL}}"></script>
+<script src="{{ PLOTLY_CDN_URL }}"></script>
 <style>
     html, body { height: 100%; margin: 0; font-family: sans-serif; }
     body { display: flex; flex-direction: column; }
@@ -18,17 +18,17 @@
 <div id="controls">
     <button id="play" type="button">Play</button>
     <button id="fastplay" type="button">&gt;&gt;&gt;</button>
-    <input id="slider" type="range" min="0" max="{{MAX_SLIDER}}" step="1" value="0" />
+    <input id="slider" type="range" min="0" max="{{ MAX_SLIDER }}" step="1" value="0" />
     <span id="label">Time: 1</span>
 </div>
-<script type="application/json" id="temps">[join(values_int, ',')]</script>
-<script>const timestamps = {{TIMESTAMPS}};</script>
+<script type="application/json" id="temps">[{{ VALUES_INT }}]</script>
+<script>const timestamps = {{ TIMESTAMPS }};</script>
 <script type="text/javascript">
     (function () {
-        const NX = {{N_X}}, NY = {{N_Y}}, NT = {{N_T}}, N = NX * NY;
+        const NX = {{ N_X }}, NY = {{ N_Y }}, NT = {{ N_T }}, N = NX * NY;
         const raw = JSON.parse(document.getElementById("temps").textContent);
         const T = new Float64Array(raw.length);
-        for (let i = 0; i < raw.length; i++) T[i] = raw[i] / (10 ^ {{DIGITS}});
+        for (let i = 0; i < raw.length; i++) T[i] = raw[i] / (10 ** {{ DIGITS }});
 
         const gd = document.getElementById("plot");
         const slider = document.getElementById("slider");
@@ -64,9 +64,9 @@
         }
         function tick(timestamp) {
             if (!playing) return;
-            if (!busy && timestamp - lastStepTime >= {{RENDER_TIME_MS}}) {
+            if (!busy && timestamp - lastStepTime >= {{ RENDER_TIME_MS }}) {
                 lastStepTime = timestamp
-                const step = (parseInt(slider.value) + "JUMPED_FRAMES") % NT;
+                const step = (parseInt(slider.value) + {{ JUMPED_FRAMES }}) % NT;
                 slider.value = step;
                 requestStep(step);
             }
@@ -98,8 +98,8 @@
             });
         }
 
-        const fig = {{BASE_PLOT}};
-        Plotly.newPlot(gd, fig.data, fig.layout, { responsive: true, displaylogo: false })
+        const base_plot = {{ BASE_PLOT }};
+        Plotly.newPlot(gd, base_plot.data, base_plot.layout, { responsive: true, displaylogo: false })
             .then(function () {
                 disableSurfaceRefinement();
                 requestStep(0);

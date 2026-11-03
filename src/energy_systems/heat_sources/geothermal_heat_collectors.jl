@@ -1,7 +1,7 @@
 using PlotlyJS: PlotlyJS
 using Roots
-using Plots: plot, savefig
-using Plots: Plots
+using Plots: Plots, plot, savefig
+using ..PlotUtils
 using SparseArrays
 using LinearAlgebra
 

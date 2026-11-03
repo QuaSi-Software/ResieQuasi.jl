@@ -1,18 +1,18 @@
 <script>
 (function () {
-    const plotData = {{PLOT_DATA_JSON}};
-    const variableKeys = {{VARIABLE_KEYS_JSON}};
-    const parameterKeys = {{PARAMETER_KEYS_JSON}};
+    const plotData = {{ PLOT_DATA_JSON }};
+    const variableKeys = {{ VARIABLE_KEYS_JSON }};
+    const parameterKeys = {{ PARAMETER_KEYS_JSON }};
     const parameterKeySet = new Set(parameterKeys);
-    const runIds = {{RUN_IDS_JSON}};
-    const highlightRunIds = new Set({{HIGHLIGHT_RUN_IDS_JSON}});
-    const objectiveSenses = {{OBJECTIVE_SENSES_JSON}};
-    const isMultiobjective = {{IS_MULTIOBJECTIVE_JSON}};
+    const runIds = {{ RUN_IDS_JSON }};
+    const highlightRunIds = new Set({{ HIGHLIGHT_RUN_IDS_JSON }});
+    const objectiveSenses = {{ OBJECTIVE_SENSES_JSON }};
+    const isMultiobjective = {{ IS_MULTIOBJECTIVE_JSON }};
 
     const initialSelection = {
-        x: {{INITIAL_X_JSON}},
-        y: {{INITIAL_Y_JSON}},
-        color: {{INITIAL_COLOR_JSON}}
+        x: {{ INITIAL_X_JSON }},
+        y: {{ INITIAL_Y_JSON }},
+        color: {{ INITIAL_COLOR_JSON }}
     };
 
     function findPlotlyDiv() {
