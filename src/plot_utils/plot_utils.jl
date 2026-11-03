@@ -144,7 +144,7 @@ function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArr
     )
 
     template = OteraEngine.Template(template_path)(; init=replacements)
-    write(output_path, template)
+    write(prepare_output_path(output_path), template)
 end
 
 """
