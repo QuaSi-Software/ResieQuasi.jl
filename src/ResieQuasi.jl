@@ -510,6 +510,7 @@ Load a project from the given file and run the simulation with it.
 function load_and_run(filepath::String,
                       run_ID::UUID;
                       logger::Union{Nothing,Resie_Logger.CustomLogger}=nothing,
+                      auto_log_level::Bool=true,
                       log_output_info=nothing)::Bool
     start = now()
     success = true
@@ -544,7 +545,7 @@ function load_and_run(filepath::String,
     preparation_cache = PreparationCache()
 
     # set log level by operating mode
-    if logger !== nothing
+    if logger !== nothing && auto_log_level === nothing
         Resie_Logger.set_min_log_level!(logger, get_min_log_level(project_config, logger))
     end
     io_settings = get_io_settings(project_config)
@@ -721,4 +722,84 @@ function run_simulation_sample(io_settings::Dict{String,Any}, sim_params::Dict{S
     return results
 end
 
+"""
+    simulate(filepath::String; log_level::String="Auto", log_to_console::Bool=true, 
+             log_to_file::Bool=true)::Bool
+
+Function for running simulations from a input file with control over logging detail.
+The log_level can be set to "Auto" or one of "Debug", "Info", "BalanceWarning",
+"GlobalInfo", "Warn", "Error".
+"Auto" sets the log_level to "Info" for a single simulation and "GlobalInfo" for multiple
+simulations, e.g. in a parameter study.
+
+# Arguments
+- `filepath::String`: Path to the ReSiE input file that should be simulated.
+- `log_level::String="Auto"`: Logging detail as one of "Auto", "Debug", "Info", 
+                              "BalanceWarning", "GlobalInfo", "Warn", "Error".
+- `log_to_console::Bool=true`: Defines if logging should be output into the console.
+- `log_to_file::Bool=true`: Defines if logging should be saved into the log file.
+# Returns
+- `success::Bool`: true if simulation ran without errors.
+"""
+function simulate(filepath::String; log_level::String="Auto",
+                  log_to_console::Bool=true, log_to_file::Bool=true)::Bool
+    run_ID = uuid1()
+
+    if log_to_file
+        # generate temporary distinct log file paths
+        general_logfile_path = abspath(joinpath(dirname(@__FILE__), "..", "output",
+                                                "temp_logfile_general_$(run_ID).log"))
+        balanceWarn_logfile_path = abspath(joinpath(dirname(@__FILE__), "..", "output",
+                                                    "temp_logfile_balanceWarn_$(run_ID).log"))
+        # Log files are opened before loading project output settings.
+        prepare_output_path(general_logfile_path)
+        prepare_output_path(balanceWarn_logfile_path)
+    else
+        general_logfile_path = nothing
+        balanceWarn_logfile_path = nothing
+    end
+
+    if log_level in ["Debug", "Info", "BalanceWarning", "GlobalInfo", "Warn", "Error"]
+        min_log_level = getproperty(Resie_Logger, Symbol(log_level))
+        auto_log_level = false
+    elseif log_level=="Auto"
+        min_log_level = Resie_Logger.Info
+        auto_log_level = true
+    else
+        @error "The log_level $log_level is not valid. Has to be one of " *
+               "'Debug', 'Info', 'BalanceWarning', 'GlobalInfo', 'Warn', 'Error' or 'Auto'"
+        throw(InputError())
+    end
+
+    logger = Resie_Logger.start_logger(log_to_console,
+                                       log_to_file,
+                                       general_logfile_path,
+                                       balanceWarn_logfile_path,
+                                       min_log_level,
+                                       filepath)
+
+    global_logger(logger)
+
+    success = false
+    log_output_info = Ref{Any}(nothing)
+    try
+        success = load_and_run(filepath, run_ID; logger=logger,
+                               auto_log_level=auto_log_level,
+                               log_output_info=log_output_info)
+    catch exc
+        # exceptions should just be rethrown, but the finally block should also make sure
+        # that the logger is closed and the run removed from the run registry.
+        # it's not fully clear if this actually works since rethrow might quit out of the
+        # execution entirely
+        rethrow(exc)
+    finally
+        close_run(run_ID)
+        io_settings, run_path = log_output_info[] === nothing ? (nothing, nothing) : log_output_info[]
+        Resie_Logger.close_logger(logger, io_settings, run_path, general_logfile_path, balanceWarn_logfile_path)
+    end
+
+    return success
+end
+
+export simulate
 end # module
