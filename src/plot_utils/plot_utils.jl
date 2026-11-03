@@ -131,9 +131,8 @@ function save_html_slider(output_path::AbstractString, values_y_x_t::AbstractArr
     timestamps = replace.(timestamps, 'T' => ' ')
     replacements = Dict{Symbol,Any}(
         :PLOTLY_CDN_URL => "https://cdn.plot.ly/plotly-latest.min.js",
-        #:PLOTLY_CDN_URL => PlotlyJS.PlotlyBase.cdn_url()
         :MAX_SLIDER => nt - 1,
-        :VALUES_INT => join(values_int, ","),
+        :VALUES_INT => JSON.json(values_int),
         :TIMESTAMPS => JSON.json(timestamps),
         :N_X => nx,
         :N_Y => ny,

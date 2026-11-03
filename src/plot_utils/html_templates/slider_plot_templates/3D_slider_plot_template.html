@@ -19,10 +19,10 @@
     <button id="play" type="button">Play</button>
     <button id="fastplay" type="button">&gt;&gt;&gt;</button>
     <input id="slider" type="range" min="0" max="{{ MAX_SLIDER }}" step="1" value="0" />
-    <span id="label">Time: 1</span>
+    <span id="label"></span>
 </div>
-<script type="application/json" id="temps">[{{ VALUES_INT }}]</script>
-<script>const timestamps = {{ TIMESTAMPS }};</script>
+<script type="application/json" id="temps">{{ VALUES_INT |> safe }}</script>
+<script>const timestamps = {{ TIMESTAMPS |> safe }};</script>
 <script type="text/javascript">
     (function () {
         const NX = {{ N_X }}, NY = {{ N_Y }}, NT = {{ N_T }}, N = NX * NY;
@@ -98,8 +98,8 @@
             });
         }
 
-        const base_plot = {{ BASE_PLOT }};
-        Plotly.newPlot(gd, base_plot.data, base_plot.layout, { responsive: true, displaylogo: false })
+        const fig = {{ BASE_PLOT |> safe }};
+        Plotly.newPlot(gd, fig.data, fig.layout, { responsive: true, displaylogo: false })
             .then(function () {
                 disableSurfaceRefinement();
                 requestStep(0);
