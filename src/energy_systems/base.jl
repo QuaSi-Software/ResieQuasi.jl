@@ -1798,7 +1798,11 @@ function check_validation(validation::Tuple, name::String, value::Any,
         throw(InputError("Value of `$name` in component `$uac` was `nothing` but must be numeric"))
     end
 
-    if validation[2] == "value_lt_num"
+    if validation[2] == "is_no_empty_string"
+        if (value == "")
+            throw(InputError("Value of `$name` in component `$uac` must not be an empty string."))
+        end
+    elseif validation[2] == "value_lt_num"
         if !(value < validation[3])
             throw(InputError("Value of `$name` in component `$uac` must be less than $(validation[3])"))
         end
@@ -2282,6 +2286,7 @@ function get_economic_standard_params(type::String, defaults::Dict{String,Any},
                 display_name="capex function",
                 required=true,
                 type=String,
+                validations=[("self", "is_no_empty_string")],
                 json_type="string",
                 function_type="1dim",
                 unit=units["capex_specific"]
