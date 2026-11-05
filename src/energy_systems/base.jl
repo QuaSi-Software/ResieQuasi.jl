@@ -1710,13 +1710,14 @@ function extract_parameter(x::Type{Component}, config::AbstractDict{String,Any},
     # special handling for function-type parameters
     if isdefined(param_def, :function_type)
         if param_def.function_type == "cop"
-            return parse_cop_function(value)
+            return parse_cop_function(value, uac, param_name)
         elseif param_def.function_type == "1dim"
-            return parse_efficiency_function(value)
+            return parse_efficiency_function(value, uac, param_name)
         elseif param_def.function_type == "2dim"
-            return parse_2dim_function(value)
+            return parse_2dim_function(value, uac, param_name)
         else
-            throw(InputError("Unknown function type `$(param_def.function_type)` in component `$uac`."))
+            throw(InputError("Unknown function type `$(param_def.function_type)` of parameter `$param_name` " *
+                             "in component `$uac`."))
         end
     end
 
