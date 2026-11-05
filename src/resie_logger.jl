@@ -237,7 +237,7 @@ function start_logger(log_to_console::Bool,
                       log_to_file::Bool,
                       general_logfile_path::Union{String,Nothing},
                       balanceWarn_logfile_path::Union{String,Nothing},
-                      min_log_level::Logging.LogLevel,
+                      min_log_level::Union{Logging.LogLevel,CustomLevel},
                       input_file::Union{String,Nothing}=nothing)::CustomLogger
     if log_to_file
         log_file_general = open(general_logfile_path, "w")
