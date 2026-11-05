@@ -161,7 +161,7 @@ function run(arguments::Array{String})::Tuple{Bool,Bool}
         return false, exit_after_run
     end
 
-    success = simulate(input_filepath)
+    success = Resie.simulate(input_filepath)
 
     return success, exit_after_run
 end
