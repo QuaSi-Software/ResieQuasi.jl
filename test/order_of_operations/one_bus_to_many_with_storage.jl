@@ -7,7 +7,7 @@ using ResieQuasi.EnergySystems
 include("../test_util.jl")
 
 function test_ooo_one_bus_to_many_with_storage()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_SRC_01" => Dict{String,Any}(
             "type" => "FlexibleSupply",
             "medium" => "m_h_w_ht1",
@@ -73,29 +73,29 @@ function test_ooo_one_bus_to_many_with_storage()
         ),
     )
 
-    expected = [("TST_DEM_02", EnergySystems.s_reset),
-                ("TST_DEM_01", EnergySystems.s_reset),
-                ("TST_BUS_02", EnergySystems.s_reset),
-                ("TST_BUS_01", EnergySystems.s_reset),
+    expected = [("TST_DEM_01", EnergySystems.s_reset),
+                ("TST_DEM_02", EnergySystems.s_reset),
                 ("Proxy-TST_BUS_01|TST_BUS_03|TST_BUS_02", EnergySystems.s_reset),
+                ("TST_BUS_01", EnergySystems.s_reset),
+                ("TST_BUS_02", EnergySystems.s_reset),
                 ("TST_BUS_03", EnergySystems.s_reset),
-                ("TST_TES_02", EnergySystems.s_reset),
                 ("TST_TES_01", EnergySystems.s_reset),
+                ("TST_TES_02", EnergySystems.s_reset),
                 ("TST_SRC_01", EnergySystems.s_reset),
-                ("TST_DEM_02", EnergySystems.s_control),
                 ("TST_DEM_01", EnergySystems.s_control),
-                ("TST_BUS_02", EnergySystems.s_control),
-                ("TST_BUS_01", EnergySystems.s_control),
+                ("TST_DEM_02", EnergySystems.s_control),
                 ("Proxy-TST_BUS_01|TST_BUS_03|TST_BUS_02", EnergySystems.s_control),
+                ("TST_BUS_01", EnergySystems.s_control),
+                ("TST_BUS_02", EnergySystems.s_control),
                 ("TST_BUS_03", EnergySystems.s_control),
-                ("TST_TES_02", EnergySystems.s_control),
                 ("TST_TES_01", EnergySystems.s_control),
+                ("TST_TES_02", EnergySystems.s_control),
                 ("TST_SRC_01", EnergySystems.s_control),
-                ("TST_DEM_02", EnergySystems.s_process),
                 ("TST_DEM_01", EnergySystems.s_process),
-                ("TST_BUS_02", EnergySystems.s_process),
-                ("TST_BUS_01", EnergySystems.s_process),
+                ("TST_DEM_02", EnergySystems.s_process),
                 ("Proxy-TST_BUS_01|TST_BUS_03|TST_BUS_02", EnergySystems.s_process),
+                ("TST_BUS_01", EnergySystems.s_process),
+                ("TST_BUS_02", EnergySystems.s_process),
                 ("TST_BUS_03", EnergySystems.s_process),
                 ("TST_SRC_01", EnergySystems.s_process),
                 ("TST_TES_02", EnergySystems.s_process),
@@ -103,8 +103,8 @@ function test_ooo_one_bus_to_many_with_storage()
                 ("TST_TES_01", EnergySystems.s_load),
                 ("TST_TES_02", EnergySystems.s_load),
                 ("Proxy-TST_BUS_01|TST_BUS_03|TST_BUS_02", EnergySystems.s_distribute),
-                ("TST_BUS_02", EnergySystems.s_distribute),
                 ("TST_BUS_01", EnergySystems.s_distribute),
+                ("TST_BUS_02", EnergySystems.s_distribute),
                 ("TST_BUS_03", EnergySystems.s_distribute)]
 
     simulation_parameters = get_default_sim_params()

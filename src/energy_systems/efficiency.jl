@@ -5,7 +5,7 @@ functionality.
 const PLRDEComponent = Union{CHPP,Electrolyser,FuelBoiler,UTIR}
 
 """
-    parse_efficiency_function(eff_def)
+    parse_efficiency_function(eff_def, uac, param_name)
 
 Parse the given definition of an efficiency function and return it as a callable function.
 
@@ -55,84 +55,91 @@ Three different function prototypes are implemented:
 
 # Arguments
 - `eff_def::String`: The efficiency definition as described above
+- `uac::String`: The UAC of the component of the parameter, for error messages
+- `param_name::String`: The parameter name of the parameter, for error messages
 # Returns
 - `Function`: A callable function which returns an efficiency value when given a part load
     ratio value (from 0.0 to 1.0) as argument
 """
-function parse_efficiency_function(eff_def::String)::Function
+function parse_efficiency_function(eff_def::String, uac::Stringing=nothing, param_name::Stringing=nothing)::Function
     splitted = split(eff_def, ":")
 
-    if length(splitted) > 1
-        method = lowercase(splitted[1])
-        data = splitted[2]
+    try
+        if length(splitted) > 1
+            method = lowercase(splitted[1])
+            data = splitted[2]
 
-        if method == "const"
-            c = parse(Float64, data)
-            return plr -> c
+            if method == "const"
+                c = parse(Float64, data)
+                return plr -> c
 
-        elseif method == "poly"
-            params = map(x -> parse(Float64, x), split(data, ","))
-            return function (plr)
-                return sum(p * plr^(length(params) - i) for (i, p) in enumerate(params))
-            end
+            elseif method == "poly"
+                params = map(x -> parse(Float64, x), split(data, ","))
+                return function (plr)
+                    return sum(p * plr^(length(params) - i) for (i, p) in enumerate(params))
+                end
 
-        elseif method == "pwlin"
-            params = map(x -> parse(Float64, x), split(data, ","))
-            step = 1.0 / (length(params) - 1)
-            return function (plr)
-                bracket_nr = floor(Int64, plr / step) + 1
-                lower_bound = params[bracket_nr]
-                upper_bound = params[min(bracket_nr + 1, length(params))]
-                return lower_bound + (upper_bound - lower_bound) * (plr % step) / step
-            end
+            elseif method == "pwlin"
+                params = map(x -> parse(Float64, x), split(data, ","))
+                step = 1.0 / (length(params) - 1)
+                return function (plr)
+                    bracket_nr = floor(Int64, plr / step) + 1
+                    lower_bound = params[bracket_nr]
+                    upper_bound = params[min(bracket_nr + 1, length(params))]
+                    return lower_bound + (upper_bound - lower_bound) * (plr % step) / step
+                end
 
-        elseif method == "offset_lin"
-            c = parse(Float64, data)
-            return plr -> 1.0 - c * (1.0 - plr)
+            elseif method == "offset_lin"
+                c = parse(Float64, data)
+                return plr -> 1.0 - c * (1.0 - plr)
 
-        elseif method == "logarithmic"
-            params = map(x -> parse(Float64, x), split(data, ","))
-            return plr -> params[1] * plr / (params[2] * plr + (1 - params[2]))
+            elseif method == "logarithmic"
+                params = map(x -> parse(Float64, x), split(data, ","))
+                return plr -> params[1] * plr / (params[2] * plr + (1 - params[2]))
 
-        elseif method == "inv_poly"
-            params = map(x -> parse(Float64, x), split(data, ","))
-            return plr -> plr / sum(p * plr^(length(params) - i) for (i, p) in enumerate(params))
+            elseif method == "inv_poly"
+                params = map(x -> parse(Float64, x), split(data, ","))
+                return plr -> plr / sum(p * plr^(length(params) - i) for (i, p) in enumerate(params))
 
-        elseif method == "exp"
-            params = map(x -> parse(Float64, x), split(data, ","))
-            return plr -> params[1] + params[2] * exp(params[3] * plr)
+            elseif method == "exp"
+                params = map(x -> parse(Float64, x), split(data, ","))
+                return plr -> params[1] + params[2] * exp(params[3] * plr)
 
-        elseif method == "power_func"
-            params = map(x -> parse(Float64, x), split(data, ","))
-            return plr -> params[1] * plr^params[2]
+            elseif method == "power_func"
+                params = map(x -> parse(Float64, x), split(data, ","))
+                return plr -> params[1] * plr^params[2]
 
-        elseif method == "linear"
-            params = map(x -> parse(Float64, x), split(data, ","))
-            if length(params) == 1
-                return plr -> params[1] * plr
-            else
-                return plr -> params[1] * plr + params[2]
-            end
-
-        elseif method == "unified_plf"
-            params = map(x -> parse(Float64, x), split(data, ","))
-            return function (plr)
-                if plr < params[1]
-                    a = params[2] * (params[3] * (params[1] - 1) + 1) / params[1]
-                    return a * plr / (params[3] * plr + 1 - params[3])
+            elseif method == "linear"
+                params = map(x -> parse(Float64, x), split(data, ","))
+                if length(params) == 1
+                    return plr -> params[1] * plr
                 else
-                    return (params[4] - params[2]) * (plr - params[1]) / (1 - params[1]) + params[2]
+                    return plr -> params[1] * plr + params[2]
+                end
+
+            elseif method == "unified_plf"
+                params = map(x -> parse(Float64, x), split(data, ","))
+                return function (plr)
+                    if plr < params[1]
+                        a = params[2] * (params[3] * (params[1] - 1) + 1) / params[1]
+                        return a * plr / (params[3] * plr + 1 - params[3])
+                    else
+                        return (params[4] - params[2]) * (plr - params[1]) / (1 - params[1]) + params[2]
+                    end
                 end
             end
         end
+    catch e
+        @error "The value `$eff_def` of parameter `$param_name` in component `$uac` could not be parsed into " *
+               "a function. The following error occurred: $e"
+        throw(InputError())
     end
-
-    @error "Cannot parse efficiency function from: $eff_def"
-    return plr -> plr
+    @error "The value `$eff_def` of parameter `$param_name` in component `$uac` could not be parsed into a function."
+    throw(InputError())
 end
 
 """
-    parse_2dim_function(eff_def)
+    parse_2dim_function(eff_def, uac, param_name))
 
 Parse the given definition of an general 2D function and return it as a callable function.
 
@@ -150,40 +157,49 @@ Two different function prototypes are implemented:
 
 # Arguments
 - `eff_def::String`: The function definition as described above
+- `uac::String`: The UAC of the component of the parameter, for error messages
+- `param_name::String`: The parameter name of the parameter, for error messages
 # Returns
 - `Function`: A callable function which returns a scalar value given values (usually
     temperatures) as input.
 """
-function parse_2dim_function(eff_def::String)::Function
+function parse_2dim_function(eff_def::String, uac::Stringing=nothing, param_name::Stringing=nothing)::Function
     splitted = split(eff_def, ":")
 
-    if length(splitted) > 1
-        method = lowercase(splitted[1])
-        data = splitted[2]
+    try
+        if length(splitted) > 1
+            method = lowercase(splitted[1])
+            data = splitted[2]
 
-        if method == "const"
-            c = parse(Float64, data)
-            return (x, y) -> c
+            if method == "const"
+                c = parse(Float64, data)
+                return (x, y) -> c
 
-        elseif method == "poly-2"
-            params = parse.(Float64, split(data, ","))
-            return function (x, y)
-                return params[1] +
-                       params[2] * x +
-                       params[3] * y +
-                       params[4] * x * x +
-                       params[5] * x * y +
-                       params[6] * y * y +
-                       params[7] * x * x * x +
-                       params[8] * x * x * y +
-                       params[9] * x * y * y +
-                       params[10] * y * y * y
+            elseif method == "poly-2"
+                params = parse.(Float64, split(data, ","))
+                return function (x, y)
+                    return params[1] +
+                           params[2] * x +
+                           params[3] * y +
+                           params[4] * x * x +
+                           params[5] * x * y +
+                           params[6] * y * y +
+                           params[7] * x * x * x +
+                           params[8] * x * x * y +
+                           params[9] * x * y * y +
+                           params[10] * y * y * y
+                end
             end
         end
+    catch e
+        @error "The value `$eff_def` of parameter `$param_name` in component `$uac` could not be parsed " *
+               "into a 2-dimensional function. The following error occurred: $e"
+        throw(InputError())
     end
 
-    @error "Cannot parse 2-dimensional function from: $eff_def"
-    return (x, y) -> 0.0
+    @error "The value `$eff_def` of parameter `$param_name` in component `$uac` could not be parsed " *
+           "into a 2-dimensional function."
+    throw(InputError())
 end
 
 """
@@ -227,7 +243,7 @@ function bilinear_interpolate(x1, x2, x3, y1, y2, y3, v1, v2, v3, v4)
 end
 
 """
-    parse_cop_function(eff_def)
+    parse_cop_function(eff_def, uac, param_name)
 
 Parse the given definition of a COP function and return it as a callable function.
 
@@ -258,84 +274,92 @@ Four different function prototypes are implemented:
 
 # Arguments
 - `eff_def::String`: The function definition as described above
+- `uac::String`: The UAC of the component of the parameter, for error messages
+- `param_name::String`: The parameter name of the parameter, for error messages
 # Returns
 - `Function`: A callable function which, when called with the input and output temperatures
     as arguments, returns the COP value at a PLR of 1.0.
 """
-function parse_cop_function(eff_def::String)::Function
+function parse_cop_function(eff_def::String, uac::Stringing=nothing, param_name::Stringing=nothing)::Function
     splitted = split(eff_def, ":")
 
-    if length(splitted) > 1
-        method_cop = lowercase(splitted[1])
-        data_cop = splitted[2]
+    try
+        if length(splitted) > 1
+            method_cop = lowercase(splitted[1])
+            data_cop = splitted[2]
 
-        if method_cop == "const"
-            c = parse(Float64, data_cop)
-            return function (src, snk)
-                return c
-            end
-
-        elseif method_cop == "carnot"
-            c = parse(Float64, data_cop)
-            return function (src, snk)
-                if src === nothing || snk === nothing
-                    return nothing
+            if method_cop == "const"
+                c = parse(Float64, data_cop)
+                return function (src, snk)
+                    return c
                 end
-                return c * (273.15 + snk) / (snk - src)
-            end
 
-        elseif method_cop == "poly-2"
-            poly = parse_2dim_function(method_cop * ":" * data_cop)
-            return poly
-
-        elseif method_cop == "field"
-            rows = split(data_cop, ';')
-            cells = [parse.(Float64, split(row, ",")) for row in rows]
-            dim_src = length(cells)
-            dim_snk = length(cells[1])
-            values = Array{Float64,2}(undef, dim_src, dim_snk)
-            for (idx_src, row) in pairs(cells)
-                for (idx_snk, val) in pairs(row)
-                    values[idx_src, idx_snk] = val
+            elseif method_cop == "carnot"
+                c = parse(Float64, data_cop)
+                return function (src, snk)
+                    if src === nothing || snk === nothing
+                        return nothing
+                    end
+                    return c * (273.15 + snk) / (snk - src)
                 end
-            end
 
-            # first dim of values is source, second is sink. source is vertical (one row is
-            # at the same source temp), sink is horizontal (one column is at the same sink
-            # temp). first row is sink temperatures, first column is source temperatures
-            return function (src, snk)
-                src_idx = nothing
-                for idx in 2:(dim_src - 1)
-                    if src >= values[idx, 1] && src <= values[idx + 1, 1]
-                        src_idx = idx
+            elseif method_cop == "poly-2"
+                poly = parse_2dim_function(method_cop * ":" * data_cop)
+                return poly
+
+            elseif method_cop == "field"
+                rows = split(data_cop, ';')
+                cells = [parse.(Float64, split(row, ",")) for row in rows]
+                dim_src = length(cells)
+                dim_snk = length(cells[1])
+                values = Array{Float64,2}(undef, dim_src, dim_snk)
+                for (idx_src, row) in pairs(cells)
+                    for (idx_snk, val) in pairs(row)
+                        values[idx_src, idx_snk] = val
                     end
                 end
-                snk_idx = nothing
-                for idx in 2:(dim_snk - 1)
-                    if snk >= values[1, idx] && snk <= values[1, idx + 1]
-                        snk_idx = idx
+
+                # first dim of values is source, second is sink. source is vertical (one row is
+                # at the same source temp), sink is horizontal (one column is at the same sink
+                # temp). first row is sink temperatures, first column is source temperatures
+                return function (src, snk)
+                    src_idx = nothing
+                    for idx in 2:(dim_src - 1)
+                        if src >= values[idx, 1] && src <= values[idx + 1, 1]
+                            src_idx = idx
+                        end
                     end
+                    snk_idx = nothing
+                    for idx in 2:(dim_snk - 1)
+                        if snk >= values[1, idx] && snk <= values[1, idx + 1]
+                            snk_idx = idx
+                        end
+                    end
+                    if snk_idx === nothing || src_idx === nothing
+                        @error "Given temperatures $src and $snk outside of COP field."
+                        throw(BoundsError(values, (src_idx, snk_idx)))
+                    end
+                    return bilinear_interpolate(values[1, snk_idx],
+                                                snk,
+                                                values[1, snk_idx + 1],
+                                                values[src_idx, 1],
+                                                src,
+                                                values[src_idx + 1, 1],
+                                                values[src_idx, snk_idx],
+                                                values[src_idx, snk_idx + 1],
+                                                values[src_idx + 1, snk_idx],
+                                                values[src_idx + 1, snk_idx + 1])
                 end
-                if snk_idx === nothing || src_idx === nothing
-                    @error "Given temperatures $src and $snk outside of COP field."
-                    throw(BoundsError(values, (src_idx, snk_idx)))
-                end
-                return bilinear_interpolate(values[1, snk_idx],
-                                            snk,
-                                            values[1, snk_idx + 1],
-                                            values[src_idx, 1],
-                                            src,
-                                            values[src_idx + 1, 1],
-                                            values[src_idx, snk_idx],
-                                            values[src_idx, snk_idx + 1],
-                                            values[src_idx + 1, snk_idx],
-                                            values[src_idx + 1, snk_idx + 1])
             end
         end
+    catch e
+        @error "Cannot parse the given COP function `$eff_def` in parameter `$param_name` of component `$uac`. " *
+               "The following error occurred: $e"
+        throw(InputError())
     end
 
-    @error "Cannot parse COP function from: $eff_def"
-    return (x, y) -> 0.0
+    @error "Cannot parse the given COP function `$eff_def` in parameter `$param_name` of component `$uac`. "
+    throw(InputError())
 end
 
 """

@@ -8,7 +8,84 @@ using LinearAlgebra
 using Statistics
 using Random
 
-# Shared parameter-study evaluation
+# structs to hold the simulation result in cash to avoid simulating the same parameter set multiple times
+mutable struct ParameterEvaluationEntry
+    completed::Base.Event
+    result::Any
+    failure::Any
+end
+
+mutable struct ParameterEvaluationCache
+    lock::ReentrantLock
+    entries::Dict{Tuple,ParameterEvaluationEntry}
+end
+
+ParameterEvaluationCache() = ParameterEvaluationCache(ReentrantLock(), Dict{Tuple,ParameterEvaluationEntry}())
+
+"""
+    get_or_run_parameter_set!(cache, key, run_simulation)
+
+Return a cached simulation result or run the simulation if not cached.
+
+Ensures thread-safe deduplication: concurrent requests for the same parameter
+set share one simulation, while different parameter sets run in parallel.
+Failed simulations are not cached, allowing subsequent retries.
+
+# Arguments
+- `cache::ParameterEvaluationCache`: Shared simulation result cache.
+- `key::Tuple`: Tuple of canonical parameter values.
+- `run_simulation::Function`: Function executing the simulation.
+
+# Returns
+- The cached or newly computed simulation result.
+"""
+function get_or_run_parameter_set!(cache::ParameterEvaluationCache,
+                                   key::Tuple, run_simulation::Function)
+    # hold the lock only to select the owner of this parameter set
+    entry, is_owner = lock(cache.lock) do
+        if haskey(cache.entries, key)
+            return cache.entries[key], false
+        end
+
+        new_entry = ParameterEvaluationEntry(Base.Event(), nothing, nothing)
+        cache.entries[key] = new_entry
+        return new_entry, true
+    end
+
+    if !is_owner
+        # event is persistent: a late waiter also sees an earlier notification
+        wait(entry.completed)
+        return lock(cache.lock) do
+            entry.failure === nothing || throw(entry.failure)
+            return entry.result
+        end
+    end
+
+    try
+        # no other run present, start new run
+        result = run_simulation()
+        lock(cache.lock) do
+            entry.result = result
+            # Do not retain failed runs. Already waiting callers still see this
+            # attempt's result; subsequent calls may retry the simulation
+            if get(result, "error", "") != ""
+                delete!(cache.entries, key)
+            end
+            notify(entry.completed)
+        end
+        return result
+    catch err
+        lock(cache.lock) do
+            entry.failure = err
+            if get(cache.entries, key, nothing) === entry
+                delete!(cache.entries, key)
+            end
+            # always release callers waiting for this simulation
+            notify(entry.completed)
+        end
+        rethrow()
+    end
+end
 
 """
     create_parameter_variant(io_settings, sim_params, project_config, parameter_set)
@@ -21,11 +98,11 @@ Create a variant of the input file for the simulation run
 - `project_config::OrderedDict{String,Any}`: The project config read from the input file
 - `parameter_set::Dict{String,Any}`: The parameters that get changed for the simulation run
 # Returns
-- `OrderedDict{String,Any}`: Modified project_config
+- `Tuple{OrderedDict{String,Any},String}`: Modified project config and output filename prefix
 """
 function create_parameter_variant(io_settings::Dict{String,Any}, sim_params::Dict{String,Any},
                                   project_config::OrderedDict{String,Any},
-                                  parameter_set::Dict{String,Any})::OrderedDict{String,Any}
+                                  parameter_set::Dict{String,Any})::Tuple{OrderedDict{String,Any},String}
     # helper function to shorten parameter values for output file naming
     function compact_value(value)
         if abs(value) >= 100
@@ -60,7 +137,7 @@ function create_parameter_variant(io_settings::Dict{String,Any}, sim_params::Dic
         end
     end
 
-    return cfg
+    return cfg, run_name * "_"
 end
 
 """
@@ -78,11 +155,14 @@ compatible with optimisation algorithms and sensitivity calculations.
 - `parameter_study_results_path::Union{String,Nothing}`: File path for parameter-study results.
   If `nothing`, the result is not written to the main parameter-study CSV.
 - `project_config::OrderedDict{String,Any}`: The project config
-- `parameter_values::Union{Array{Float64},Float64}`: Physical parameter values for the simulation run.
+- `parameter_values`: Physical parameter values proposed for the simulation run.
 - `run_lock::ReentrantLock`: Lock for writing to current_runs
 - `output_lock::ReentrantLock`: Lock for file at parameter_study_results_path
 - `results_lock::ReentrantLock`: Lock for evaluated_parameter_sets
 - `cancel_flag::Union{Nothing,Threads.Atomic{Bool}}`: Flag to pass STR+C down to all parallel runs
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable simulation preparation data.
+- `evaluation_cache::Union{Nothing,ParameterEvaluationCache}`: Optional thread-safe cache to prevent duplicate 
+   simulations and reuse results.
 # Returns
 - `Union{Array{Float64},Float64}`: Objective value used by the configured study
 """
@@ -90,25 +170,47 @@ function evaluate_parameter_set!(evaluated_parameter_sets::Vector{Any}, io_setti
                                  sim_params::Dict{String,Any},
                                  parameter_study_results_path::Union{String,Nothing},
                                  project_config::OrderedDict{String,Any},
-                                 parameter_values::Union{Array{Float64},Float64}, run_lock::ReentrantLock,
+                                 parameter_values, run_lock::ReentrantLock,
                                  output_lock::ReentrantLock,
                                  results_lock::ReentrantLock;
                                  cancel_flag::Union{Nothing,Threads.Atomic{Bool}}=nothing,
-                                 preparation_cache::Union{Nothing,PreparationCache}=nothing)::Union{Array{Float64},
-                                                                                                    Float64}
-    parameter_set = Dict{String,Any}(zip(sim_params["parameter_study"]["runtime"]["parameter_keys"], parameter_values))
-    run_ID = uuid4()
-    results = run_simulation_sample(io_settings, sim_params, parameter_study_results_path, project_config,
-                                    parameter_set, run_ID, run_lock, output_lock;
-                                    suppress_all_output=sim_params["parameter_study"]["disable_all_simulation_outputs"],
-                                    cancel_flag=cancel_flag,
-                                    preparation_cache=preparation_cache)
+                                 preparation_cache::Union{Nothing,PreparationCache}=nothing,
+                                 evaluation_cache::Union{Nothing,ParameterEvaluationCache}=nothing)::Union{Array{Float64},
+                                                                                                           Float64}
+    parameter_study = sim_params["parameter_study"]
+    runtime = parameter_study["runtime"]
+    values = canonical_study_values(parameter_values, runtime)
+    parameter_set = Dict{String,Any}(zip(runtime["parameter_keys"], values))
 
+    # simulate the sample if not already stored in cash
+    function simulate_once()
+        run_ID = uuid4()
+        results = run_simulation_sample(io_settings,
+                                        sim_params,
+                                        parameter_study_results_path,
+                                        project_config,
+                                        parameter_set,
+                                        run_ID,
+                                        run_lock,
+                                        output_lock;
+                                        suppress_all_output=parameter_study["disable_all_simulation_outputs"],
+                                        cancel_flag=cancel_flag,
+                                        preparation_cache=preparation_cache)
+        return results
+    end
+
+    results = if evaluation_cache === nothing
+        simulate_once()
+    else
+        get_or_run_parameter_set!(evaluation_cache, Tuple(values), simulate_once)
+    end
+
+    # add all simulation results to result container, even if they were taken from cache
     lock(results_lock) do
         push!(evaluated_parameter_sets, results)
     end
 
-    return objective_for_parameter_study(results, sim_params["parameter_study"])
+    return objective_for_parameter_study(results, parameter_study)
 end
 
 # Parameter-study result helpers
@@ -235,7 +337,13 @@ function calculate_global_sensitivity!(evaluate_physical_values::Union{Nothing,F
     @globalInfo "Calculating global sensitivity..."
 
     d = size(bounds, 1)
-    deg = 3
+    runtime = parameter_study["runtime"]
+    parameter_types = runtime["parameter_types"]
+    has_integer_parameters = any(T <: Integer for T in parameter_types)
+    # Avoid polynomial degrees that cannot be identified from a small integer grid.
+    integer_cardinalities = [Int(bounds[i, 2] - bounds[i, 1]) + 1
+                             for i in 1:d if parameter_types[i] <: Integer]
+    deg = isempty(integer_cardinalities) ? 3 : min(3, minimum(integer_cardinalities) - 1)
     op = PolyChaos.Uniform01OrthoPoly(deg; Nrec=5 * deg)
     mop = PolyChaos.MultiOrthoPoly(fill(op, d), deg)
 
@@ -298,6 +406,13 @@ function calculate_global_sensitivity!(evaluate_physical_values::Union{Nothing,F
     end
 
     minimum_fit_samples = mop.dim + 1
+    if has_integer_parameters && length(integer_cardinalities) == d &&
+       prod(big.(integer_cardinalities)) < minimum_fit_samples
+        @error "Global sensitivity requires at least $minimum_fit_samples distinct parameter points " *
+               "for this surrogate, but the selected integer bounds permit only " *
+               "$(prod(big.(integer_cardinalities))). Increase the integer ranges."
+        return Float64[], Float64[], 0.0, 0.0
+    end
     if n_existing >= minimum_fit_samples
         X_std = hcat([to_std.(X_phys[:, i], bounds[i, 1], bounds[i, 2]) for i in 1:d]...)
         coeffs, rel_rmse, r2 = fit_surrogate(X_std, y, mop)
@@ -319,6 +434,7 @@ function calculate_global_sensitivity!(evaluate_physical_values::Union{Nothing,F
             return Float64[], Float64[], 0.0, 0.0
         end
         status_lock = ReentrantLock()
+        seen_samples = Set(Tuple(X_phys[i, :]) for i in axes(X_phys, 1))
         try
             while (rel_rmse > target_rel_rmse || r2 < target_r2) && length(y) < maximum_sensitivity_runs
                 if print_message
@@ -340,9 +456,33 @@ function calculate_global_sensitivity!(evaluate_physical_values::Union{Nothing,F
                 n_new = min(n_new, remaining_runs)
                 n_new > 0 || break
 
-                X_std_new = rand(n_new, d) .* 2 .- 1
-                X_phys_new = hcat([to_phys.(X_std_new[:, i], bounds[i, 1], bounds[i, 2]) for i in 1:d]...)
-
+                # Draw distinct points from the actual input domain: continuous
+                # uniform for floats, discrete uniform for integers. Avoid
+                # replicating points after integer canonicalisation.
+                new_points = Vector{Vector{Float64}}()
+                attempts = 0
+                while length(new_points) < n_new && attempts < max(200, 50 * n_new)
+                    attempts += 1
+                    point = Float64[]
+                    for j in 1:d
+                        lo, hi = bounds[j, 1], bounds[j, 2]
+                        value = parameter_types[j] <: Integer ?
+                                rand(ceil(Int, lo):floor(Int, hi)) :
+                                lo + rand() * (hi - lo)
+                        push!(point, Float64(value))
+                    end
+                    key = Tuple(point)
+                    if !(key in seen_samples)
+                        push!(seen_samples, key)
+                        push!(new_points, point)
+                    end
+                end
+                if isempty(new_points)
+                    @warn "No additional distinct global-sensitivity sample is available within the selected bounds."
+                    break
+                end
+                X_phys_new = permutedims(hcat(new_points...))
+                n_new = length(new_points)
                 y_new = zeros(Float64, n_new)
                 completed_in_batch = Ref(0)
                 Threads.@threads for i in 1:n_new
@@ -406,6 +546,52 @@ function calculate_global_sensitivity!(evaluate_physical_values::Union{Nothing,F
     S_first ./= total_var
     S_total ./= total_var
 
+    if has_integer_parameters
+        # Coefficient-squared Sobol indices assume continuous uniform inputs and
+        # orthogonal polynomials. For integer dimensions, use pick-freeze Monte
+        # Carlo integration of the fitted surrogate over the *discrete* uniform
+        # input distribution instead. This still requires a good surrogate fit.
+        n_mc = 4096
+        function draw_inputs()
+            samples = rand(n_mc, d)
+            for j in 1:d
+                lo, hi = bounds[j, 1], bounds[j, 2]
+                if parameter_types[j] <: Integer
+                    samples[:, j] = Float64.(rand(ceil(Int, lo):floor(Int, hi), n_mc))
+                else
+                    samples[:, j] = lo .+ samples[:, j] .* (hi - lo)
+                end
+            end
+            return samples
+        end
+        function predict_surrogate(samples)
+            prediction = Vector{Float64}(undef, size(samples, 1))
+            for row in axes(samples, 1)
+                standardized = Float64[to_std(samples[row, j], bounds[j, 1], bounds[j, 2]) for j in 1:d]
+                prediction[row] = dot(coeffs, PolyChaos.evaluate(standardized, mop))
+            end
+            return prediction
+        end
+        A = draw_inputs()
+        B = draw_inputs()
+        fA = predict_surrogate(A)
+        fB = predict_surrogate(B)
+        variance = var(vcat(fA, fB))
+        if variance <= eps(Float64)
+            @error "Mixed discrete/continuous global sensitivity has zero surrogate variance."
+            return Float64[], Float64[], rel_rmse, r2
+        end
+        for j in 1:d
+            AB = copy(A)
+            AB[:, j] = B[:, j]
+            fAB = predict_surrogate(AB)
+            S_first[j] = mean(fB .* (fAB .- fA)) / variance
+            S_total[j] = mean((fA .- fAB) .^ 2) / (2 * variance)
+        end
+        @globalInfo "Global sensitivity with integer parameters: Sobol indices estimated from the " *
+                    "surrogate using discrete-uniform integer inputs. Check the reported surrogate fit quality."
+    end
+
     parameter_width = max(length("Parameter"), maximum(length.(parameter_keys)))
     header = @sprintf("%-*s  %12s  %12s", parameter_width, "Parameter", "S_first", "S_total",)
     lines = [header, repeat("-", length(header))]
@@ -439,20 +625,6 @@ function find_evaluated_parameter_set(evaluated_parameter_sets::Vector{Any},
     return nothing
 end
 
-function get_or_evaluate_parameter_set!(evaluate_physical_values::Function,
-                                        evaluated_parameter_sets::Vector{Any},
-                                        parameter_keys::Vector{String},
-                                        parameter_values::AbstractVector{<:Real})
-    result = find_evaluated_parameter_set(evaluated_parameter_sets, parameter_keys, parameter_values)
-    if isnothing(result)
-        evaluate_physical_values(Float64.(parameter_values))
-        result = find_evaluated_parameter_set(evaluated_parameter_sets, parameter_keys, parameter_values)
-    end
-
-    isnothing(result) && error("No result was stored for the evaluated parameter point.")
-    return result
-end
-
 """
     calculate_local_sensitivity!(evaluate_physical_values, evaluated_parameter_sets, parameter_study)
 
@@ -476,7 +648,9 @@ function calculate_local_sensitivity!(evaluate_physical_values::Function,
     @globalInfo "Calculating local sensitivity..."
 
     sensitivity_results = Vector{Dict{String,Any}}()
-    parameter_keys = parameter_study["runtime"]["parameter_keys"]
+    runtime = parameter_study["runtime"]
+    parameter_keys = runtime["parameter_keys"]
+    parameter_types = runtime["parameter_types"]
 
     # determine reference values
     if parameter_study["sensitivity_analysis"]["local_reference"] == "best_result"
@@ -493,6 +667,8 @@ function calculate_local_sensitivity!(evaluate_physical_values::Function,
         reference_values = Float64.(parameter_study["runtime"]["start_values"])
     end
 
+    reference_values = Float64.(canonical_study_values(reference_values, runtime))
+
     # prepare all valid local-sensitivity points before starting parallel runs
     parameter_points = NamedTuple[]
 
@@ -502,15 +678,27 @@ function calculate_local_sensitivity!(evaluate_physical_values::Function,
 
         if !(isfinite(lower_value) && isfinite(upper_value))
             delta = abs(reference_values[i]) * parameter_study["sensitivity_analysis"]["local_variation"]
-
             if delta == 0.0
                 @error "Local sensitivity for parameter $key cannot use a relative variation " *
                        "because its reference value is zero. Configure sensitivity_lower and sensitivity_upper explicitly."
                 continue
+            elseif parameter_types[i] <: Integer
+                # Small integers may have a requested +/-10% step below one unit.
+                # Use the closest feasible symmetric integer step, with at least 1.
+                delta = Float64(max(1, round(Int, delta)))
             end
 
             lower_value = reference_values[i] - delta
             upper_value = reference_values[i] + delta
+            if parameter_types[i] <: Integer && reference_values[i] != 0.0
+                realised = delta / abs(reference_values[i])
+                requested = parameter_study["sensitivity_analysis"]["local_variation"]
+                if !isapprox(realised, requested; atol=1e-10)
+                    @globalInfo "Local sensitivity for integer parameter $key: requested +/-$(100 * requested)% " *
+                                "becomes +/-$(round(100 * realised; digits=2))% (one or more whole-number steps). " *
+                                "The plots and CSV show the actual parameter changes."
+                end
+            end
         end
 
         if !(lower_value < reference_values[i] < upper_value)
@@ -540,13 +728,17 @@ function calculate_local_sensitivity!(evaluate_physical_values::Function,
     # determine which points still require simulation
     simulation_points = Vector{Vector{Float64}}()
 
+    queued_points = Set{Tuple}()
     function queue_simulation_point!(parameter_values::Vector{Float64})::Nothing
+        actual_values = Float64.(canonical_study_values(parameter_values, runtime))
         existing_result = find_evaluated_parameter_set(evaluated_parameter_sets,
                                                        parameter_keys,
-                                                       parameter_values)
+                                                       actual_values)
 
-        if isnothing(existing_result)
-            push!(simulation_points, parameter_values)
+        point_key = Tuple(actual_values)
+        if isnothing(existing_result) && !(point_key in queued_points)
+            push!(queued_points, point_key)
+            push!(simulation_points, actual_values)
         end
 
         return nothing
@@ -751,7 +943,9 @@ function run_optimisation!(evaluate_physical_values::Function,
     # for the simulation run.
     evaluate_normalised_values = function (parameter_values)
         physical_values = to_physical_optim_values(parameter_values, parameter_study["runtime"]["parameter_bounds"])
-        return evaluate_physical_values(physical_values)
+        return evaluate_physical_values(canonical_study_values(physical_values,
+                                                               parameter_study["runtime"];
+                                                               enforce_bounds=true))
     end
 
     # handle Logging for all algorithms
@@ -986,7 +1180,7 @@ end
 
 function write_parameter_study_results(parameter_study_results_path::String,
                                        evaluated_parameter_sets::Vector{Any})
-    open(parameter_study_results_path, "w") do file_handle
+    open(prepare_output_path(parameter_study_results_path), "w") do file_handle
         # write header
         header = join(collect(keys(evaluated_parameter_sets[1])), ';') * "\n"
         write(file_handle, header)
@@ -1012,6 +1206,8 @@ reuse already completed simulation results where possible. They can also run sta
 - `sim_params::Dict{String,Any}`: Simulation and parameter-study parameters.
 - `project_config::OrderedDict{String,Any}`: Base project configuration used to generate
   simulation variants.
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable 
+  simulation preparation data.
 
 # Returns
 - `Bool`: Flag if the parameter study was successful (true) or not (false).
@@ -1023,30 +1219,37 @@ function perform_parameter_study(io_settings::Dict{String,Any},
                                  project_config::OrderedDict{String,Any};
                                  preparation_cache::Union{Nothing,PreparationCache}=nothing)::Tuple{Bool,Vector{Any},
                                                                                                     Vector{Any}}
-    # establish overarching locks for parallelization
+
+    # parameter study configuration
+    parameter_study = sim_params["parameter_study"]
+
+    # shared state for parallel simulations
     run_lock = ReentrantLock()
     output_lock = ReentrantLock()
     results_lock = ReentrantLock()
+    cancel_parameter_study = Threads.Atomic{Bool}(false)  # handle interruption via STR+C for parallel parameter-study runs
 
-    parameter_study_results_path = parameter_study_csv_path(sim_params, io_settings, "all_results")
-    open(parameter_study_results_path, "w") do file_handle
-    end
-
-    parameter_study = sim_params["parameter_study"]
-
-    # calculate inputs that should be cashed
-    if preparation_cache !== nothing
-        @globalInfo "Preparing reusable data for repeated simulation runs..."
-        warmup_run_ID = uuid4()
-        prepare_inputs(project_config, warmup_run_ID; preparation_cache=preparation_cache)
-    end
-
-    # handle interruption via STR+C for parallel parameter-study runs
-    cancel_parameter_study = Threads.Atomic{Bool}(false)
-
-    # prepare result vectors
+    # result storage
     evaluated_parameter_sets = Vector{Any}()
     local_sensitivity_evaluated_parameter_sets = Vector{Any}()
+
+    # cache identical parameter sets for studies with integer parameters
+    evaluation_cache = any(T <: Integer for T in parameter_study["runtime"]["parameter_types"]) ?
+                       ParameterEvaluationCache() : nothing
+
+    # prepare parameter study output file if requested
+    if io_settings["output_parameter_study_csv"]
+        parameter_study_results_path = parameter_study_csv_path(sim_params, io_settings, "all_results")
+        close(open(prepare_output_path(parameter_study_results_path), "w"))
+    else
+        parameter_study_results_path = nothing
+    end
+
+    # precompute reusable simulation inputs
+    if preparation_cache !== nothing
+        @globalInfo "Preparing reusable data for repeated simulation runs..."
+        prepare_inputs(project_config, uuid4(); preparation_cache=preparation_cache)
+    end
 
     # Generic function using physical simulation parameter values. Results from the primary
     # study and global sensitivity are appended to evaluated_parameter_sets.
@@ -1065,7 +1268,8 @@ function perform_parameter_study(io_settings::Dict{String,Any},
                                        output_lock,
                                        results_lock;
                                        cancel_flag=cancel_parameter_study,
-                                       preparation_cache=preparation_cache)
+                                       preparation_cache=preparation_cache,
+                                       evaluation_cache=evaluation_cache)
     end
 
     @globalInfo "---- Simulation setup completed. ----"
@@ -1075,16 +1279,6 @@ function perform_parameter_study(io_settings::Dict{String,Any},
     local_reference_values = nothing
 
     if parameter_study["runtime"]["run_primary_study"]
-        # warn if file outputs for multi-thread simulations should be created, as this can lead to troubles
-        uses_threaded_sample_evaluation = (parameter_study["parameter_variation"]["run_parameter_variation"] &&
-                                           length(parameter_study["runtime"]["iterator"]) > 1) ||
-                                          (parameter_study["optimisation"]["type"] == "Metaheuristics" &&
-                                           Threads.nthreads() > 1)
-        if uses_threaded_sample_evaluation && !parameter_study["disable_all_simulation_outputs"]
-            @warn "Writing simulation outputs during multi-threaded parameter studies may cause file-access conflicts or crashes. " *
-                  "To be safe, set `disable_all_simulation_outputs` to `true`, or run the study with a single thread."
-        end
-
         primary_start_time = now()
         workflow_name = parameter_study["parameter_variation"]["run_parameter_variation"] ?
                         "Parameter variation" : "Optimisation"
@@ -1192,7 +1386,9 @@ function perform_parameter_study(io_settings::Dict{String,Any},
                 "$(length(evaluated_parameter_sets) + length(local_sensitivity_evaluated_parameter_sets)) total runs completed. ----"
 
     # write results to parameter-study result file if not written continuously
-    if !io_settings["write_parameter_study_csv_continuously"] && !isempty(evaluated_parameter_sets)
+    if !isnothing(parameter_study_results_path) &&
+       !io_settings["write_parameter_study_csv_continuously"] &&
+       !isempty(evaluated_parameter_sets)
         write_parameter_study_results(parameter_study_results_path, evaluated_parameter_sets)
     end
 

@@ -2,7 +2,7 @@ ReSiE general log file of simulation started at: 2000-01-01 00:00:00
 This log file contains general warnings, errors and information written by ReSiE
 ---------------------------------
 [Info] Logging set up
-[GlobalInfo] Loading weather data... (.\src\resie_logger.jl:82)
+[GlobalInfo] Loading weather data... (.\src\resie_logger.jl:84)
 [Info] The EPW weather dataset from 'Neu-Stuttgart' with 8760 data points was successfully read.
 [Info] The timestamp of the profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation was shifted by 1800 seconds.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation has been extended by one timestep at the begin by doubling the first value.
@@ -27,30 +27,28 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Auxiliary info dumped to file .\test\scenarios\multisector_district\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 1752/35040 in 4.301 s. ETA: 81.7190 s
-[Info] Progress: 3504/35040 in 3.874 s. ETA: 69.7320 s
-[Info] Progress: 5256/35040 in 4.182 s. ETA: 71.0940 s
-[Info] Progress: 7008/35040 in 4.247 s. ETA: 67.9520 s
-[Info] Progress: 8760/35040 in 4.304 s. ETA: 64.5600 s
-[Info] Progress: 10512/35040 in 4.318 s. ETA: 60.4520 s
-[Info] Progress: 12264/35040 in 4.426 s. ETA: 57.5380 s
-[Info] Progress: 14016/35040 in 3.716 s. ETA: 44.5920 s
-[Info] Progress: 15768/35040 in 3.685 s. ETA: 40.5350 s
-[Info] Progress: 17520/35040 in 3.356 s. ETA: 33.5600 s
-[Info] Progress: 19272/35040 in 3.175 s. ETA: 28.5750 s
-[Info] Progress: 21024/35040 in 3.355 s. ETA: 26.8400 s
-[Info] Progress: 22776/35040 in 3.199 s. ETA: 22.3930 s
-[Info] Progress: 24528/35040 in 3.131 s. ETA: 18.7860 s
-[Info] Progress: 26280/35040 in 3.897 s. ETA: 19.4850 s
-[Info] Progress: 28032/35040 in 3.869 s. ETA: 15.4760 s
-[Info] Progress: 29784/35040 in 3.743 s. ETA: 11.2290 s
-[Info] Progress: 31536/35040 in 3.229 s. ETA: 6.4580 s
-[Info] Progress: 33288/35040 in 3.328 s. ETA: 3.3280 s
-[Info] Progress: 35040/35040 in 3.571 s. ETA: 0.0000 s
+[Info] Progress: 1752/35040 in 4.571 s. ETA: 86.8490 s
+[Info] Progress: 3504/35040 in 5.058 s. ETA: 91.0440 s
+[Info] Progress: 5256/35040 in 6.08 s. ETA: 103.3600 s
+[Info] Progress: 7008/35040 in 5.877 s. ETA: 94.0320 s
+[Info] Progress: 8760/35040 in 6.152 s. ETA: 92.2800 s
+[Info] Progress: 10512/35040 in 5.517 s. ETA: 77.2380 s
+[Info] Progress: 12264/35040 in 5.602 s. ETA: 72.8260 s
+[Info] Progress: 14016/35040 in 4.901 s. ETA: 58.8120 s
+[Info] Progress: 15768/35040 in 4.069 s. ETA: 44.7590 s
+[Info] Progress: 17520/35040 in 3.618 s. ETA: 36.1800 s
+[Info] Progress: 19272/35040 in 3.338 s. ETA: 30.0420 s
+[Info] Progress: 21024/35040 in 2.965 s. ETA: 23.7200 s
+[Info] Progress: 22776/35040 in 2.988 s. ETA: 20.9160 s
+[Info] Progress: 24528/35040 in 2.934 s. ETA: 17.6040 s
+[Info] Progress: 26280/35040 in 3.011 s. ETA: 15.0550 s
+[Info] Progress: 28032/35040 in 3.118 s. ETA: 12.4720 s
+[Info] Progress: 29784/35040 in 3.13 s. ETA: 9.3900 s
+[Info] Progress: 31536/35040 in 2.983 s. ETA: 5.9660 s
+[Info] Progress: 33288/35040 in 2.897 s. ETA: 2.8970 s
+[Info] Progress: 35040/35040 in 3.652 s. ETA: 0.0000 s
 [Info] -- Finished time step loop
 [Info] CSV-file with outputs written to .\test\scenarios\multisector_district\out.csv
 [Info] Summary CSV-file with outputs created and written to .\test\scenarios\multisector_district\out_aggregated.csv
 [Info] Line plot created and saved to .\test\scenarios\multisector_district\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\multisector_district\sankey_plot.html
-[Info] general log saved to .\test\scenarios\multisector_district\general.log
-[Info] balanceWarn log saved to .\test\scenarios\multisector_district\balanceWarn.log

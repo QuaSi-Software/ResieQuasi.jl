@@ -304,7 +304,6 @@ Function calculate sunrise and sunset time for given timestamps.
     `sunrise::Profile`: Profile with times of sunrise as fractional hour.
     `sunset::Profile`:  Profile with times of sunset as fractional hour.
 """
-
 function calc_sunrise_sunset(timestamps::Vector{DateTime}, time_step::Second, temp_ambient_air::Profile,
                              sim_params::Dict{String,Any})
     # calculate sunrise and sunset times for each timestamp

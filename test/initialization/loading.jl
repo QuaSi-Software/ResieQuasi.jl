@@ -1,12 +1,12 @@
 using Debugger
 using Test
-using ResieQuasi
+import ResieQuasi as Resie
 using ResieQuasi.EnergySystems
 
 include("../test_util.jl")
 
 function test_load_from_dict()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_GRI_01" => Dict{String,Any}(
             "type" => "GridSupply",
             "output_refs" => ["TST_HP_01"],
@@ -48,10 +48,10 @@ function test_load_from_dict()
         ),
     )
     simulation_params = get_default_sim_params()
-    components = ResieQuasi.load_components(components_config, simulation_params)
+    components = Resie.load_components(components_config, simulation_params)
     @test length(keys(components)) == 5
-    @test typeof(components["TST_BT_01"]) == ResieQuasi.EnergySystems.BufferTank
-    @test components["TST_BT_01"].sys_function == ResieQuasi.EnergySystems.sf_storage
+    @test typeof(components["TST_BT_01"]) == Resie.EnergySystems.BufferTank
+    @test components["TST_BT_01"].sys_function == Resie.EnergySystems.sf_storage
     @test components["TST_HP_01"].design_power_th == 20000
 end
 

@@ -7,7 +7,7 @@ using ResieQuasi.Profiles
 include("../../test_util.jl")
 
 function test_one_to_one_grid()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_GRI_01" => Dict{String,Any}(
             "type" => "GridSupply",
             "medium" => "m_h_w_ht1",
@@ -56,7 +56,7 @@ end
 end
 
 function test_one_to_one_flexible_source()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_SRC_01" => Dict{String,Any}(
             "type" => "FlexibleSupply",
             "medium" => "m_h_w_ht1",

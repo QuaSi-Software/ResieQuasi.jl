@@ -6,7 +6,7 @@ using ResieQuasi.EnergySystems
 include("../test_util.jl")
 
 function test_ooo_storage_loading_switch()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_GRI_01" => Dict{String,Any}(
             "type" => "GridSupply",
             "medium" => "m_c_g_natgas",
@@ -64,18 +64,18 @@ function test_ooo_storage_loading_switch()
 
     expected = [("TST_DEM_01", EnergySystems.s_reset),
                 ("TST_BUS_01", EnergySystems.s_reset),
-                ("TST_GBO_02", EnergySystems.s_reset),
                 ("TST_GBO_01", EnergySystems.s_reset),
+                ("TST_GBO_02", EnergySystems.s_reset),
                 ("TST_BFT_01", EnergySystems.s_reset),
-                ("TST_GRI_02", EnergySystems.s_reset),
                 ("TST_GRI_01", EnergySystems.s_reset),
+                ("TST_GRI_02", EnergySystems.s_reset),
                 ("TST_DEM_01", EnergySystems.s_control),
                 ("TST_BUS_01", EnergySystems.s_control),
-                ("TST_GBO_02", EnergySystems.s_control),
                 ("TST_GBO_01", EnergySystems.s_control),
+                ("TST_GBO_02", EnergySystems.s_control),
                 ("TST_BFT_01", EnergySystems.s_control),
-                ("TST_GRI_02", EnergySystems.s_control),
                 ("TST_GRI_01", EnergySystems.s_control),
+                ("TST_GRI_02", EnergySystems.s_control),
                 ("TST_DEM_01", EnergySystems.s_process),
                 ("TST_BUS_01", EnergySystems.s_process),
                 ("TST_GBO_01", EnergySystems.s_potential),
@@ -84,8 +84,8 @@ function test_ooo_storage_loading_switch()
                 ("TST_BFT_01", EnergySystems.s_process),
                 ("TST_GBO_02", EnergySystems.s_process),
                 ("TST_BFT_01", EnergySystems.s_load),
-                ("TST_GRI_02", EnergySystems.s_process),
                 ("TST_GRI_01", EnergySystems.s_process),
+                ("TST_GRI_02", EnergySystems.s_process),
                 ("TST_BUS_01", EnergySystems.s_distribute)]
 
     simulation_parameters = get_default_sim_params()

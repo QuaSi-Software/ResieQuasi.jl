@@ -18,12 +18,12 @@ end
 Constructor for ConnectionMatrix from a config in the user-input project file.
 
 # Arguments
-`config::Dict{String,Any}`: The component config
+`config::AbstractDict{String,Any}`: The component config
 
 # Returns
 `ConnectionMatrix`: The constructed instance
 """
-function ConnectionMatrix(config::Dict{String,Any})::ConnectionMatrix
+function ConnectionMatrix(config::AbstractDict{String,Any})::ConnectionMatrix
     if !haskey(config, "connections")
         return ConnectionMatrix([], [], nothing)
     end
@@ -179,13 +179,13 @@ constructor without keyword arguments.
 
 # Arguments
 `uac::String`: The UAC of the new bus
-`config::Dict{String,Any}`: The config from the project file
+`config::AbstractDict{String,Any}`: The config from the project file
 `sim_params::Dict{String,Any}`: Simulation parameters
 
 # Returns
 `Bus`: The constructed bus
 """
-function Bus(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})::Bus
+function Bus(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})::Bus
     return Bus(SSOT_parameter_constructor(Bus, uac, config, sim_params)...)
 end
 
@@ -228,12 +228,12 @@ function component_parameters(x::Type{Bus})::Dict{String,Any}
     return deepcopy(BUS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{Bus}, config::Dict{String,Any}, param_name::String, param_def::NamedTuple,
+function extract_parameter(x::Type{Bus}, config::AbstractDict{String,Any}, param_name::String, param_def::NamedTuple,
                            sim_params::Dict{String,Any}, uac::String)
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{Bus}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{Bus}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     validate_config(Component, extracted, uac, sim_params, component_parameters(Bus))
 end

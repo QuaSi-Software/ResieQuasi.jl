@@ -7,7 +7,7 @@ using ResieQuasi.Profiles
 include("../test_util.jl")
 
 function test_gasboiler_demand_driven_with_bus()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -209,7 +209,7 @@ function test_gasboiler_demand_driven_with_bus()
 end
 
 function test_gasboiler_demand_driven_without_bus()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",

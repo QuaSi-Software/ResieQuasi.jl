@@ -1,7 +1,7 @@
 {    "io_settings": {
         "csv_output_file_path": "./test/scenarios/secondary_interfaces/out.csv",
         "auxiliary_info": true,
-        "auxiliary_info_file": "./test/scenarios/secondary_interfaces/auxiliary_info.md",
+        "auxiliary_info_file_path": "./test/scenarios/secondary_interfaces/auxiliary_info.md",
         "fixed_output_precision": 10,
         "sankey_plot_file_path": "./test/scenarios/secondary_interfaces/sankey_plot.html",
         "sankey_plot": "default",
@@ -12,7 +12,7 @@
     "simulation_parameters": {
         "start": "01.01.2024 00:00",
         "end": "07.01.2024 23:00",
-        "start_end_unit": "dd.mm.yyyy HH:MM",
+        "start_date_format": "dd.mm.yyyy HH:MM",
         "time_step": 900,
         "time_step_unit": "seconds"
     },
