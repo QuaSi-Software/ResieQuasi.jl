@@ -8,12 +8,15 @@ Starting with v1.0.0 breaking changes in the project file concerning component m
 
 #### Major features
 
+* New user-facing `simulate()` function to handle logging and run management if used as a package. More details in the documentiation.
+  * Added parameter `auto_log_level` to `load_and_run` to be able to either set a specific log level independent of the single or multi run simulation or let resie handle the log level setting
 * Add support for integer parameters in optimisation, parameter variation and sensitivity analysis
   * Apply integer rounding and discrete sampling, reuse identical simulation results and adapt global and local sensitivity calculations
 * Add Claesson–Javed load aggregation to `GeothermalProbes` for improved computational efficiency
   * Enabled by default and configurable through `use_load_aggregation` and `load_aggregation_cells_per_level` (default: 200)
 * Add plot downsampling to reduce file sizes to a workable level. Add new IO settings `enable_plot_downsampling` and `plot_downsampling_max_number_values` to enable downsampling and configure the amount of data above which downsampling is applied
-  * Make ReSiE fully compatible with Julia 1.13 including tests and scenarios
+* Replaced GLMakie with PlotlyJS to reduce dependencies, compile time and ability to save certain plots as html.
+* Make ReSiE fully compatible with Julia 1.13 including tests and scenarios
 
 #### Breaking changes
 
