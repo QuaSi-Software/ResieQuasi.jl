@@ -9,7 +9,6 @@ Starting with v1.0.0 breaking changes in the project file concerning component m
 #### Major features
 
 * New user-facing `simulate()` function to handle logging and run management if used as a package. More details in the documentiation.
-  * Added parameter `auto_log_level` to `load_and_run` to be able to either set a specific log level independent of the single or multi run simulation or let resie handle the log level setting
 * Add support for integer parameters in optimisation, parameter variation and sensitivity analysis
   * Apply integer rounding and discrete sampling, reuse identical simulation results and adapt global and local sensitivity calculations
 * Add Claesson–Javed load aggregation to `GeothermalProbes` for improved computational efficiency
@@ -39,12 +38,13 @@ Starting with v1.0.0 breaking changes in the project file concerning component m
 #### Minor changes & fixes
 
 * Make component ordering and the order of operations deterministic by using `OrderedDict` instead of `Dict`. This affects the OOO and output ordering.
-* Replace GLMakie with PlotlyJS to reduce dependencies and compilation time and to allow certain plots to be saved as HTML
+* Add parameter `auto_log_level` to `load_and_run` to be able to either set a specific log level independent of the single or multi run simulation or let resie handle the log level setting
 * Generate line plots using `x0` and `dx` instead of an explicit x-axis array to reduce plot file sizes. This makes lines non-continuous around leap days.
 * Fix wrong geothermal-probe temperature communication during loading and unloading; fix probe ignoring `min_probe_temperature_unloading` in some cases; add the output `current_mean_output_temperature` for better debugging
 * Add objective aggregation functions `last`, `min` and `max` for parameter studies to use the last, minimum or maximum value of an output parameter in the objective function
 * Add IO setting parameters `general_logfile_file_path` and `balance_warn_logfile_file_path` so that users can configure them; log files are now temporarily stored in the `./output` directory and moved after the simulation
 * Improve SSOT parameter validation for strings; add error messages and SSOT validations for simulation dates
+* Improve error messages in parsing of functions
 * Improve output file handling: automatically create missing directories; enable thread-safe plot generation to allow plots to be generated during multi-threaded parameter variations
 * Fix aggregated CSV path; add parameter-specific prefixes to auxiliary plots; correct `FixedSink` parameter metadata
 * Add Python-based helper function to calculate a g-function of a geothermal probe field from a shape file using pygfunction
