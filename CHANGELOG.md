@@ -7,6 +7,7 @@ Starting with v1.0.0 breaking changes in the project file concerning component m
 ### Version 1.1.1
 
 * Using OteraEngine internally for specific html plot creation
+* fix wrong display name of parameters in component fixed supply
 
 ### Version 1.1.0
 
