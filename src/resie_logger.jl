@@ -37,12 +37,6 @@ mutable struct CustomLogger <: Logging.AbstractLogger
     message_counts::Dict{Any,Int}
 end
 
-function set_min_log_level!(logger::CustomLogger,
-                            level::Logging.LogLevel)::CustomLogger
-    logger.min_level = level
-    return logger
-end
-
 """
 CustomLevel
 

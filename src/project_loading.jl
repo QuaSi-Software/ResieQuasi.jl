@@ -2,7 +2,7 @@
 # energy system components from the project config file, as well as constructing certain
 # helpful information data structures from the inputs in the config
 using JSON: JSON
-using Logging
+using .Resie_Logger
 
 const HOURS_PER_SECOND::Float64 = 1.0 / 3600.0
 const SECONDS_PER_HOUR::Float64 = 3600.0
@@ -1355,10 +1355,10 @@ function get_min_log_level(project_config, logger)
     if logger !== nothing
         if run_parameter_study
             # for parameter studies, allow only logs >= GlobalInfo
-            min_log_level = Logging.LogLevel(600)
+            min_log_level = Resie_Logger.GlobalInfo
         else
             # for single simulations, set min log level to Info level
-            min_log_level = Logging.Info
+            min_log_level = Resie_Logger.Info
         end
     end
 end
