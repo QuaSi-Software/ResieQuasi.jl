@@ -1,6 +1,5 @@
 using PlotlyJS, Printf
 using ..PlotUtils
-export extend_profile
 
 # Calculate economic balance of the energy system simulation using the annuity method
 # based on VDI 2067

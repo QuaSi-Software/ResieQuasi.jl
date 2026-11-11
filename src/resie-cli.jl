@@ -8,12 +8,7 @@ else
     ENV["GKS_WSTYPE"] = "100"
 end
 
-using UUIDs
-using Logging
-import ResieQuasi as Resie
-
-using Logging
-const Resie_Logger = Resie.Resie_Logger
+using ResieQuasi
 
 """
     parse_arguments(input)
@@ -161,7 +156,7 @@ function run(arguments::Array{String})::Tuple{Bool,Bool}
         return false, exit_after_run
     end
 
-    success = Resie.simulate(input_filepath)
+    success = simulate(input_filepath)
 
     return success, exit_after_run
 end
