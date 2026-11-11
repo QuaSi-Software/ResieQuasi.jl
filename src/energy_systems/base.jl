@@ -1711,13 +1711,14 @@ function extract_parameter(x::Type{Component}, config::AbstractDict{String,Any},
     # special handling for function-type parameters
     if isdefined(param_def, :function_type)
         if param_def.function_type == "cop"
-            return parse_cop_function(value)
+            return parse_cop_function(value, uac, param_name)
         elseif param_def.function_type == "1dim"
-            return parse_efficiency_function(value)
+            return parse_efficiency_function(value, uac, param_name)
         elseif param_def.function_type == "2dim"
-            return parse_2dim_function(value)
+            return parse_2dim_function(value, uac, param_name)
         else
-            throw(InputError("Unknown function type `$(param_def.function_type)` in component `$uac`."))
+            throw(InputError("Unknown function type `$(param_def.function_type)` of parameter `$param_name` " *
+                             "in component `$uac`."))
         end
     end
 
@@ -1799,7 +1800,11 @@ function check_validation(validation::Tuple, name::String, value::Any,
         throw(InputError("Value of `$name` in component `$uac` was `nothing` but must be numeric"))
     end
 
-    if validation[2] == "value_lt_num"
+    if validation[2] == "is_no_empty_string"
+        if (value == "")
+            throw(InputError("Value of `$name` in component `$uac` must not be an empty string."))
+        end
+    elseif validation[2] == "value_lt_num"
         if !(value < validation[3])
             throw(InputError("Value of `$name` in component `$uac` must be less than $(validation[3])"))
         end
@@ -2283,6 +2288,7 @@ function get_economic_standard_params(type::String, defaults::Dict{String,Any},
                 display_name="capex function",
                 required=true,
                 type=String,
+                validations=[("self", "is_no_empty_string")],
                 json_type="string",
                 function_type="1dim",
                 unit=units["capex_specific"]

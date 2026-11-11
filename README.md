@@ -13,7 +13,7 @@ For information on how you can contribute please [check the documentation](https
 
 ### **Requirements**
 
-* Julia, minimum v1.10.0 and tested up to v1.12.2. You can find installation instructions [here](https://julialang.org/install/). Works best using Juliaup instead of precompiled binary files.
+* Julia, minimum v1.12.2 und tested up to v1.13.3 (recommended version is v1.13.3). You can find installation instructions [here](https://julialang.org/install/). Works best using Juliaup instead of precompiled binary files.
 * Internet access during installation, as the dependencies have to be downloaded
 * (Optional) Python3, tested with v3.9.13. Only required for developing ReSiE.
 
@@ -50,6 +50,17 @@ A full description of how to use ReSiE on the examples it ships with can be foun
     * The optional argument `--threads=auto` to the `julia` call means, that the process automatically determines the number of parallel threads (which may get executed on different cores) to use. This, in turn, causes Julia to use the available cores for computation more effectively and speeding up simulation, at the cost of other processes having fewer resources available. You can set a specific number of threads to use with `--threads=n` where `n` is the desired number.
 1. The outputs as well as log files can be found in the `output` folder. The simulation should run without errors and produce a file called `output/output_plot.html` which, when opened in a browser, shows an interactive plot of simulation results.
 1. If you want to run multiple simulations in succession without changing the code (and only changing the project config file), you can use the interactive CLI, which keeps you in a Julia environment and keeps asking for command inputs, using: `julia --project=. --threads=auto src/resie-cli.jl`. From this CLI you can use the run command to run a simulation: `run examples/simple_heat_pump.json`. Using the CLI has the advantage that every run after the first gains a significant performance boost as the code does not have to be compiled again.
+
+## Usage as Julia Package
+
+ReSiE can also be installed directly in a local Julia instance as a Julia package by following these steps:
+
+1. Start the julia REPL with `julia --threads=auto` (usage of --threads see description above)
+2. Switch to the package REPL with `]` (no enter necessary)
+3. Add the package with `add ResieQuasi`
+4. Exit out of the package REPL with shortcut `Ctrl+c`
+5. Include the package in your environment `using ResieQuasi`
+6. Run the simulation with `simulate("path/to/project/file.json")`
 
 ## Development
 The following sections contain information useful for developers.
