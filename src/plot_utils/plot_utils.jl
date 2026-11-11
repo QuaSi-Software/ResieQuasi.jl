@@ -178,7 +178,9 @@ function html_plot_insertion(file_path::String, template_name::String,
                              insertion_location::String)
     insertion_path = joinpath(@__DIR__, "html_templates",
                               "parameter_study_plots_insertions", template_name)
-    insertion = OteraEngine.Template(insertion_path)(; init=replacements)
+    replacements = Dict(k => JSON.json(v) for (k, v) in replacements)
+    template = OteraEngine.Template(insertion_path; config=Dict("autoescape" => false))
+    insertion = template(; init=replacements)
 
     html = read(file_path, String)
 
