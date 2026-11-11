@@ -176,9 +176,11 @@ Takes a separate html insertion file for interactive plots and processes it.
 function html_plot_insertion(file_path::String, template_name::String,
                              replacements::Dict{Symbol,Any},
                              insertion_location::String)
+    json_for_html(value) = replace(JSON.json(value), "</" => "<\\/")
+
     insertion_path = joinpath(@__DIR__, "html_templates",
                               "parameter_study_plots_insertions", template_name)
-    replacements = Dict(k => JSON.json(v) for (k, v) in replacements)
+    replacements = Dict(k => json_for_html(v) for (k, v) in replacements)
     template = OteraEngine.Template(insertion_path; config=Dict("autoescape" => false))
     insertion = template(; init=replacements)
 

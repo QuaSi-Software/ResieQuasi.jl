@@ -30,7 +30,6 @@ export check_balances_of_components, check_balances_of_interfaces, Component, ea
 using ..Profiles
 using UUIDs
 using OrderedCollections: OrderedDict
-using OteraEngine
 
 """
 Custom exception `InputError` used to signify that an input was not correctly set up,
