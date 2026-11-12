@@ -1,32 +1,6 @@
+using ..PlotUtils
 # this file contains functionality for writing output and creating plots of the parameter-study results
 # including parameter variation, optimisation and sensitivity analysis.
-
-const PARAMETER_STUDY_PLOT_INSERTIONS_PATH = joinpath(@__DIR__, "parameter_study_plots_insertions")
-
-"""
-    render_parameter_study_plot_insertion(file_name, replacements)
-
-Takes a separate html insertion file for interactive plots and processes it.
-"""
-function render_parameter_study_plot_insertion(file_name::String,
-                                               replacements::Pair{String,String}...)::String
-    insertion_path = joinpath(PARAMETER_STUDY_PLOT_INSERTIONS_PATH, file_name)
-    insertion = read(insertion_path, String)
-
-    for (name, value) in replacements
-        placeholder = "{{$name}}"
-        if !occursin(placeholder, insertion)
-            @error "Missing placeholder $placeholder in parameter-study plot insertion $file_name."
-        end
-        insertion = replace(insertion, placeholder => value)
-    end
-
-    unresolved_placeholder = match(r"\{\{[A-Z0-9_]+\}\}", insertion)
-    if !isnothing(unresolved_placeholder)
-        @error "Unresolved placeholder $(unresolved_placeholder.match) in parameter-study plot insertion $file_name."
-    end
-    return insertion
-end
 
 """
     parameter_study_csv_path(sim_params, io_settings, suffix)
@@ -1291,38 +1265,17 @@ function create_matrix_plot(results::Vector{Any},
     # Add the same toolbar style used by the other interactive parameter-study
     # plots. The graph occupies the viewport space remaining below the toolbar.
     if endswith(lowercase(file_path), ".html")
-        html = read(file_path, String)
+        color_senses = Dict(key => string(get(senses, key, :min))
+                            for key in selectable_color_keys)
 
-        json_for_html(value) = replace(JSON.json(value),
-                                       "</" => "<\\/")
+        replacements = Dict(:COLOR_DATA_JSON => color_values_by_key,
+                            :PARAMETER_KEYS_JSON => param_names,
+                            :OBJECTIVE_KEYS_JSON => objective_color_keys,
+                            :HIGHLIGHT_MASK_JSON => collect(highlight_mask),
+                            :COLOR_SENSES_JSON => color_senses,
+                            :INITIAL_COLOR_JSON => configured_color_key)
 
-        color_data_json = json_for_html(color_values_by_key)
-        parameter_keys_json = json_for_html(param_names)
-        objective_keys_json = json_for_html(objective_color_keys)
-        initial_color_json = json_for_html(configured_color_key)
-        highlight_mask_json = json_for_html(collect(highlight_mask))
-        color_senses_json = json_for_html(Dict(
-                                              key => string(get(senses, key, :min))
-                                              for key in selectable_color_keys
-                                          ))
-
-        controls_injection = render_parameter_study_plot_insertion("matrix_controls.html",
-                                                                   "COLOR_DATA_JSON" => color_data_json,
-                                                                   "PARAMETER_KEYS_JSON" => parameter_keys_json,
-                                                                   "OBJECTIVE_KEYS_JSON" => objective_keys_json,
-                                                                   "HIGHLIGHT_MASK_JSON" => highlight_mask_json,
-                                                                   "COLOR_SENSES_JSON" => color_senses_json,
-                                                                   "INITIAL_COLOR_JSON" => initial_color_json)
-
-        if occursin("</head>", html)
-            html = replace(html,
-                           "</head>" => controls_injection * "\n</head>";
-                           count=1)
-        else
-            html *= controls_injection
-        end
-
-        write(file_path, html)
+        html_plot_insertion(file_path, "matrix_controls.html", replacements, "head")
     end
 
     return file_path
@@ -1855,13 +1808,14 @@ function create_objective_convergence_plot(results::Vector{Any},
 
     if spec.is_multiobjective &&
        length(available_objective_keys) > 1
-        inject_convergence_objective_controls!(file_path,
-                                               objective_data,
-                                               best_data,
-                                               available_objective_keys,
-                                               use_log_axis,
-                                               collect(eachindex(results)),
-                                               initial_objective_key)
+        replacements = Dict(:OBJECTIVE_DATA_JSON => objective_data,
+                            :BEST_DATA_JSON => best_data,
+                            :OBJECTIVE_KEYS_JSON => available_objective_keys,
+                            :USE_LOG_AXIS_JSON => use_log_axis,
+                            :RUN_IDS_JSON => collect(eachindex(results)),
+                            :INITIAL_OBJECTIVE_JSON => initial_objective_key)
+
+        html_plot_insertion(file_path, "convergence_controls.html", replacements, "body")
     end
 
     return file_path
@@ -1875,56 +1829,6 @@ Format a convergence value for initial Plotly hover text.
 function format_convergence_value(value::Union{Nothing,Float64})::String
     value === nothing && return "missing"
     return string(value)
-end
-
-"""
-    inject_convergence_objective_controls!(file_path, objective_data, best_data,
-                                           objective_keys, use_log_axis, run_ids,
-                                           initial_objective_key)
-
-Inject an objective dropdown into a multi-objective convergence HTML plot. Changing the selected
-objective updates the evaluation points, objective-specific best-so-far line, plot title, hover
-text, y-axis label and linear/log scale.
-"""
-function inject_convergence_objective_controls!(file_path::String,
-                                                objective_data::Dict{String,Vector{Union{Nothing,Float64}}},
-                                                best_data::Dict{String,Vector{Union{Nothing,Float64}}},
-                                                objective_keys::Vector{String},
-                                                use_log_axis::Dict{String,Bool},
-                                                run_ids::Vector{Int},
-                                                initial_objective_key::String)
-    html = read(file_path, String)
-
-    json_for_html(value) = replace(JSON.json(value),
-                                   "</" => "<\\/")
-
-    objective_data_json = json_for_html(objective_data)
-    best_data_json = json_for_html(best_data)
-    objective_keys_json = json_for_html(objective_keys)
-    use_log_axis_json = json_for_html(use_log_axis)
-    run_ids_json = json_for_html(run_ids)
-    initial_objective_json = json_for_html(initial_objective_key)
-
-    injection = render_parameter_study_plot_insertion("convergence_controls.html",
-                                                      "OBJECTIVE_DATA_JSON" => objective_data_json,
-                                                      "BEST_DATA_JSON" => best_data_json,
-                                                      "OBJECTIVE_KEYS_JSON" => objective_keys_json,
-                                                      "USE_LOG_AXIS_JSON" => use_log_axis_json,
-                                                      "RUN_IDS_JSON" => run_ids_json,
-                                                      "INITIAL_OBJECTIVE_JSON" => initial_objective_json)
-
-    if occursin("</body>", html)
-        html = replace(html,
-                       "</body>" =>
-                           injection *
-                           "\n</body>")
-    else
-        html *= injection
-    end
-
-    write(file_path, html)
-
-    return file_path
 end
 
 """
@@ -2221,78 +2125,18 @@ function create_objective_parameter_plots(results::Vector{Any},
     sense_strings = Dict(key => String(explorer_objective_sense(key))
                          for key in explorer_sense_keys)
 
-    inject_objective_parameter_controls!(file_path,
-                                         plot_data,
-                                         interactive_keys,
-                                         available_param_names,
-                                         collect(eachindex(results)),
-                                         collect(highlight_global_indices),
-                                         sense_strings,
-                                         spec.is_multiobjective,
-                                         initial_x,
-                                         initial_y,
-                                         initial_color)
+    replacements = Dict(:PLOT_DATA_JSON => plot_data,
+                        :VARIABLE_KEYS_JSON => interactive_keys,
+                        :PARAMETER_KEYS_JSON => available_param_names,
+                        :RUN_IDS_JSON => collect(eachindex(results)),
+                        :HIGHLIGHT_RUN_IDS_JSON => collect(highlight_global_indices),
+                        :OBJECTIVE_SENSES_JSON => sense_strings,
+                        :IS_MULTIOBJECTIVE_JSON => spec.is_multiobjective,
+                        :INITIAL_X_JSON => initial_x,
+                        :INITIAL_Y_JSON => initial_y,
+                        :INITIAL_COLOR_JSON => initial_color)
 
-    return file_path
-end
-
-"""
-    inject_objective_parameter_controls!(file_path, plot_data, variable_keys,
-                                         parameter_keys, run_ids, highlight_run_ids,
-                                         objective_senses, is_multiobjective, initial_x,
-                                         initial_y, initial_color)
-
-Inject grouped x-axis, y-axis and colour selectors into the objective/parameter explorer.
-Every finite scalar parameter-study parameter, objective and result/KPI column remains available.
-Variables are shown under the two dropdown groups "Parameter-study parameters" and "Objectives".
-"""
-function inject_objective_parameter_controls!(file_path::String,
-                                              plot_data::Dict{String,Vector{Union{Nothing,Float64}}},
-                                              variable_keys::Vector{String},
-                                              parameter_keys::Vector{String},
-                                              run_ids::Vector{Int},
-                                              highlight_run_ids::Vector{Int},
-                                              objective_senses::Dict{String,String},
-                                              is_multiobjective::Bool,
-                                              initial_x::String,
-                                              initial_y::String,
-                                              initial_color::Union{Nothing,String})
-    html = read(file_path, String)
-
-    json_for_html(value) = replace(JSON.json(value),
-                                   "</" => "<\\/")
-
-    plot_data_json = json_for_html(plot_data)
-    variable_keys_json = json_for_html(variable_keys)
-    parameter_keys_json = json_for_html(parameter_keys)
-    run_ids_json = json_for_html(run_ids)
-    highlight_run_ids_json = json_for_html(highlight_run_ids)
-    objective_senses_json = json_for_html(objective_senses)
-    initial_x_json = json_for_html(initial_x)
-    initial_y_json = json_for_html(initial_y)
-    initial_color_json = json_for_html(initial_color)
-    is_multiobjective_json = json_for_html(is_multiobjective)
-
-    injection = render_parameter_study_plot_insertion("objective_parameter_controls.html",
-                                                      "PLOT_DATA_JSON" => plot_data_json,
-                                                      "VARIABLE_KEYS_JSON" => variable_keys_json,
-                                                      "PARAMETER_KEYS_JSON" => parameter_keys_json,
-                                                      "RUN_IDS_JSON" => run_ids_json,
-                                                      "HIGHLIGHT_RUN_IDS_JSON" => highlight_run_ids_json,
-                                                      "OBJECTIVE_SENSES_JSON" => objective_senses_json,
-                                                      "IS_MULTIOBJECTIVE_JSON" => is_multiobjective_json,
-                                                      "INITIAL_X_JSON" => initial_x_json,
-                                                      "INITIAL_Y_JSON" => initial_y_json,
-                                                      "INITIAL_COLOR_JSON" => initial_color_json)
-
-    if occursin("</body>", html)
-        html = replace(html,
-                       "</body>" => injection * "\n</body>")
-    else
-        html *= injection
-    end
-
-    write(file_path, html)
+    html_plot_insertion(file_path, "objective_parameter_controls.html", replacements, "body")
 
     return file_path
 end
@@ -2432,11 +2276,14 @@ function create_parallel_coordinates_plot(results::Vector{Any},
                                           io_settings,
                                           "parallel_coordinates")
     savefig(p, prepare_output_path(file_path))
-    inject_parallel_axis_zoom_controls!(file_path,
-                                        param_names,
-                                        spec.objective_keys,
-                                        selected_color_key,
-                                        senses)
+
+    objective_senses = Dict(key => String(value) for (key, value) in senses)
+    replacements = Dict(:PARAMETER_KEYS_JSON => param_names,
+                        :OBJECTIVE_KEYS_JSON => spec.objective_keys,
+                        :OBJECTIVE_SENSES_JSON => objective_senses,
+                        :INITIAL_COLOR_KEY_JSON => selected_color_key)
+
+    html_plot_insertion(file_path, "parallel_coordinates_controls.html", replacements, "body")
 
     return file_path
 end
@@ -2535,40 +2382,6 @@ function parameter_study_objective_axis_keys(results::Vector{Any},
                                             spec.results_dict,
                                             sim_params,
                                             spec.objective_keys)
-end
-
-function inject_parallel_axis_zoom_controls!(file_path::String,
-                                             parameter_keys::Vector{String},
-                                             objective_keys::Vector{String},
-                                             initial_color_key::String,
-                                             objective_senses::Dict{String,Symbol})
-    html = read(file_path, String)
-    parameter_keys_json = replace(JSON.json(parameter_keys),
-                                  "</" => "<\\/")
-    objective_keys_json = replace(JSON.json(objective_keys),
-                                  "</" => "<\\/")
-    initial_color_key_json = replace(JSON.json(initial_color_key),
-                                     "</" => "<\\/")
-    objective_senses_json = replace(JSON.json(Dict(key => String(value)
-                                                   for (key, value) in objective_senses)),
-                                    "</" => "<\\/")
-
-    injection = render_parameter_study_plot_insertion("parallel_coordinates_controls.html",
-                                                      "PARAMETER_KEYS_JSON" => parameter_keys_json,
-                                                      "OBJECTIVE_KEYS_JSON" => objective_keys_json,
-                                                      "OBJECTIVE_SENSES_JSON" => objective_senses_json,
-                                                      "INITIAL_COLOR_KEY_JSON" => initial_color_key_json)
-
-    if occursin("</body>", html)
-        html = replace(html,
-                       "</body>" => injection * "\n</body>")
-    else
-        html *= injection
-    end
-
-    write(file_path, html)
-
-    return file_path
 end
 
 """
@@ -2799,78 +2612,18 @@ function create_interactive_3d_parameter_study_plot(results::Vector{Any},
 
     savefig(p, prepare_output_path(file_path))
 
-    inject_3d_axis_selection_controls!(file_path,
-                                       axis_data,
-                                       axis_keys,
-                                       param_names,
-                                       valid_idx,
-                                       highlight_indices,
-                                       highlight_name,
-                                       x_selected,
-                                       y_selected,
-                                       z_selected,
-                                       color_selected)
+    replacements = Dict(:DATA_JSON => axis_data,
+                        :KEYS_JSON => axis_keys,
+                        :PARAMETER_KEYS_JSON => param_names,
+                        :RUNS_JSON => valid_idx,
+                        :HIGHLIGHT_INDICES_JSON => highlight_indices .- 1,
+                        :HIGHLIGHT_NAME_JSON => highlight_name,
+                        :X_JSON => x_selected,
+                        :Y_JSON => y_selected,
+                        :Z_JSON => z_selected,
+                        :COLOR_JSON => color_selected)
 
-    return file_path
-end
-
-"""
-    inject_3d_axis_selection_controls!(file_path, axis_data, axis_keys,
-                                       parameter_keys, run_ids, highlight_indices,
-                                       highlight_name, initial_x, initial_y,
-                                       initial_z, initial_color)
-
-Inject axis selection, colour selection, camera reset and axis-zoom controls into a saved
-3D parameter-study HTML plot.
-"""
-function inject_3d_axis_selection_controls!(file_path::String,
-                                            axis_data::Dict{String,Vector{Float64}},
-                                            axis_keys::Vector{String},
-                                            parameter_keys::Vector{String},
-                                            run_ids::Vector{Int},
-                                            highlight_indices::Vector{Int},
-                                            highlight_name::String,
-                                            initial_x::String,
-                                            initial_y::String,
-                                            initial_z::String,
-                                            initial_color::String)
-    html = read(file_path, String)
-
-    json_for_html(value) = replace(JSON.json(value),
-                                   "</" => "<\\/")
-
-    data_json = json_for_html(axis_data)
-    keys_json = json_for_html(axis_keys)
-    parameter_keys_json = json_for_html(parameter_keys)
-    runs_json = json_for_html(run_ids)
-
-    x_json = json_for_html(initial_x)
-    y_json = json_for_html(initial_y)
-    z_json = json_for_html(initial_z)
-    color_json = json_for_html(initial_color)
-    highlight_indices_json = json_for_html(highlight_indices .- 1)
-    highlight_name_json = json_for_html(highlight_name)
-
-    injection = render_parameter_study_plot_insertion("parameter_3d_controls.html",
-                                                      "DATA_JSON" => data_json,
-                                                      "KEYS_JSON" => keys_json,
-                                                      "PARAMETER_KEYS_JSON" => parameter_keys_json,
-                                                      "RUNS_JSON" => runs_json,
-                                                      "HIGHLIGHT_INDICES_JSON" => highlight_indices_json,
-                                                      "HIGHLIGHT_NAME_JSON" => highlight_name_json,
-                                                      "X_JSON" => x_json,
-                                                      "Y_JSON" => y_json,
-                                                      "Z_JSON" => z_json,
-                                                      "COLOR_JSON" => color_json)
-
-    if occursin("</body>", html)
-        html = replace(html,
-                       "</body>" => injection * "\n</body>")
-    else
-        html *= injection
-    end
-
-    write(file_path, html)
+    html_plot_insertion(file_path, "parameter_3d_controls.html", replacements, "body")
 
     return file_path
 end

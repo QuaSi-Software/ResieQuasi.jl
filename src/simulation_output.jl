@@ -3,26 +3,6 @@ using Dates
 using Random
 using CSV
 
-"""
-    prepare_output_path(path::AbstractString)::String
-
-Create the parent directory of an output file when the file is about to be written.
-The file path itself is returned unchanged; the output file is not created here.
-"""
-function prepare_output_path(path::AbstractString)::String
-    if isempty(strip(path))
-        throw(InputError("Invalid empty output file path."))
-    end
-
-    try
-        mkpath(dirname(path))
-    catch err
-        throw(InputError("Could not create output directory for `$path`: " * sprint(showerror, err)))
-    end
-
-    return String(path)
-end
-
 # Plots.jl / GR use shared backend state and must not be accessed concurrently.
 # Lock the entire plot operation, including creation, modification and saving.
 const PLOT_LOCK = ReentrantLock()
@@ -847,16 +827,16 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
     else
         x0 = sim_params["start_date_output"]
         dx = sim_params["time_step_seconds"] * 1000
-        y = EnergySystems.add_leap_day_values(y, x0,
-                                              sim_params["time_step_seconds"],
-                                              sim_params["end_date"])
+        y = add_leap_day_values(y, x0,
+                                sim_params["time_step_seconds"],
+                                sim_params["end_date"])
     end
 
     # downsamle y and x to reduce file size with long simulations
     dec_f = 1
     if io_settings["enable_plot_downsampling"]
         max_n_vals = io_settings["plot_downsampling_max_number_values"]
-        y, dec_f = EnergySystems.downsampling_for_plots(y, 1; max_n_values=max_n_vals)
+        y, dec_f = downsampling_for_plots(y, 1; max_n_values=max_n_vals)
         dx *= dec_f
     end
 

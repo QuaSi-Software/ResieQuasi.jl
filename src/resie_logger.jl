@@ -37,12 +37,6 @@ mutable struct CustomLogger <: Logging.AbstractLogger
     message_counts::Dict{Any,Int}
 end
 
-function set_min_log_level!(logger::CustomLogger,
-                            level::Logging.LogLevel)::CustomLogger
-    logger.min_level = level
-    return logger
-end
-
 """
 CustomLevel
 
@@ -88,6 +82,8 @@ end
 # define basic functions to handle the CustomLevels
 Base.isless(a::CustomLevel, b::LogLevel) = isless(a.level, b.level)
 Base.isless(a::LogLevel, b::CustomLevel) = isless(a.level, b.level)
+Base.:(==)(a::CustomLevel, b::LogLevel) = a.level == b.level
+Base.:(==)(a::LogLevel, b::CustomLevel) = a.level == b.level
 Base.convert(::Type{LogLevel}, level::CustomLevel) = LogLevel(level.level)
 Base.show(io::IO, level::CustomLevel) =
     if level == BalanceWarning

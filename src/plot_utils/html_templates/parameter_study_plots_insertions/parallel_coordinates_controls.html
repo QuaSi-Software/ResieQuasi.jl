@@ -1,11 +1,11 @@
 <script>
 (function () {
-    const parameterKeys = {{PARAMETER_KEYS_JSON}};
+    const parameterKeys = {{ PARAMETER_KEYS_JSON }};
     const parameterKeySet = new Set(parameterKeys);
-    const objectiveKeys = {{OBJECTIVE_KEYS_JSON}};
+    const objectiveKeys = {{ OBJECTIVE_KEYS_JSON }};
     const objectiveKeySet = new Set(objectiveKeys);
-    const objectiveSenses = {{OBJECTIVE_SENSES_JSON}};
-    const initialColorKey = {{INITIAL_COLOR_KEY_JSON}};
+    const objectiveSenses = {{ OBJECTIVE_SENSES_JSON }};
+    const initialColorKey = {{ INITIAL_COLOR_KEY_JSON }};
     function findPlotlyDiv() {
         const divs = document.querySelectorAll(".js-plotly-plot");
         return divs.length > 0 ? divs[0] : null;
