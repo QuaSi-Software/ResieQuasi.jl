@@ -3,7 +3,7 @@ module Resie_Logger
 using Dates
 using Logging
 
-export @balanceWarn
+export @balanceWarn, @globalInfo, set_min_log_level!
 
 """
 CustomLogger
@@ -23,15 +23,18 @@ Avaiblable logging level:
  Debug          | @debug        | Logging.LogLevel(-1000) 
  Info           | @info         | Logging.LogLevel(    0)
  BalanceWarning | @balanceWarn  | Logging.LogLevel(  500)  <-- this is a custom log level!
+ GlobalInfo     | @globalInfo   | Logging.LogLevel(  700)  <-- this is a custom log level!
  Warn           | @warn         | Logging.LogLevel( 1000)
  Error          | @error        | Logging.LogLevel( 2000)
 """
-struct CustomLogger <: Logging.AbstractLogger
+mutable struct CustomLogger <: Logging.AbstractLogger
     io_general::Union{IO,Nothing}
     io_balanceWarnings::Union{IO,Nothing}
     log_to_console::Bool
     log_to_file::Bool
     min_level::Logging.LogLevel
+    lock::ReentrantLock
+    message_counts::Dict{Any,Int}
 end
 
 """
@@ -61,13 +64,32 @@ macro balanceWarn(exprs...)
     end
 end
 
+"""
+Adding custom level "GlobalInfo" of level 700.
+This can be used with the @globalInfo macro.
+
+To add further custom levels, you need to define a new constant using the 
+CustomLevel struct, the corresponding macro and export the macro. 
+Also define the behaviour in Base.show() and Logging.handle_message() below.
+"""
+const GlobalInfo = CustomLevel(700, "GlobalInfo")
+macro globalInfo(exprs...)
+    quote
+        @logmsg GlobalInfo $(map(x -> esc(x), exprs)...)
+    end
+end
+
 # define basic functions to handle the CustomLevels
 Base.isless(a::CustomLevel, b::LogLevel) = isless(a.level, b.level)
 Base.isless(a::LogLevel, b::CustomLevel) = isless(a.level, b.level)
+Base.:(==)(a::CustomLevel, b::LogLevel) = a.level == b.level
+Base.:(==)(a::LogLevel, b::CustomLevel) = a.level == b.level
 Base.convert(::Type{LogLevel}, level::CustomLevel) = LogLevel(level.level)
 Base.show(io::IO, level::CustomLevel) =
     if level == BalanceWarning
         print(io, "BalanceWarning")
+    elseif level == GlobalInfo
+        print(io, "GlobalInfo")
     else
         show(io, LogLevel(level))
     end
@@ -84,36 +106,53 @@ Current implementation:
 Logging.min_enabled_level(logger::CustomLogger) = logger.min_level
 Logging.shouldlog(logger::CustomLogger, level, _module, group, id) = level >= logger.min_level
 function Logging.handle_message(logger::CustomLogger, level, message, _module, group, id, file, line; kwargs...)
-    # log to console
-    if logger.log_to_console
-        if level.level == BalanceWarning.level  # directly comparing the levels here as this is easier to implement
-            handle_BalanceWarning_message(level, message)
-        else
-            default_logger = ConsoleLogger(stderr, logger.min_level)
-            Logging.handle_message(default_logger, level, message, _module, group, id, file, line; kwargs...)
-        end
-    end
+    lock(logger.lock) do
+        # count for maxlog
+        maxlog = get(kwargs, :maxlog, nothing)
 
-    # log to file
-    if logger.log_to_file
-        # create log message
-        if level > Logging.LogLevel(BalanceWarning.level)
-            log_message = string("[", level, "] ", message, " (", file, ":", line, ")")
-        else # no julia file path for log level below BalanceWarning
-            log_message = string("[", level, "] ", message)
+        if maxlog isa Integer
+            count = get(logger.message_counts, id, 0)
+
+            if count >= maxlog
+                return nothing
+            end
+
+            logger.message_counts[id] = count + 1
         end
 
-        # write log message to file
-        if level.level == BalanceWarning.level
-            println(logger.io_balanceWarnings, log_message)
-        else
-            println(logger.io_general, log_message)
+        # log to console
+        if logger.log_to_console
+            if level.level == BalanceWarning.level  # directly comparing the levels here as this is easier to implement
+                handle_BalanceWarning_message(level, message)
+            elseif level.level == GlobalInfo.level
+                handle_GlobalInfo_message(level, message)
+            else
+                default_logger = ConsoleLogger(stderr, logger.min_level)
+                Logging.handle_message(default_logger, level, message, _module, group, id, file, line; kwargs...)
+            end
         end
 
-        # flush message to log files if an error occurs
-        if level >= Logging.LogLevel(2000)  # error
-            flush(logger.io_general)
-            flush(logger.io_balanceWarnings)
+        # log to file
+        if logger.log_to_file
+            # create log message
+            if level > Logging.LogLevel(BalanceWarning.level)
+                log_message = string("[", level, "] ", message, " (", file, ":", line, ")")
+            else # no julia file path for log level below BalanceWarning
+                log_message = string("[", level, "] ", message)
+            end
+
+            # write log message to file
+            if level.level == BalanceWarning.level
+                println(logger.io_balanceWarnings, log_message)
+            else
+                println(logger.io_general, log_message)
+            end
+
+            # flush message to log files if an error occurs
+            if level >= Logging.LogLevel(2000)  # error
+                flush(logger.io_general)
+                flush(logger.io_balanceWarnings)
+            end
         end
     end
 end
@@ -133,6 +172,31 @@ Note that not all terminals support 256 colors..
 """
 function handle_BalanceWarning_message(level, message)
     color = :light_magenta
+    prefix = "[ " * string(level.name, ':')
+
+    stream = stderr
+    buf = IOBuffer()
+    iob = IOContext(buf, stream)
+    printstyled(iob, prefix; bold=true, color=color)
+    print(iob, " ", message, "\n")
+    write(stream, take!(buf))
+end
+
+"""
+    handle_GlobalInfo_message()
+
+defines the console-output of the GlobalInfo messages.
+This is a very simple implementation of the general handle_message()
+of the Logging module of Julia with only the basic functionalities.
+
+Color can be one of  :normal, :default, :bold, :black, :blink, :blue, :cyan, 
+:green, :hidden, :light_black, :light_blue, :light_cyan, :light_green, 
+:light_magenta, :light_red, :light_white, :light_yellow, :magenta, :nothing, 
+:red, :reverse, :underline, :white, or :yellow or an integer between 0 and 255 inclusive. 
+Note that not all terminals support 256 colors..
+"""
+function handle_GlobalInfo_message(level, message)
+    color = :blue
     prefix = "[ " * string(level.name, ':')
 
     stream = stderr
@@ -169,7 +233,7 @@ function start_logger(log_to_console::Bool,
                       log_to_file::Bool,
                       general_logfile_path::Union{String,Nothing},
                       balanceWarn_logfile_path::Union{String,Nothing},
-                      min_log_level::Logging.LogLevel,
+                      min_log_level::Union{Logging.LogLevel,CustomLevel},
                       input_file::Union{String,Nothing}=nothing)::CustomLogger
     if log_to_file
         log_file_general = open(general_logfile_path, "w")
@@ -178,8 +242,13 @@ function start_logger(log_to_console::Bool,
         log_file_general = nothing
         log_file_balanceWarn = nothing
     end
-    logger = CustomLogger(log_file_general, log_file_balanceWarn, log_to_console, log_to_file, min_log_level)
-
+    logger = CustomLogger(log_file_general,
+                          log_file_balanceWarn,
+                          log_to_console,
+                          log_to_file,
+                          min_log_level,
+                          ReentrantLock(),
+                          Dict{Any,Int}())
     if log_to_file
         time_now = Dates.format(now(), "yyyy-mm-dd HH:MM:SS")
         println(log_file_general, "ReSiE general log file of simulation started at: $(time_now)")
@@ -200,21 +269,73 @@ function start_logger(log_to_console::Bool,
 end
 
 """
-    close_logger(logger)
+    close_logger(logger, io_settings=nothing, run_path=nothing,
+                 general_logfile_path=nothing, balanceWarn_logfile_path=nothing)
 
-Closes the given logger and prints final statements if file logging is activated.
+Closes the given logger and optionally moves its log files to the configured output paths.
 
-# Args:
+The log files are closed before being moved. Moving is only attempted if `io_settings`
+and `run_path` are provided, along with the respective original log file paths.
+Existing destination files are overwritten, and missing output directories are created.
+
+# Arguments
 - `logger::CustomLogger`: The logger to close
+- `io_settings`: Optional dictionary containing the configured log file output paths
+- `run_path`: Optional function resolving output paths relative to the configured base path
+- `general_logfile_path`: Optional original path of the general log file
+- `balanceWarn_logfile_path`: Optional original path of the balance warning log file
 """
-function close_logger(logger)
-    if logger.io_general !== nothing
-        @info "general log saved to $(match(r"<file (.*?)>", logger.io_general.name).captures[1])"
+function close_logger(logger, io_settings=nothing, run_path=nothing,
+                      general_logfile_path=nothing, balanceWarn_logfile_path=nothing)
+    has_general_log = logger.io_general !== nothing
+    has_balance_log = logger.io_balanceWarnings !== nothing
+
+    # close log files
+    if has_general_log
         close(logger.io_general)
     end
-    if logger.io_balanceWarnings !== nothing
-        @info "balanceWarn log saved to $(match(r"<file (.*?)>", logger.io_balanceWarnings.name).captures[1])"
+    if has_balance_log
         close(logger.io_balanceWarnings)
+    end
+
+    # output settings may not be available if project loading failed
+    if io_settings === nothing || run_path === nothing
+        if (has_general_log && general_logfile_path !== nothing) ||
+           (has_balance_log && balanceWarn_logfile_path !== nothing)
+            println("Info: Log files could not be moved because the project output settings " *
+                    "were not available. The files remain at their temporary locations:")
+
+            if has_general_log && general_logfile_path !== nothing
+                println("Info: General log saved to $general_logfile_path")
+            end
+
+            if has_balance_log && balanceWarn_logfile_path !== nothing
+                println("Info: Balance warning log saved to $balanceWarn_logfile_path")
+            end
+        end
+        return
+    end
+
+    # move log files to user-defined folder
+    if has_general_log && general_logfile_path !== nothing
+        try
+            destination = run_path(io_settings["general_logfile_file_path"])
+            mkpath(dirname(destination))
+            mv(general_logfile_path, destination; force=true)
+            println("Info: General log saved to $destination")
+        catch err
+            println(stderr, "Error while moving general log file: ", sprint(showerror, err))
+        end
+    end
+    if has_balance_log && balanceWarn_logfile_path !== nothing
+        try
+            destination = run_path(io_settings["balance_warn_logfile_file_path"])
+            mkpath(dirname(destination))
+            mv(balanceWarn_logfile_path, destination; force=true)
+            println("Info: Balance warning log saved to $destination")
+        catch err
+            println(stderr, "Error while moving balance warning log file: ", sprint(showerror, err))
+        end
     end
 end
 

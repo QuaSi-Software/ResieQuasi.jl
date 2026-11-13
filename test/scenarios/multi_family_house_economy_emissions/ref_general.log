@@ -2,6 +2,7 @@ ReSiE general log file of simulation started at: 2000-01-01 00:00:00
 This log file contains general warnings, errors and information written by ReSiE
 ---------------------------------
 [Info] Logging set up
+[GlobalInfo] Loading weather data... (.\src\resie_logger.jl:84)
 [Info] The EPW weather dataset from 'Neu-Stuttgart' with 8760 data points was successfully read.
 [Info] The timestamp of the profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation was shifted by 1800 seconds.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation has been extended by one timestep at the begin by doubling the first value.
@@ -13,39 +14,39 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:WindSpeed has been extended by one timestep at the begin by doubling the first value.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:WindSpeed was shifted using linear interpolation to fit the simulation start time. 
 [Info] The profile at .\profiles\examples\district\PV_Stuttgart_30_south_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
-[Info] In the profile at .\profiles\examples\district\demand_heating_EH55_living_2690_square_meter.prf, the daylight saving has been converted to local standard time.
-[Info] The profile at .\profiles\examples\district\demand_heating_EH55_living_2690_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
-[Info] In the profile at .\profiles\examples\district\electricity_price_day_ahead_DE_LU_2024_EUR_per_MWh.prf, a leap day has been removed.
-[Info] In the profile at .\profiles\examples\district\electricity_price_day_ahead_DE_LU_2024_EUR_per_MWh.prf, the daylight saving has been converted to local standard time.
-[Info] In the profile at .\profiles\examples\district\electricity_emissions_consumption_lifecycle_DE_2024_g_CO2eq_per_kWh.prf, a leap day has been removed.
 [Info] In the profile at .\profiles\examples\district\demand_electricity_living_2690_square_meter.prf, a leap day has been removed.
 [Info] In the profile at .\profiles\examples\district\demand_electricity_living_2690_square_meter.prf, the daylight saving has been converted to local standard time.
 [Info] The profile at .\profiles\examples\district\demand_electricity_living_2690_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
+[Info] In the profile at .\profiles\examples\district\demand_heating_EH55_living_2690_square_meter.prf, the daylight saving has been converted to local standard time.
+[Info] The profile at .\profiles\examples\district\demand_heating_EH55_living_2690_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] In the profile at .\profiles\examples\district\demand_DHW_living_2690_square_meter.prf, the daylight saving has been converted to local standard time.
 [Info] The profile at .\profiles\examples\district\demand_DHW_living_2690_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
+[Info] In the profile at .\profiles\examples\district\electricity_price_day_ahead_DE_LU_2024_EUR_per_MWh.prf, a leap day has been removed.
+[Info] In the profile at .\profiles\examples\district\electricity_price_day_ahead_DE_LU_2024_EUR_per_MWh.prf, the daylight saving has been converted to local standard time.
+[Info] In the profile at .\profiles\examples\district\electricity_emissions_consumption_lifecycle_DE_2024_g_CO2eq_per_kWh.prf, a leap day has been removed.
 [Info] Auxiliary info dumped to file .\test\scenarios\multi_family_house_economy_emissions\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 438/8760 in 2.777 s. ETA: 52.7630 s
-[Info] Progress: 876/8760 in 2.321 s. ETA: 41.7420 s
-[Info] Progress: 1314/8760 in 2.852 s. ETA: 48.4840 s
-[Info] Progress: 1752/8760 in 1.868 s. ETA: 29.8880 s
-[Info] Progress: 2190/8760 in 1.409 s. ETA: 21.1350 s
-[Info] Progress: 2628/8760 in 1.114 s. ETA: 15.5960 s
-[Info] Progress: 3066/8760 in 1.868 s. ETA: 24.2840 s
-[Info] Progress: 3504/8760 in 1.219 s. ETA: 14.6280 s
-[Info] Progress: 3942/8760 in 1.236 s. ETA: 13.5960 s
-[Info] Progress: 4380/8760 in 1.132 s. ETA: 11.3200 s
-[Info] Progress: 4818/8760 in 1.275 s. ETA: 11.4750 s
-[Info] Progress: 5256/8760 in 1.218 s. ETA: 9.7440 s
-[Info] Progress: 5694/8760 in 1.086 s. ETA: 7.6020 s
-[Info] Progress: 6132/8760 in 1.215 s. ETA: 7.2900 s
-[Info] Progress: 6570/8760 in 1.074 s. ETA: 5.3700 s
-[Info] Progress: 7008/8760 in 3.253 s. ETA: 13.0120 s
-[Info] Progress: 7446/8760 in 2.038 s. ETA: 6.1140 s
-[Info] Progress: 7884/8760 in 2.289 s. ETA: 4.5780 s
-[Info] Progress: 8322/8760 in 1.883 s. ETA: 1.8830 s
-[Info] Progress: 8760/8760 in 1.269 s. ETA: 0.0000 s
+[Info] Progress: 438/8760 in 0.699 s. ETA: 13.2810 s
+[Info] Progress: 876/8760 in 0.611 s. ETA: 10.9620 s
+[Info] Progress: 1314/8760 in 0.897 s. ETA: 15.2490 s
+[Info] Progress: 1752/8760 in 0.694 s. ETA: 11.1040 s
+[Info] Progress: 2190/8760 in 0.647 s. ETA: 9.7050 s
+[Info] Progress: 2628/8760 in 0.564 s. ETA: 7.8960 s
+[Info] Progress: 3066/8760 in 0.554 s. ETA: 7.2020 s
+[Info] Progress: 3504/8760 in 0.617 s. ETA: 7.4040 s
+[Info] Progress: 3942/8760 in 0.675 s. ETA: 7.4250 s
+[Info] Progress: 4380/8760 in 0.485 s. ETA: 4.8500 s
+[Info] Progress: 4818/8760 in 0.533 s. ETA: 4.7970 s
+[Info] Progress: 5256/8760 in 0.491 s. ETA: 3.9280 s
+[Info] Progress: 5694/8760 in 0.557 s. ETA: 3.8990 s
+[Info] Progress: 6132/8760 in 0.509 s. ETA: 3.0540 s
+[Info] Progress: 6570/8760 in 0.48 s. ETA: 2.4000 s
+[Info] Progress: 7008/8760 in 0.532 s. ETA: 2.1280 s
+[Info] Progress: 7446/8760 in 0.639 s. ETA: 1.9170 s
+[Info] Progress: 7884/8760 in 0.592 s. ETA: 1.1840 s
+[Info] Progress: 8322/8760 in 0.692 s. ETA: 0.6920 s
+[Info] Progress: 8760/8760 in 0.661 s. ETA: 0.0000 s
 [Info] -- Finished time step loop
 [Info] Line plot created and saved to .\test\scenarios\multi_family_house_economy_emissions\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\multi_family_house_economy_emissions\sankey_plot.html
@@ -54,4 +55,6 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] Economic results exported to .\test\scenarios\multi_family_house_economy_emissions\economic_results.csv
 [Info] Emissions plot created and saved to .\test\scenarios\multi_family_house_economy_emissions\emissions_plot.html
 [Info] Emissions results exported to .\test\scenarios\multi_family_house_economy_emissions\emissions_results.csv
-[Info] general log saved to .\test\scenarios\multi_family_house_economy_emissions\general.log
+[Info] Values for plot got downsampled by factor 4 to reduce file size.
+[Info] Values for plot got downsampled by factor 4 to reduce file size.
+[Info] Utilized price and emission profiles exported as plot to .\test\scenarios\multi_family_house_economy_emissions\price_and_emissions_profiles.html

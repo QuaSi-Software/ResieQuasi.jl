@@ -101,7 +101,7 @@ mutable struct PVPlant <: Component
 
     supply::Float64
 
-    function PVPlant(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function PVPlant(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         return new(SSOT_parameter_constructor(PVPlant, uac, config, sim_params)...)
     end
 end
@@ -118,12 +118,12 @@ function emissions_parameters(x::Type{PVPlant})::Dict{String,Any}
     return deepcopy(PV_PLANT_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{PVPlant}, config::Dict{String,Any}, param_name::String, param_def::NamedTuple,
+function extract_parameter(x::Type{PVPlant}, config::AbstractDict{String,Any}, param_name::String, param_def::NamedTuple,
                            sim_params::Dict{String,Any}, uac::String)
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{PVPlant}, config::Dict{String,Any}, extracted::Dict{String,Any}, uac::String,
+function validate_config(x::Type{PVPlant}, config::AbstractDict{String,Any}, extracted::Dict{String,Any}, uac::String,
                          sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(PVPlant)

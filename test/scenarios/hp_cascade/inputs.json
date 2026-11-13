@@ -1,10 +1,10 @@
 {
     "io_settings": {
-        "csv_output_file": "./test/scenarios/hp_cascade/out.csv",
+        "csv_output_file_path": "./test/scenarios/hp_cascade/out.csv",
         "auxiliary_info": true,
-        "auxiliary_info_file": "./test/scenarios/hp_cascade/auxiliary_info.md",
+        "auxiliary_info_file_path": "./test/scenarios/hp_cascade/auxiliary_info.md",
         "fixed_output_precision": 10,
-        "sankey_plot_file": "./test/scenarios/hp_cascade/sankey_plot.html",
+        "sankey_plot_file_path": "./test/scenarios/hp_cascade/sankey_plot.html",
         "sankey_plot": "default",
         "__heating_output_keys": {
             "TST_01_HZG_01_DEM": ["m_h_w_ht1:IN"],
@@ -24,7 +24,7 @@
     "simulation_parameters": {
         "start": "01.01.2024 00:00",
         "end": "07.01.2024 23:45",
-        "start_end_unit": "dd.mm.yyyy HH:MM",
+        "start_date_format": "dd.mm.yyyy HH:MM",
         "time_step": 15,
         "time_step_unit": "minutes"
     },
@@ -128,21 +128,21 @@
             "efficiency_fuel_in": "const:1.0"
         },
         "TST_01_HZG_01_GRI": {
-            "type": "GridInput",
+            "type": "GridSupply",
             "medium": "m_c_g_natgas",
             "output_refs": [
                 "TST_01_HZG_01_GBO"
             ]
         },
         "TST_01_ELT_01_GRI": {
-            "type": "GridInput",
+            "type": "GridSupply",
             "medium": "m_e_ac_230v",
             "output_refs": [
                 "TST_01_ELT_01_BUS"
             ]
         },
         "TST_01_O2_DEM": {
-            "type": "GridOutput",
+            "type": "GridSink",
             "medium": "m_c_g_o2",
             "output_refs": []
         }

@@ -169,7 +169,7 @@ mutable struct FuelBoiler <: Component
     output_temperature::Temperature
     losses::Float64
 
-    function FuelBoiler(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function FuelBoiler(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         return new(SSOT_parameter_constructor(FuelBoiler, uac, config, sim_params)...)
     end
 end
@@ -186,12 +186,12 @@ function emissions_parameters(x::Type{FuelBoiler})::Dict{String,Any}
     return deepcopy(FUEL_BOILER_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{FuelBoiler}, config::Dict{String,Any}, param_name::String,
+function extract_parameter(x::Type{FuelBoiler}, config::AbstractDict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{FuelBoiler}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{FuelBoiler}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(FuelBoiler)

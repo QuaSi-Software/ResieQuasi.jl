@@ -1,19 +1,19 @@
 using Debugger
 using Test
-using Resie
-using Resie.EnergySystems
+import ResieQuasi as Resie
+using ResieQuasi.EnergySystems
 
 include("../test_util.jl")
 
 function test_load_from_dict()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_GRI_01" => Dict{String,Any}(
-            "type" => "GridInput",
+            "type" => "GridSupply",
             "output_refs" => ["TST_HP_01"],
             "medium" => "m_h_w_lt1",
         ),
         "TST_GRI_02" => Dict{String,Any}(
-            "type" => "GridInput",
+            "type" => "GridSupply",
             "output_refs" => ["TST_HP_01"],
             "medium" => "m_e_ac_230v",
         ),

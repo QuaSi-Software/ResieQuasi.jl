@@ -2,6 +2,7 @@ ReSiE general log file of simulation started at: 2000-01-01 00:00:00
 This log file contains general warnings, errors and information written by ReSiE
 ---------------------------------
 [Info] Logging set up
+[GlobalInfo] Loading weather data... (.\src\resie_logger.jl:84)
 [Info] The EPW weather dataset from 'Neu-Stuttgart' with 8760 data points was successfully read.
 [Info] The timestamp of the profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation was shifted by 1800 seconds.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:LongWaveIrradiation was shifted using linear interpolation to fit the simulation start time. 
@@ -10,36 +11,35 @@ This log file contains general warnings, errors and information written by ReSiE
 [Info] The timestamp of the profile at .\profiles\weather\TRY2015_Stuttgart.epw:WindSpeed was shifted by 1800 seconds.
 [Info] The profile at .\profiles\weather\TRY2015_Stuttgart.epw:WindSpeed was shifted using linear interpolation to fit the simulation start time. 
 [Info] The profile at .\profiles\examples\district\PV_Stuttgart_30_south_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
+[Info] The profile at .\profiles\examples\district\4000hours_with_least_CO2_2022.prf (intensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\district\PV_Stuttgart_10_west_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\district\demand_heating_and_water_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] The profile at .\profiles\examples\district\demand_heating_and_water_85Living_15Business_Wh_per_square_meter.prf (extensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
-[Info] The profile at .\profiles\examples\district\4000hours_with_least_CO2_2022.prf (intensive profile) was converted from the profile timestep 900 seconds to the simulation timestep of 3600 seconds.
 [Info] Auxiliary info dumped to file .\test\scenarios\p2h_stes_stc\auxiliary_info.md
 [Info] -- Start time step loop
 [Info] -- No preheating activated. Starting output from beginning.
-[Info] Progress: 36/720 in 1.39 s. ETA: 26.4100 s
-[Info] Progress: 72/720 in 0.141 s. ETA: 2.5380 s
-[Info] Progress: 108/720 in 0.132 s. ETA: 2.2440 s
-[Info] Progress: 144/720 in 0.18 s. ETA: 2.8800 s
-[Info] Progress: 180/720 in 0.159 s. ETA: 2.3850 s
-[Info] Progress: 216/720 in 0.164 s. ETA: 2.2960 s
-[Info] Progress: 252/720 in 0.132 s. ETA: 1.7160 s
-[Info] Progress: 288/720 in 0.176 s. ETA: 2.1120 s
-[Info] Progress: 324/720 in 0.167 s. ETA: 1.8370 s
-[Info] Progress: 360/720 in 0.251 s. ETA: 2.5100 s
-[Info] Progress: 396/720 in 0.203 s. ETA: 1.8270 s
-[Info] Progress: 432/720 in 0.18 s. ETA: 1.4400 s
-[Info] Progress: 468/720 in 0.369 s. ETA: 2.5830 s
-[Info] Progress: 504/720 in 0.172 s. ETA: 1.0320 s
-[Info] Progress: 540/720 in 0.124 s. ETA: 0.6200 s
-[Info] Progress: 576/720 in 0.233 s. ETA: 0.9320 s
-[Info] Progress: 612/720 in 0.136 s. ETA: 0.4080 s
-[Info] Progress: 648/720 in 0.116 s. ETA: 0.2320 s
-[Info] Progress: 684/720 in 0.172 s. ETA: 0.1720 s
-[Info] Progress: 720/720 in 0.122 s. ETA: 0.0000 s
+[Info] Progress: 36/720 in 0.608 s. ETA: 11.5520 s
+[Info] Progress: 72/720 in 0.053 s. ETA: 0.9540 s
+[Info] Progress: 108/720 in 0.063 s. ETA: 1.0710 s
+[Info] Progress: 144/720 in 0.042 s. ETA: 0.6720 s
+[Info] Progress: 180/720 in 0.053 s. ETA: 0.7950 s
+[Info] Progress: 216/720 in 0.048 s. ETA: 0.6720 s
+[Info] Progress: 252/720 in 0.053 s. ETA: 0.6890 s
+[Info] Progress: 288/720 in 0.103 s. ETA: 1.2360 s
+[Info] Progress: 324/720 in 0.045 s. ETA: 0.4950 s
+[Info] Progress: 360/720 in 0.045 s. ETA: 0.4500 s
+[Info] Progress: 396/720 in 0.049 s. ETA: 0.4410 s
+[Info] Progress: 432/720 in 0.038 s. ETA: 0.3040 s
+[Info] Progress: 468/720 in 0.052 s. ETA: 0.3640 s
+[Info] Progress: 504/720 in 0.037 s. ETA: 0.2220 s
+[Info] Progress: 540/720 in 0.08 s. ETA: 0.4000 s
+[Info] Progress: 576/720 in 0.048 s. ETA: 0.1920 s
+[Info] Progress: 612/720 in 0.041 s. ETA: 0.1230 s
+[Info] Progress: 648/720 in 0.079 s. ETA: 0.1580 s
+[Info] Progress: 684/720 in 0.031 s. ETA: 0.0310 s
+[Info] Progress: 720/720 in 0.063 s. ETA: 0.0000 s
 [Info] -- Finished time step loop
 [Info] CSV-file with outputs written to .\test\scenarios\p2h_stes_stc\out.csv
 [Info] Summary CSV-file with outputs created and written to .\test\scenarios\p2h_stes_stc\out_aggregated.csv
 [Info] Line plot created and saved to .\test\scenarios\p2h_stes_stc\output_plot.html
 [Info] Sankey created and saved to .\test\scenarios\p2h_stes_stc\sankey_plot.html
-[Info] general log saved to .\test\scenarios\p2h_stes_stc\general.log

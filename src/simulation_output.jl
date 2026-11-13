@@ -3,13 +3,19 @@ using Dates
 using Random
 using CSV
 
+# Plots.jl / GR use shared backend state and must not be accessed concurrently.
+# Lock the entire plot operation, including creation, modification and saving.
+const PLOT_LOCK = ReentrantLock()
+
 """
-    get_output_keys(io_settings, components)
+    get_output_keys(io_settings, economic_parameters, emissions_parameters, parameter_study,
+                    components, suppress_all_output)
 
 Determines output keys for:
   - lineplot
   - csv export
-  - economic output (filtered to value_key containing "OUT" or "IN")
+  - economic and emissions calculations
+  - parameter-study objective evaluation
 
 For each output channel:
   - if not requested, returns `nothing`
@@ -20,10 +26,16 @@ For each output channel:
 function get_output_keys(io_settings::AbstractDict{String,Any},
                          economic_parameters::Union{Nothing,AbstractDict{String,Any}},
                          emissions_parameters::Union{Nothing,AbstractDict{String,Any}},
-                         components::Grouping)::Tuple{Union{Nothing,Vector{EnergySystems.OutputKey}},
-                                                      Union{Nothing,Vector{EnergySystems.OutputKey}},
-                                                      Union{Nothing,Vector{EnergySystems.OutputKey}}}
-    function parse_all_mode(io_settings, setting_name::String)
+                         parameter_study::AbstractDict{String,Any},
+                         components::Grouping,
+                         suppress_all_output::Bool)::Tuple{Union{Nothing,Vector{EnergySystems.OutputKey}},
+                                                           Union{Nothing,Vector{EnergySystems.OutputKey}},
+                                                           Union{Nothing,Vector{EnergySystems.OutputKey}},
+                                                           Union{Nothing,Vector{EnergySystems.OutputKey}}}
+    function parse_all_mode(io_settings, setting_name::String, suppress_all_output::Bool)
+        if suppress_all_output
+            return false, false, false
+        end
         do_create = false
         do_all_excl = false
         do_all_incl = false
@@ -105,26 +117,6 @@ function get_output_keys(io_settings::AbstractDict{String,Any},
         return all_keys
     end
 
-    # Select keys for a channel, given its parsed mode and custom inputs
-    function select_keys_for_channel(do_create::Bool,
-                                     mode::Symbol,
-                                     setting_name::String,
-                                     all_excl::Union{Nothing,Vector{EnergySystems.OutputKey}},
-                                     all_incl::Union{Nothing,Vector{EnergySystems.OutputKey}};
-                                     custom_extractor::Function)
-        if !do_create
-            return nothing
-        end
-
-        if mode == :all_incl_flows
-            return all_incl
-        elseif mode == :all_excl_flows
-            return all_excl
-        else
-            return custom_extractor(io_settings[setting_name])
-        end
-    end
-
     # Economy and emissions filter
     function is_economic_emissions_key(ok::EnergySystems.OutputKey)
         occursin("OUT", ok.value_key) ||
@@ -134,13 +126,13 @@ function get_output_keys(io_settings::AbstractDict{String,Any},
     end
 
     # get requirements
-    do_create_plot, do_plot_all_excl, do_plot_all_incl = parse_all_mode(io_settings, "output_plot")
-    do_write_CSV, do_csv_all_excl, do_csv_all_incl = parse_all_mode(io_settings, "csv_output")
-    do_economy = economic_parameters["calculate_economy"]
-    do_emissions = emissions_parameters["calculate_emissions"]
+    do_create_plot, do_plot_all_excl, do_plot_all_incl = parse_all_mode(io_settings, "output_plot", suppress_all_output)
+    do_write_CSV, do_csv_all_excl, do_csv_all_incl = parse_all_mode(io_settings, "csv_output", suppress_all_output)
+    do_economy_emissions = economic_parameters["calculate_economy"] || emissions_parameters["calculate_emissions"]
+    collect_objective_results = parameter_study["runtime"]["enabled"]
 
     # Decide if we need all-keys lists
-    need_all_excl = do_plot_all_excl || do_csv_all_excl || do_economy || do_emissions
+    need_all_excl = do_plot_all_excl || do_csv_all_excl || do_economy_emissions
     need_all_incl = do_plot_all_incl || do_csv_all_incl
 
     all_output_keys_excl_flows = need_all_excl ? collect_all_output_keys(components; include_flows=false) : nothing
@@ -176,7 +168,7 @@ function get_output_keys(io_settings::AbstractDict{String,Any},
     end
 
     # Economy or emissions keys
-    if do_economy || do_emissions
+    if do_economy_emissions
         # Use excl_flows "all" as base
         output_keys_economic_emissions = copy(all_output_keys_excl_flows)
         filter!(is_economic_emissions_key, output_keys_economic_emissions)
@@ -185,7 +177,15 @@ function get_output_keys(io_settings::AbstractDict{String,Any},
         output_keys_economic_emissions = nothing
     end
 
-    return output_keys_lineplot, output_keys_to_csv, output_keys_economic_emissions
+    # parameter-study objective keys
+    if collect_objective_results
+        output_keys_parameter_study = output_keys(components, parameter_study["runtime"]["objective_output_spec"])
+        output_keys_parameter_study = unique(output_keys_parameter_study)
+    else
+        output_keys_parameter_study = nothing
+    end
+
+    return output_keys_lineplot, output_keys_to_csv, output_keys_economic_emissions, output_keys_parameter_study
 end
 
 """
@@ -411,16 +411,110 @@ function output_keys(components::Grouping, from_config::AbstractDict{String,Any}
     return outputs
 end
 
-"""
-write_CSV_headers(filepath, output_keys)
+function parse_outkeys(output_keys::Vector{EnergySystems.OutputKey})::Array{String}
+    keys = Array{String}(undef, length(output_keys))
+    for (idx, outkey) in enumerate(output_keys)
+        if outkey.medium === nothing
+            keys[idx] = "$(outkey.unit.uac) $(outkey.value_key)"
+        else
+            if startswith(outkey.value_key, "EnergyFlow") || startswith(outkey.value_key, "TemperatureFlow")
+                keys[idx] = "$(outkey.medium) $(outkey.value_key)"
+            else
+                keys[idx] = "$(outkey.unit.uac) $(outkey.medium) $(outkey.value_key)"
+            end
+        end
+    end
+    return keys
+end
 
-Resets the CSV output file and writes headers for the given outputs.
+function parse_outkeys(output_keys::AbstractDict{String,Any})::Array{String}
+    keys = Array{String}(undef, 0)
+    for (uac, values) in pairs(output_keys)
+        for entry in values
+            splitted = split(String(entry), ":")
+            if length(splitted) > 1
+                medium = splitted[1]
+                value_key = splitted[2]
+                if startswith(value_key, "EnergyFlow") || startswith(value_key, "TemperatureFlow")
+                    push!(keys, "$medium $value_key")
+                else
+                    push!(keys, "$uac $medium $value_key")
+                end
+            else
+                medium = nothing
+                value_key = splitted[1]
+                push!(keys, "$uac $value_key")
+            end
+        end
+    end
+
+    return keys
+end
+
 """
-function write_CSV_headers(filepath::String,
-                           output_keys::Union{Nothing,Vector{EnergySystems.OutputKey}},
+    output_key_signature(output_key)
+
+Create a stable structural identifier for an `OutputKey`. The signature is used for
+internal column lookup; formatted names from `parse_outkeys` remain presentation values.
+"""
+function output_key_signature(output_key::EnergySystems.OutputKey)
+    return (String(output_key.unit.uac), output_key.medium, output_key.value_key)
+end
+
+"""
+    output_key_indexes(all_output_keys)
+
+Map each requested `OutputKey` to its zero-offset data-column index. The time column is
+not part of this mapping.
+"""
+function output_key_indexes(all_output_keys::Vector{EnergySystems.OutputKey})
+    return Dict(output_key_signature(output_key) => index
+                for (index, output_key) in pairs(all_output_keys))
+end
+
+"""
+    output_data_columns(key_indexes, selected_keys; include_time=false)
+
+Return the matrix columns corresponding to `selected_keys`. Stored output columns are
+offset by one because column one contains time.
+"""
+function output_data_columns(key_indexes::AbstractDict,
+                             selected_keys::Union{Nothing,Vector{EnergySystems.OutputKey}};
+                             include_time::Bool=false)::Vector{Int}
+    columns = selected_keys === nothing ? Int[] :
+              [1 + key_indexes[output_key_signature(output_key)]
+               for output_key in selected_keys]
+
+    return include_time ? vcat(1, columns) : columns
+end
+
+"""
+    output_data_column_map(key_indexes, selected_keys)
+
+Map the formatted names of selected output keys to their columns in the stored output
+matrix. Formatting is used only because parameter-study objective keys use the same
+external naming convention.
+"""
+function output_data_column_map(key_indexes::AbstractDict,
+                                selected_keys::Union{Nothing,Vector{EnergySystems.OutputKey}})::Dict{String,Int}
+    selected_keys === nothing && return Dict{String,Int}()
+
+    names = parse_outkeys(selected_keys)
+    return Dict(
+        name => 1 + key_indexes[output_key_signature(output_key)]
+        for (name, output_key) in zip(names, selected_keys))
+end
+
+"""
+get_output_header(output_keys, weather_data_keys, csv_time_unit)
+
+Get the output header for the given outputs to used in output file or dictionary.
+"""
+function get_output_header(output_keys::Union{Nothing,Vector{EnergySystems.OutputKey}},
                            weather_data_keys::Union{Nothing,Vector{String}},
                            csv_time_unit::String)
-    open(filepath, "w") do file_handle
+    header = Array{String}(undef, 0)
+    if csv_time_unit !== nothing
         if csv_time_unit == "seconds"
             time_unit = "[s]"
         elseif csv_time_unit == "minutes"
@@ -431,58 +525,34 @@ function write_CSV_headers(filepath::String,
             time_unit = "[dd.mm.yyyy HH:MM:SS]"
         end
 
-        write(file_handle, "Time $time_unit")
-
-        if output_keys !== nothing
-            for outkey in output_keys
-                if outkey.medium === nothing
-                    header = "$(outkey.unit.uac) $(outkey.value_key)"
-                else
-                    if startswith(outkey.value_key, "EnergyFlow") || startswith(outkey.value_key, "TemperatureFlow")
-                        header = "$(outkey.medium) $(outkey.value_key)"
-                    else
-                        header = "$(outkey.unit.uac) $(outkey.medium) $(outkey.value_key)"
-                    end
-                end
-                write(file_handle, ";$header")
-            end
-        end
-        if weather_data_keys !== nothing
-            for key in weather_data_keys
-                write(file_handle, ";Weather $key")
-            end
-        end
-
-        write(file_handle, "\n")
+        push!(header, "Time $time_unit")
     end
+
+    if output_keys !== nothing
+        output_keys_names = parse_outkeys(output_keys)
+        header = vcat(header, output_keys_names)
+    end
+
+    if weather_data_keys !== nothing
+        for key in weather_data_keys
+            push!(header, "Weather $key")
+        end
+    end
+
+    return header
 end
 
 """
-write_to_CSV_file(filepath, output_keys, time)
+get_output_row(output_keys, weather_data_keys, sim_params, csv_time_unit)
 
-Write the given outputs for the given time to the CSV output file. Alternatively the output
-can be returned as a single row instead, or a matrix of rows can be given to write all at
-once.
+Create a row with values for given outputs to be written to file or dictionary.
 """
-function write_to_CSV_file(filepath::String,
-                           output_keys::Union{Nothing,Vector{EnergySystems.OutputKey}},
-                           weather_data_keys::Union{Nothing,Vector{String}},
-                           sim_params::Dict{String,Any},
-                           io_settings::Dict{String,Any},
-                           csv_time_unit::String;
-                           do_return::Bool=false,
-                           output_rows::Union{Nothing,Matrix}=nothing)
-    if output_rows !== nothing
-        open(filepath, "a") do file_handle
-            for row_idx in 1:size(output_rows)[1]
-                write(file_handle, join(output_rows[row_idx, :], ";") * "\n")
-            end
-        end
-        return
-    end
-
-    line = []
-
+function get_output_row(output_keys::Union{Nothing,Vector{EnergySystems.OutputKey}},
+                        weather_data_keys::Union{Nothing,Vector{String}},
+                        sim_params::Dict{String,Any},
+                        csv_time_unit::String,
+                        io_settings::Dict{String,Any})
+    row = Array{Union{Float64,String}}(undef, 0)
     if csv_time_unit == "seconds"
         time = sim_params["time_since_output"]
     elseif csv_time_unit == "minutes"
@@ -493,7 +563,7 @@ function write_to_CSV_file(filepath::String,
         time = Dates.format(sim_params["current_date"], "dd.mm.yyyy HH:MM:SS")
     end
 
-    push!(line, "$time")
+    push!(row, string(time))
 
     interpolator = v -> "$v"
     if io_settings["fixed_output_precision"] > 0
@@ -503,25 +573,17 @@ function write_to_CSV_file(filepath::String,
     if output_keys !== nothing
         for outkey in output_keys
             value = output_value(outkey.unit, outkey)
-            value = replace(interpolator(value), "." => ",")
-            push!(line, value)
+            push!(row, interpolator(value))
         end
     end
     if weather_data_keys !== nothing
         for key in weather_data_keys
             value = Profiles.value_at_time(getfield(sim_params["weather_data"], Symbol(key)), sim_params)
-            value = replace(interpolator(value), "." => ",")
-            push!(line, value)
+            push!(row, interpolator(value))
         end
     end
 
-    if do_return
-        return line
-    else
-        open(filepath, "a") do file_handle
-            write(file_handle, join(line, ";") * "\n")
-        end
-    end
+    return row
 end
 
 """
@@ -558,11 +620,15 @@ general to find out why the energy system behaves in the simulation as it does.
 function dump_auxiliary_outputs(io_settings::Dict{String,Any},
                                 components::Grouping,
                                 order_of_operations::OrderOfOperations,
-                                sim_params::Dict{String,Any})
+                                sim_params::Dict{String,Any},
+                                suppress_all_output::Bool)
+    if suppress_all_output
+        return
+    end
     # export order of operations
     if io_settings["auxiliary_info"]
-        aux_info_file_path = io_settings["auxiliary_info_file"]
-        open(sim_params["run_path"](aux_info_file_path), "w") do file_handle
+        aux_info_file_path = io_settings["auxiliary_info_file_path"]
+        open(prepare_output_path(sim_params["run_path"](aux_info_file_path)), "w") do file_handle
             # write base order (from input or calculated)
             write(file_handle, "# Order of operations\n")
             write(file_handle, listify_operations(order_of_operations))
@@ -590,12 +656,16 @@ function dump_auxiliary_outputs(io_settings::Dict{String,Any},
 
     # plot additional figures potentially available from components after initialisation
     if io_settings["auxiliary_plots"]
-        aux_plots_output_path = sim_params["run_path"](io_settings["auxiliary_plots_path"])
+        aux_plots_output_path = sim_params["run_path"](io_settings["auxiliary_plots_directory"])
+        mkpath(aux_plots_output_path)
         aux_plots_formats = io_settings["auxiliary_plots_formats"]
         aux_plots_formats = Vector{String}(aux_plots_formats)
         component_list = []
         for component in components
-            if plot_optional_figures_begin(component[2], aux_plots_output_path, aux_plots_formats, sim_params)
+            plotted = lock(PLOT_LOCK) do
+                plot_optional_figures_begin(component[2], aux_plots_output_path, aux_plots_formats, sim_params)
+            end
+            if plotted
                 push!(component_list, component[2].uac)
             end
         end
@@ -639,18 +709,7 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
 
     # set Axis, unit and scale factor if given
     if plot_all  # plot all outputs. Here no units or scaling factors are available.
-        labels = String[]
-        n = 1
-        for outkey in outputs_plot_keys
-            if outkey.medium === nothing
-                push!(labels, string("$(outkey.unit.uac) $(outkey.value_key)"))
-            elseif startswith(outkey.value_key, "EnergyFlow") || startswith(outkey.value_key, "TemperatureFlow")
-                push!(labels, string("$(outkey.medium) $(outkey.value_key)"))
-            else
-                push!(labels, string("$(outkey.unit.uac) $(outkey.medium) $(outkey.value_key)"))
-            end
-            n += 1
-        end
+        labels = parse_outkeys(outputs_plot_keys)
         if plot_weather
             for outkey in outputs_plot_weather_keys
                 push!(labels, string("Weather $(outkey)"))
@@ -707,23 +766,13 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
 
         # create legend entries
         labels = String[]
-        n = 1
         if plot_data
-            for outkey in outputs_plot_keys
-                if outkey.medium === nothing
-                    push!(labels, string("$(outkey.unit.uac) $(outkey.value_key) [$(unit[n])] ($(axis[n]))"))
-                elseif startswith(outkey.value_key, "EnergyFlow") || startswith(outkey.value_key, "TemperatureFlow")
-                    push!(labels, string("$(outkey.medium) $(outkey.value_key) [$(unit[n])] ($(axis[n]))"))
-                else
-                    push!(labels,
-                          string("$(outkey.unit.uac) $(outkey.medium) $(outkey.value_key) [$(unit[n])] ($(axis[n]))"))
-                end
-                n += 1
-            end
+            labels = parse_outkeys(outputs_plot_keys) .* " [" .* unit .* "] (" .*
+                     axis[1:length(outputs_plot_keys)] .* ")"
         end
         if plot_weather
             for outkey in outputs_plot_weather_keys
-                push!(labels, string("Weather $(outkey) [($(axis[n]))"))
+                push!(labels, string("Weather $(outkey) [($(axis[end]))"))
             end
         end
     end
@@ -761,25 +810,35 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
             end
         end
     end
-    output_plot_time_unit = io_settings["output_plot_time_unit"]
-    if output_plot_time_unit == "seconds"
-        x = time_x
-    elseif output_plot_time_unit == "minutes"
-        x = time_x / 60
-    elseif output_plot_time_unit == "hours"
-        x = time_x / 60 / 60
-    else
-        if sim_params["start_date"] === nothing
-            start_date = Dates.DateTime("2015/1/1 00:00:00", "yyyy/m/d HH:MM:SS")
-            @info ("Date of first data point in output line plot is set to 01-01-2015 00:00:00, as the simulation start time is not given as date.")
-        else
-            start_date = sim_params["start_date_output"]
-        end
-        x = [add_ignoring_leap_days(start_date, Dates.Second(s)) for s in time_x]
-    end
 
     y = hcat(plot_data ? outputs_plot_data[:, 2:end] : zeros(Float64, size(outputs_plot_weather, 1), 0),
              plot_weather ? outputs_plot_weather[:, 2:end] : zeros(Float64, size(outputs_plot_data, 1), 0))
+
+    output_plot_time_unit = io_settings["output_plot_time_unit"]
+    if output_plot_time_unit == "seconds"
+        x0 = time_x[1]
+        dx = time_x[2] - x0
+    elseif output_plot_time_unit == "minutes"
+        x0 = time_x[1]
+        dx = (time_x[2] - x0) / 60
+    elseif output_plot_time_unit == "hours"
+        x0 = time_x[1]
+        dx = (time_x[2] - x0) / 60 / 60
+    else
+        x0 = sim_params["start_date_output"]
+        dx = sim_params["time_step_seconds"] * 1000
+        y = add_leap_day_values(y, x0,
+                                sim_params["time_step_seconds"],
+                                sim_params["end_date"])
+    end
+
+    # downsamle y and x to reduce file size with long simulations
+    dec_f = 1
+    if io_settings["enable_plot_downsampling"]
+        max_n_vals = io_settings["plot_downsampling_max_number_values"]
+        y, dec_f = downsampling_for_plots(y, 1; max_n_values=max_n_vals)
+        dx *= dec_f
+    end
 
     if io_settings["fixed_output_precision"] > 0
         y = round.(y; sigdigits=io_settings["fixed_output_precision"])
@@ -788,9 +847,9 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
     traces = GenericTrace[]
     for i in axes(y, 2)
         if plot_all
-            trace = scatter(; x=x, y=y[:, i], mode="lines", name=labels[i])
+            trace = scatter(; x0=x0, dx=dx, y=y[:, i], mode="lines", name=labels[i])
         else
-            trace = scatter(; x=x, y=scale_fact[i] * y[:, i], mode="lines", name=labels[i])
+            trace = scatter(; x0=x0, dx=dx, y=scale_fact[i] * y[:, i], mode="lines", name=labels[i])
             if axis[i] == "right"
                 trace.yaxis = "y2"
             else  # default is left axis
@@ -800,6 +859,14 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
         push!(traces, trace)
     end
 
+    title = "Plot of outputs as defined in the input-file. Attention: Energies are given " *
+            "within the simulation time step of $(Int(sim_params["time_step_seconds"])) s."
+    if dec_f > 1
+        title *= "<br><sup>For plot performance reasons the plot got downsampled by factor " *
+                 "$dec_f. The values didn't get adjusted but just every $dec_f value gets" *
+                 " displayed.</sup>"
+    end
+
     if output_plot_time_unit == "date"
         leap_days_str = string.([Date(year, 2, 29)
                                  for year in
@@ -807,8 +874,7 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
                                  if isleapyear(year)])
 
         layout = Layout(;
-                        title_text="Plot of outputs as defined in the input-file. Attention: Energies are given within " *
-                                   "the simulation time step of $(Int(sim_params["time_step_seconds"])) s",
+                        title_text=title,
                         xaxis_title_text="Time [$(output_plot_time_unit)]",
                         yaxis_title_text="",
                         yaxis2=attr(; title="", overlaying="y", side="right"),
@@ -816,22 +882,21 @@ function create_profile_line_plots(outputs_plot_data::Union{Nothing,Matrix{Float
                                    rangebreaks=[Dict("values" => leap_days_str)]))
     else
         layout = Layout(;
-                        title_text="Plot of outputs as defined in the input-file. Attention: Energies are given within " *
-                                   "the simulation time step of $(Int(sim_params["time_step_seconds"])) s",
+                        title_text=title,
                         xaxis_title_text="Time [$(output_plot_time_unit)]",
                         yaxis_title_text="",
                         yaxis2=attr(; title="", overlaying="y", side="right"))
     end
 
     p = plot(traces, layout)
-
-    file_path = sim_params["run_path"](io_settings["output_plot_file"])
-    savefig(p, file_path)
+    file_path = sim_params["run_path"](io_settings["output_plot_file_path"])
+    savefig(p, prepare_output_path(file_path))
 end
 
 """
     create_sankey(output_all_sourcenames, output_all_targetnames, output_all_values,
-                  medium_of_interfaces, nr_of_interfaces, io_settings, sim_params)
+                  medium_of_interfaces, nr_of_interfaces, components, io_settings,
+                  sim_params)
 
 create a sankey plot. 
 Inputs:
@@ -839,12 +904,14 @@ output_all_sourcenames and *sinknames are vectors with names of the source and s
 output_all_values are logs with data from each timestep in the shape [timestep,interface].
 medium_of_interface is a vector of the medium corresponding to each interface
 nr_of_interfaces is the total number of interfaces in the current energy system
+components is the grouping of all components of the energy system
 """
 function create_sankey(output_all_sourcenames::Vector{Any},
                        output_all_targetnames::Vector{Any},
                        output_all_values::Matrix{Float64},
                        medium_of_interfaces::Vector{Any},
                        nr_of_interfaces::Int64,
+                       components::Grouping,
                        io_settings::Dict{String,Any},
                        sim_params::Dict{String,Any})
 
@@ -906,7 +973,15 @@ function create_sankey(output_all_sourcenames::Vector{Any},
     # prepare data for sankey diagram and create sankey
     # set label of blocks
     block_labels = union(output_all_sourcenames, output_all_targetnames)
-    block_labels_unique = Dict(blockname => i for (i, blockname) in enumerate(block_labels))
+
+    # Storages are moved to the end of the block list which places them consistently to the
+    # right of the buses they are connected to.
+    storage_uacs = [unit.uac for unit in values(components)
+                    if unit.sys_function == EnergySystems.sf_storage]
+    block_labels = vcat([label for label in block_labels if !(label in storage_uacs)],
+                        [label for label in block_labels if label in storage_uacs])
+
+    block_labels_unique = OrderedDict(blockname => i for (i, blockname) in enumerate(block_labels))
     output_all_source_num = [block_labels_unique[blockname] for blockname in output_all_sourcenames]
     output_all_target_num = [block_labels_unique[blockname] for blockname in output_all_targetnames]
 
@@ -981,6 +1056,20 @@ function create_sankey(output_all_sourcenames::Vector{Any},
         colors_for_medium_RGBA = colors_for_medium
     end
 
+    # get simulation duration
+    simulation_duration = sub_ignoring_leap_days(sim_params["end_date"], sim_params["start_date_output"]) +
+                          Millisecond(Second(sim_params["time_step_seconds"]))
+    remaining = div(Dates.value(simulation_duration), 60_000) # integer minutes
+    parts = String[]
+    for (factor, unit) in ((525_600, "year"), (1_440, "day"), (60, "hour"), (1, "min"))
+        value, remaining = divrem(remaining, factor)
+        if value > 0
+            suffix = value > 1 && unit != "min" ? "s" : ""
+            push!(parts, "$value $unit$suffix")
+        end
+    end
+    simulation_duration_string = isempty(parts) ? "0 min" : join(parts, " ")
+
     # create plot
     p = plot(sankey(;
                     node=attr(; pad=25,
@@ -993,12 +1082,14 @@ function create_sankey(output_all_sourcenames::Vector{Any},
                               value=output_all_value_sum,
                               label=medium_labels,
                               color=colors_for_medium_RGBA)),
-             Layout(; title_text="Sankey diagram of system topology and energy flows",
+             Layout(;
+                    title_text="Sankey diagram of system topology and energy flows" *
+                               "<br><sup>Simulation duration: $simulation_duration_string</sup>",
                     font_size=14))
 
     # save plot
-    file_path = sim_params["run_path"](io_settings["sankey_plot_file"])
-    savefig(p, file_path)
+    file_path = sim_params["run_path"](io_settings["sankey_plot_file_path"])
+    savefig(p, prepare_output_path(file_path))
 end
 
 """
@@ -1176,7 +1267,7 @@ function aggregate_csv(input_path::AbstractString,
 
     sort!(data_indices; by=j -> lowercase(headers[j]))
 
-    open(output_path, "w") do io
+    open(prepare_output_path(output_path), "w") do io
         write_csv_row(io,
                       ["Parameter",
                        "Type",

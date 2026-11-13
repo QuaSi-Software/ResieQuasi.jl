@@ -1,13 +1,13 @@
 using Debugger
 using Test
-using Resie
-using Resie.EnergySystems
-using Resie.Profiles
+using ResieQuasi
+using ResieQuasi.EnergySystems
+using ResieQuasi.Profiles
 
 include("../../test_util.jl")
 
 function test_many_to_one()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_SRC_01" => Dict{String,Any}(
             "type" => "FlexibleSupply",
             "medium" => "m_h_w_ht1",
@@ -43,7 +43,7 @@ function test_many_to_one()
 
     simulation_parameters = get_default_sim_params()
 
-    components = Resie.load_components(components_config, simulation_parameters)
+    components = ResieQuasi.load_components(components_config, simulation_parameters)
     source = components["TST_SRC_01"]
     demand_1 = components["TST_DEM_01"]
     demand_2 = components["TST_DEM_02"]

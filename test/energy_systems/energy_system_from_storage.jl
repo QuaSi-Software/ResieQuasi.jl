@@ -1,13 +1,13 @@
 using Debugger
 using Test
-using Resie
-using Resie.EnergySystems
-using Resie.Profiles
+using ResieQuasi
+using ResieQuasi.EnergySystems
+using ResieQuasi.Profiles
 
 include("../test_util.jl")
 
 function test_run_energy_system_from_storage()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -35,7 +35,7 @@ function test_run_energy_system_from_storage()
             "high_temperature" => 35.0,
         ),
         "TST_GRI_01" => Dict{String,Any}(
-            "type" => "GridInput",
+            "type" => "GridSupply",
             "medium" => "m_e_ac_230v",
             "output_refs" => ["TST_HP_01"],
         ),
@@ -56,7 +56,7 @@ function test_run_energy_system_from_storage()
 
     simulation_parameters = get_default_sim_params()
 
-    components = Resie.load_components(components_config, simulation_parameters)
+    components = ResieQuasi.load_components(components_config, simulation_parameters)
     setup_mock_run!(components, simulation_parameters)
 
     heat_pump = components["TST_HP_01"]
@@ -167,7 +167,7 @@ function test_run_energy_system_from_storage()
 end
 
 function test_run_energy_system_from_storage_denied()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -195,7 +195,7 @@ function test_run_energy_system_from_storage_denied()
             "high_temperature" => 35,
         ),
         "TST_GRI_01" => Dict{String,Any}(
-            "type" => "GridInput",
+            "type" => "GridSupply",
             "medium" => "m_e_ac_230v",
             "output_refs" => ["TST_HP_01"],
         ),
@@ -216,7 +216,7 @@ function test_run_energy_system_from_storage_denied()
 
     simulation_parameters = get_default_sim_params()
 
-    components = Resie.load_components(components_config, simulation_parameters)
+    components = ResieQuasi.load_components(components_config, simulation_parameters)
     setup_mock_run!(components, simulation_parameters)
 
     heat_pump = components["TST_HP_01"]

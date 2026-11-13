@@ -1,7 +1,7 @@
-using GLMakie
+using PlotlyJS: PlotlyJS
 using Roots
-using Plots: plot, savefig
-using Plots: Plots
+using Plots: Plots, plot, savefig
+using ..PlotUtils
 using SparseArrays
 using LinearAlgebra
 
@@ -53,22 +53,22 @@ const GEOTHERMAL_HEAT_COLLECTOR_COMPONENT_PARAMETERS = Dict(
         display_name="Ambient temp. profile",
         required=false,
         conditionals=[
-            ("ambient_temperature_from_global_file", "mutex"),
+            ("use_ambient_temperature_from_weather_file", "mutex"),
             ("constant_ambient_temperature", "mutex")
         ],
         validations=[
             ("at_least_one", "ambient_temperature_profile_file_path",
-             "ambient_temperature_from_global_file", "constant_ambient_temperature")
+             "use_ambient_temperature_from_weather_file", "constant_ambient_temperature")
         ],
         type=String,
         json_type="string",
         unit="-"
     ),
-    "ambient_temperature_from_global_file" => (
-        default=nothing,
-        description="If given points to a key in the global weather data file with the " *
-                    "ambient temperature profile to be used. Use `temp_ambient_air` as key.",
-        display_name="Global file amb. temp. key",
+    "use_ambient_temperature_from_weather_file" => (
+        default=false,
+        description="If true, use the ambient air temperature from the project-wide weather file.",
+        weather_key="temp_ambient_air",
+        display_name="Use ambient air temperature from weather file?",
         required=false,
         conditionals=[
             ("ambient_temperature_profile_file_path", "mutex"),
@@ -76,10 +76,10 @@ const GEOTHERMAL_HEAT_COLLECTOR_COMPONENT_PARAMETERS = Dict(
         ],
         validations=[
             ("at_least_one", "ambient_temperature_profile_file_path",
-             "ambient_temperature_from_global_file", "constant_ambient_temperature")
+             "use_ambient_temperature_from_weather_file", "constant_ambient_temperature")
         ],
-        type=String,
-        json_type="string",
+        type=Bool,
+        json_type="boolean",
         unit="-"
     ),
     "constant_ambient_temperature" => (
@@ -89,11 +89,11 @@ const GEOTHERMAL_HEAT_COLLECTOR_COMPONENT_PARAMETERS = Dict(
         required=false,
         conditionals=[
             ("ambient_temperature_profile_file_path", "mutex"),
-            ("ambient_temperature_from_global_file", "mutex")
+            ("use_ambient_temperature_from_weather_file", "mutex")
         ],
         validations=[
             ("at_least_one", "ambient_temperature_profile_file_path",
-             "ambient_temperature_from_global_file", "constant_ambient_temperature")
+             "use_ambient_temperature_from_weather_file", "constant_ambient_temperature")
         ],
         type=Float64,
         json_type="number",
@@ -105,22 +105,22 @@ const GEOTHERMAL_HEAT_COLLECTOR_COMPONENT_PARAMETERS = Dict(
         display_name="Global solar radiation profile",
         required=false,
         conditionals=[
-            ("global_solar_radiation_from_global_file", "mutex"),
+            ("use_global_solar_radiation_from_weather_file", "mutex"),
             ("constant_global_solar_radiation", "mutex")
         ],
         validations=[
             ("at_least_one", "global_solar_radiation_profile_file_path",
-             "global_solar_radiation_from_global_file", "constant_global_solar_radiation")
+             "use_global_solar_radiation_from_weather_file", "constant_global_solar_radiation")
         ],
         type=String,
         json_type="string",
         unit="-"
     ),
-    "global_solar_radiation_from_global_file" => (
-        default=nothing,
-        description="If given points to a key in the global weather data file with the " *
-                    "global solar radiation profile to be used. Use `globHorIrr` as key.",
-        display_name="Global file glob. rad. key",
+    "use_global_solar_radiation_from_weather_file" => (
+        default=false,
+        description="If true, use global horizontal solar irradiation from the project-wide weather file.",
+        weather_key="globHorIrr",
+        display_name="Use global horizontal solar irradiation from weather file?",
         required=false,
         conditionals=[
             ("global_solar_radiation_profile_file_path", "mutex"),
@@ -128,10 +128,10 @@ const GEOTHERMAL_HEAT_COLLECTOR_COMPONENT_PARAMETERS = Dict(
         ],
         validations=[
             ("at_least_one", "global_solar_radiation_profile_file_path",
-             "global_solar_radiation_from_global_file", "constant_global_solar_radiation")
+             "use_global_solar_radiation_from_weather_file", "constant_global_solar_radiation")
         ],
-        type=String,
-        json_type="string",
+        type=Bool,
+        json_type="boolean",
         unit="-"
     ),
     "constant_global_solar_radiation" => (
@@ -141,11 +141,11 @@ const GEOTHERMAL_HEAT_COLLECTOR_COMPONENT_PARAMETERS = Dict(
         required=false,
         conditionals=[
             ("global_solar_radiation_profile_file_path", "mutex"),
-            ("global_solar_radiation_from_global_file", "mutex")
+            ("use_global_solar_radiation_from_weather_file", "mutex")
         ],
         validations=[
             ("at_least_one", "global_solar_radiation_profile_file_path",
-             "global_solar_radiation_from_global_file", "constant_global_solar_radiation")
+             "use_global_solar_radiation_from_weather_file", "constant_global_solar_radiation")
         ],
         type=Float64,
         json_type="number",
@@ -157,22 +157,22 @@ const GEOTHERMAL_HEAT_COLLECTOR_COMPONENT_PARAMETERS = Dict(
         display_name="Infrared radiation profile",
         required=false,
         conditionals=[
-            ("infrared_sky_radiation_from_global_file", "mutex"),
+            ("use_infrared_sky_radiation_from_weather_file", "mutex"),
             ("constant_infrared_sky_radiation", "mutex")
         ],
         validations=[
             ("at_least_one", "infrared_sky_radiation_profile_file_path",
-             "infrared_sky_radiation_from_global_file", "constant_infrared_sky_radiation")
+             "use_infrared_sky_radiation_from_weather_file", "constant_infrared_sky_radiation")
         ],
         type=String,
         json_type="string",
         unit="-"
     ),
-    "infrared_sky_radiation_from_global_file" => (
-        default=nothing,
-        description="If given points to a key in the global weather data file with the " *
-                    "infrared sky radiation profile to be used. Use `longWaveIrr` as key.",
-        display_name="Global file infr. sky rad. key",
+    "use_infrared_sky_radiation_from_weather_file" => (
+        default=false,
+        description="If true, use long-wave infrared sky irradiation from the project-wide weather file.",
+        weather_key="longWaveIrr",
+        display_name="Use long-wave infrared sky irradiation from weather file?",
         required=false,
         conditionals=[
             ("infrared_sky_radiation_profile_file_path", "mutex"),
@@ -180,10 +180,10 @@ const GEOTHERMAL_HEAT_COLLECTOR_COMPONENT_PARAMETERS = Dict(
         ],
         validations=[
             ("at_least_one", "infrared_sky_radiation_profile_file_path",
-             "infrared_sky_radiation_from_global_file", "constant_infrared_sky_radiation")
+             "use_infrared_sky_radiation_from_weather_file", "constant_infrared_sky_radiation")
         ],
-        type=String,
-        json_type="string",
+        type=Bool,
+        json_type="boolean",
         unit="-"
     ),
     "constant_infrared_sky_radiation" => (
@@ -193,11 +193,11 @@ const GEOTHERMAL_HEAT_COLLECTOR_COMPONENT_PARAMETERS = Dict(
         required=false,
         conditionals=[
             ("infrared_sky_radiation_profile_file_path", "mutex"),
-            ("infrared_sky_radiation_from_global_file", "mutex")
+            ("use_infrared_sky_radiation_from_weather_file", "mutex")
         ],
         validations=[
             ("at_least_one", "infrared_sky_radiation_profile_file_path",
-             "infrared_sky_radiation_from_global_file", "constant_infrared_sky_radiation")
+             "use_infrared_sky_radiation_from_weather_file", "constant_infrared_sky_radiation")
         ],
         type=Float64,
         json_type="number",
@@ -820,7 +820,7 @@ mutable struct GeothermalHeatCollector <: Component
     max_picard_iter::Int
     picard_tol::Float64
 
-    function GeothermalHeatCollector(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
+    function GeothermalHeatCollector(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
         new(SSOT_parameter_constructor(GeothermalHeatCollector, uac, config, sim_params)...)
     end
 end
@@ -837,11 +837,11 @@ function emissions_parameters(x::Type{GeothermalHeatCollector})::Dict{String,Any
     return deepcopy(GEOTHERMAL_HEAT_COLLECTOR_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{GeothermalHeatCollector}, config::Dict{String,Any}, param_name::String,
+function extract_parameter(x::Type{GeothermalHeatCollector}, config::AbstractDict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
-    if param_name in ("ambient_temperature_from_global_file", "global_solar_radiation_from_global_file",
-                      "infrared_sky_radiation_from_global_file")
-        return load_profile_from_global_weather_file(config, param_name, sim_params, uac)
+    if param_name in ("use_ambient_temperature_from_weather_file", "use_global_solar_radiation_from_weather_file",
+                      "use_infrared_sky_radiation_from_weather_file")
+        return load_profile_from_weather_file(config, param_name, param_def, sim_params, uac)
     elseif param_name in ("ambient_temperature_profile_file_path", "global_solar_radiation_profile_file_path",
                           "infrared_sky_radiation_profile_file_path")
         return load_optional_profile(config, param_name, sim_params)
@@ -857,7 +857,8 @@ function extract_parameter(x::Type{GeothermalHeatCollector}, config::Dict{String
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{GeothermalHeatCollector}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{GeothermalHeatCollector}, config::AbstractDict{String,Any},
+                         extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
         parameter = economic_parameters(GeothermalHeatCollector)
@@ -885,14 +886,16 @@ function init_from_params(x::Type{GeothermalHeatCollector}, uac::String, params:
             m_heat_out,
             params["economic_parameters"],
             params["emissions_parameters"],
+            # Note that the two parameters in some_or_none() have misleading names, both can contain a profile 
+            # at this point and not just a path or a boolean value! They were overridden in SSOT_parameter_constructor().
             some_or_none(params["ambient_temperature_profile_file_path"],
-                         params["ambient_temperature_from_global_file"]),
+                         params["use_ambient_temperature_from_weather_file"]),
             params["constant_ambient_temperature"],
             some_or_none(params["global_solar_radiation_profile_file_path"],
-                         params["global_solar_radiation_from_global_file"]),
+                         params["use_global_solar_radiation_from_weather_file"]),
             params["constant_global_solar_radiation"],
             some_or_none(params["infrared_sky_radiation_profile_file_path"],
-                         params["infrared_sky_radiation_from_global_file"]),
+                         params["use_infrared_sky_radiation_from_weather_file"]),
             params["constant_infrared_sky_radiation"],
             params["unloading_temperature_spread"],
             params["fluid_min_output_temperature"],
@@ -1597,48 +1600,60 @@ function plot_optional_figures_begin(unit::GeothermalHeatCollector,
 
     fig_name = "collector_simulation_mesh_$(unit.uac)"
     for output_format in output_formats
-        savefig(output_path * "/" * fig_name * "." * output_format)
+        savefig(plt, auxiliary_plot_path(output_path, fig_name * "." * output_format, sim_params))
     end
 
     return true
 end
 
-function plot_optional_figures_end(unit::GeothermalHeatCollector, sim_params::Dict{String,Any}, output_path::String)
+function plot_optional_figures_end(unit::GeothermalHeatCollector,
+                                   sim_params::Dict{String,Any}, output_path::String,
+                                   io_settings::Dict{String,Any})::Bool
     # plot temperature field as 3D mesh with time-slider
-    @info "Plotting time-shiftable temperature distribution of geothermal collector $(unit.uac). " *
-          "Close figure to continue..."
-
-    f = Figure()
-    ax = Axis3(f[1, 1])
-
-    ax.zlabel = "Temperature [°C]"
-    ax.xlabel = "Vertical expansion (depth) [m]"
-    ax.ylabel = "Horizontal expansion [m]"
     min_temp = minimum(unit.temp_field_output)
     min_temp = min_temp < 0.0 ? 1.1 * min_temp : 0.9 * min_temp
     max_temp = maximum(unit.temp_field_output)
     max_temp = max_temp < 0.0 ? 0.9 * max_temp : 1.1 * max_temp
-    Makie.zlims!(ax, min_temp, max_temp)
 
     x_abs = [0; cumsum(unit.dx_mesh)]               # Absolute x coordinates
     y_abs = [unit.dy[1] / 2; cumsum(unit.dy_mesh)]  # Absolute y coordinates
 
-    ## activate for equal axis ratio
-    # xlims!(ax, 0, max(x_abs[end], y_abs[end]))
-    # ylims!(ax, 0, max(x_abs[end], y_abs[end]))
+    nt = sim_params["number_of_time_steps_output"]
 
-    time = Observable(1)
-    surfdata = @lift(unit.temp_field_output[$time, :, :])
-    GLMakie.surface!(ax, y_abs, x_abs, surfdata)
-    GLMakie.scatter!(ax, y_abs, x_abs, surfdata)
-    slg = SliderGrid(f[2, 1], (; range=1:1:sim_params["number_of_time_steps_output"], label="Time"))
+    # the values are ordered with y as first index, x second and time last
+    temps_sorted = permutedims(unit.temp_field_output[1:nt, :, :], (2, 3, 1))
 
-    on(slg.sliders[1].value) do v
-        time[] = v
-    end
-    wait(display(f))
+    surface_trace = PlotlyJS.surface(; x=x_abs,
+                                     y=y_abs,
+                                     z=temps_sorted[:, :, 1],
+                                     cmin=min_temp,
+                                     cmax=max_temp,
+                                     colorscale="RdBu",
+                                     showscale=true,
+                                     colorbar=PlotlyJS.attr(; title="Temperature [°C]"))
+    scatter_trace = PlotlyJS.scatter3d(; x=vec(repeat(x_abs', length(y_abs), 1)),
+                                       y=vec(repeat(y_abs, 1, length(x_abs))),
+                                       z=vec(unit.temp_field_output[1, :, :]),
+                                       mode="markers",
+                                       marker=PlotlyJS.attr(; size=4, color="black"))
 
-    return false
+    scene = PlotlyJS.attr(; xaxis=PlotlyJS.attr(; range=[0.0, maximum(x_abs)],
+                                                title="Vertical expansion (depth) [m]"),
+                          yaxis=PlotlyJS.attr(; range=[0.0, unit.considered_soil_depth],
+                                              title="Horizontal expansion [m]"),
+                          zaxis=PlotlyJS.attr(; range=[min_temp, max_temp],
+                                              title="Temperature [°C]"))
+
+    layout = PlotlyJS.Layout(; title_text="Temperature distribution of geothermal collector $(unit.uac)",
+                             scene=scene,
+                             template=PlotlyJS.templates.plotly_white)
+
+    base_plot = PlotlyJS.Plot([surface_trace, scatter_trace], layout)
+
+    fig_name = "geothermal_collector_temperature_distribution_$(unit.uac).html"
+    save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot, sim_params)
+
+    return true
 end
 
 # function to calculate heat transfer coefficient alpha.

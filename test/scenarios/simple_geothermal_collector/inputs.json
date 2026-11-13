@@ -1,20 +1,20 @@
 {
     "io_settings": {
         "auxiliary_info": true,
-        "auxiliary_info_file": "./test/scenarios/simple_geothermal_collector/auxiliary_info.md",
+        "auxiliary_info_file_path": "./test/scenarios/simple_geothermal_collector/auxiliary_info.md",
         "fixed_output_precision": 10,
         "sankey_plot": "default",
-        "sankey_plot_file": "./test/scenarios/simple_geothermal_collector/sankey_plot.html",
+        "sankey_plot_file_path": "./test/scenarios/simple_geothermal_collector/sankey_plot.html",
         "csv_output": "all_excl_flows",
-        "csv_output_file": "./test/scenarios/simple_geothermal_collector/out.csv",
+        "csv_output_file_path": "./test/scenarios/simple_geothermal_collector/out.csv",
         "output_plot": "all_excl_flows",
-        "output_plot_file": "./test/scenarios/simple_geothermal_collector/output_plot.html",
+        "output_plot_file_path": "./test/scenarios/simple_geothermal_collector/output_plot.html",
         "auxiliary_plots": false
     },
     "simulation_parameters": {
         "start": "01.01.2024 00:00",
         "end": "31.01.2024 23:00",
-        "start_end_unit": "dd.mm.yyyy HH:MM",
+        "start_date_format": "dd.mm.yyyy HH:MM",
         "time_step": 60,
         "time_step_unit": "minutes",
         "weather_file_path": "./profiles/weather/TRY2015_Stuttgart.epw"
@@ -39,7 +39,7 @@
             "heat_losses_factor": 1.0
         },
         "TST_GRI_01": {
-            "type": "GridInput",
+            "type": "GridSupply",
             "medium": "m_e_ac_230v",
             "output_refs": [
                 "TST_HP_01"
@@ -51,9 +51,9 @@
             "output_refs": ["TST_HP_01"],
             "model_type": "detailed",
             "___GENERAL PARAMETER___": "",
-            "ambient_temperature_from_global_file": "temp_ambient_air",
-            "global_solar_radiation_from_global_file": "globHorIrr",
-            "infrared_sky_radiation_from_global_file": "longWaveIrr",
+            "use_ambient_temperature_from_weather_file": true,
+            "use_global_solar_radiation_from_weather_file": true,
+            "use_infrared_sky_radiation_from_weather_file": true,
             "accuracy_mode": "normal",
             "regeneration": false,
             "max_output_power": 25,

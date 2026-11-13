@@ -1,4 +1,5 @@
-using ..Resie: get_run
+using ..ResieQuasi: get_run
+using ResieQuasi
 using UUIDs
 
 """
@@ -17,12 +18,12 @@ end
 Constructor for ConnectionMatrix from a config in the user-input project file.
 
 # Arguments
-`config::Dict{String,Any}`: The component config
+`config::AbstractDict{String,Any}`: The component config
 
 # Returns
 `ConnectionMatrix`: The constructed instance
 """
-function ConnectionMatrix(config::Dict{String,Any})::ConnectionMatrix
+function ConnectionMatrix(config::AbstractDict{String,Any})::ConnectionMatrix
     if !haskey(config, "connections")
         return ConnectionMatrix([], [], nothing)
     end
@@ -178,13 +179,13 @@ constructor without keyword arguments.
 
 # Arguments
 `uac::String`: The UAC of the new bus
-`config::Dict{String,Any}`: The config from the project file
+`config::AbstractDict{String,Any}`: The config from the project file
 `sim_params::Dict{String,Any}`: Simulation parameters
 
 # Returns
 `Bus`: The constructed bus
 """
-function Bus(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})::Bus
+function Bus(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})::Bus
     return Bus(SSOT_parameter_constructor(Bus, uac, config, sim_params)...)
 end
 
@@ -227,12 +228,12 @@ function component_parameters(x::Type{Bus})::Dict{String,Any}
     return deepcopy(BUS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{Bus}, config::Dict{String,Any}, param_name::String, param_def::NamedTuple,
+function extract_parameter(x::Type{Bus}, config::AbstractDict{String,Any}, param_name::String, param_def::NamedTuple,
                            sim_params::Dict{String,Any}, uac::String)
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{Bus}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{Bus}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     validate_config(Component, extracted, uac, sim_params, component_parameters(Bus))
 end
@@ -1226,8 +1227,45 @@ function distribute!(unit::Bus)
     end
 end
 
+"""
+    flow_output_values(unit)
+
+Construct the dynamic output values for energy and temperature flows for all allowed
+combinations of input and output on the bus.
+
+# Arguments
+- `unit::Bus`: The bus
+# Returns
+-`Vector{String}`: Energy flows
+-`Vector{String}`: Temperature flows
+"""
+function flow_output_values(unit::Bus)::Tuple{Vector{String},Vector{String}}
+    energy_flows = []
+    temperature_flows = []
+    inputs = [adjust_name_if_secondary(inface.source.uac, inface.is_secondary_interface)
+              for inface in unit.input_interfaces]
+    outputs = [outface.target.uac for outface in unit.output_interfaces]
+
+    for i in inputs
+        for o in outputs
+            if !energy_flow_is_denied(unit, unit.balance_table_inputs[i], unit.balance_table_outputs[o])
+                for base_name in ("Energy", "Temperature")
+                    name = if unit.balance_table_inputs[i].is_secondary_interface
+                        create_secondary_name(base_name * "Flow")
+                    else
+                        base_name * "Flow"
+                    end
+                    push!(base_name == "Energy" ? energy_flows : temperature_flows, name * " $i->$o")
+                end
+            end
+        end
+    end
+
+    return energy_flows, temperature_flows
+end
+
 function output_values(unit::Bus)::Vector{String}
-    # dynamic output channels
+    # dynamic output channels for energy transfer between busses
     outputs_proxies = ["Transfer->" * outface.target.uac
                        for outface in unit.output_interfaces
                        if outface.target.sys_function == sf_bus]
@@ -1238,45 +1276,36 @@ function output_values(unit::Bus)::Vector{String}
     else
         balance = ["Balance"]
     end
-    # energyFlow between inputs and outputs, only for proxy busses or busses without a proxy and for
-    # allowed connections
-    if unit.proxy === nothing
-        outputs_energy_flow = ["EnergyFlow $i->$o"
-                               for i in [adjust_name_if_secondary(inface.source.uac, inface.is_secondary_interface)
-                                         for inface in unit.input_interfaces]
-                               for o in [outface.target.uac for outface in unit.output_interfaces]
-                               if (!energy_flow_is_denied(unit, unit.balance_table_inputs[i],
-                                                          unit.balance_table_outputs[o]) &&
-                                   !unit.balance_table_inputs[i].is_secondary_interface)]
-        append!(outputs_energy_flow,
-                [create_secondary_name("EnergyFlow") * " $i->$o"
-                 for i in [adjust_name_if_secondary(inface.source.uac, inface.is_secondary_interface)
-                           for inface in unit.input_interfaces]
-                 for o in [outface.target.uac for outface in unit.output_interfaces]
-                 if (!energy_flow_is_denied(unit, unit.balance_table_inputs[i],
-                                            unit.balance_table_outputs[o]) &&
-                     unit.balance_table_inputs[i].is_secondary_interface)])
-        outputs_temperature_flow = ["TemperatureFlow $i->$o"
-                                    for i in
-                                        [adjust_name_if_secondary(inface.source.uac, inface.is_secondary_interface)
-                                         for inface in unit.input_interfaces]
-                                    for o in [outface.target.uac for outface in unit.output_interfaces]
-                                    if (!energy_flow_is_denied(unit, unit.balance_table_inputs[i],
-                                                               unit.balance_table_outputs[o]) &&
-                                        !unit.balance_table_inputs[i].is_secondary_interface)]
-        append!(outputs_temperature_flow,
-                [create_secondary_name("TemperatureFlow") * " $i->$o"
-                 for i in [adjust_name_if_secondary(inface.source.uac, inface.is_secondary_interface)
-                           for inface in unit.input_interfaces]
-                 for o in [outface.target.uac for outface in unit.output_interfaces]
-                 if (!energy_flow_is_denied(unit, unit.balance_table_inputs[i],
-                                            unit.balance_table_outputs[o]) &&
-                     unit.balance_table_inputs[i].is_secondary_interface)])
 
-        return [balance; outputs_proxies; outputs_energy_flow; outputs_temperature_flow]
-    else
+    # for principals of proxy busses we're done and can return early
+    if unit.proxy !== nothing
         return [balance; outputs_proxies]
     end
+
+    # add energy and temperature flow dynamic output values. if there is a control module on
+    # the bus that changes the bus priorities (and possibly the energy matrix) we need to
+    # calculate this for every possible matrix defined by the control module
+    outputs_energy_flow, outputs_temperature_flow = flow_output_values(unit)
+    for control_mod in unit.controller.modules
+        if has_method_for(control_mod, cmf_change_bus_priorities)
+            test_bus = deepcopy(unit)
+            sim_params = get_run(unit.run_id).parameters
+            for connectivity in values(control_mod.connectivity_by_state)
+                test_bus.connectivity = connectivity
+                ResieQuasi.reorder_interfaces_of_bus!(test_bus)
+                initialise!(test_bus, sim_params)
+                ef, tf = flow_output_values(test_bus)
+                append!(outputs_energy_flow, ef)
+                append!(outputs_temperature_flow, tf)
+            end
+            break
+        end
+    end
+
+    outputs_energy_flow = unique(outputs_energy_flow)
+    outputs_temperature_flow = unique(outputs_temperature_flow)
+
+    return [balance; outputs_proxies; outputs_energy_flow; outputs_temperature_flow]
 end
 
 function output_value(unit::Bus, key::OutputKey)::Float64

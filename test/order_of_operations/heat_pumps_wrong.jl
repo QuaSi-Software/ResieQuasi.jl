@@ -1,12 +1,12 @@
 using Debugger
 using Test
-using Resie
-using Resie.EnergySystems
+using ResieQuasi
+using ResieQuasi.EnergySystems
 
 include("../test_util.jl")
 
 function test_ooo_for_heat_pumps_wrong()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_DEM_01" => Dict{String,Any}(
             "type" => "Demand",
             "medium" => "m_h_w_ht1",
@@ -24,7 +24,7 @@ function test_ooo_for_heat_pumps_wrong()
             "scale" => 6000,
         ),
         "TST_GRI_01" => Dict{String,Any}(
-            "type" => "GridInput",
+            "type" => "GridSupply",
             "medium" => "m_e_ac_230v",
             "output_refs" => ["TST_HP_01"],
         ),
@@ -40,12 +40,12 @@ function test_ooo_for_heat_pumps_wrong()
 
     expected = [("TST_DEM_01", EnergySystems.s_reset),
                 ("TST_HP_01", EnergySystems.s_reset),
-                ("TST_SRC_01", EnergySystems.s_reset),
                 ("TST_GRI_01", EnergySystems.s_reset),
+                ("TST_SRC_01", EnergySystems.s_reset),
                 ("TST_DEM_01", EnergySystems.s_control),
                 ("TST_HP_01", EnergySystems.s_control),
-                ("TST_SRC_01", EnergySystems.s_control),
                 ("TST_GRI_01", EnergySystems.s_control),
+                ("TST_SRC_01", EnergySystems.s_control),
                 ("TST_DEM_01", EnergySystems.s_process),
                 ("TST_HP_01", EnergySystems.s_process),
                 ("TST_SRC_01", EnergySystems.s_process),
@@ -53,8 +53,8 @@ function test_ooo_for_heat_pumps_wrong()
 
     simulation_parameters = get_default_sim_params()
 
-    components = Resie.load_components(components_config, simulation_parameters)
-    ooo = Resie.calculate_order_of_operations(components)
+    components = ResieQuasi.load_components(components_config, simulation_parameters)
+    ooo = ResieQuasi.calculate_order_of_operations(components)
     @test pwc_steps_astr(expected, ooo) == ""
 end
 

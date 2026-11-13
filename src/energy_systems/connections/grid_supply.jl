@@ -1,7 +1,7 @@
 #! format: off
-const GRID_INPUT_PARAMETERS = Dict(
+const GRID_SUPPLY_PARAMETERS = Dict(
     "medium" => (
-        description="Medium of the grid input (e.g. electrical or thermal medium)",
+        description="Medium of the grid supply (e.g. electrical or thermal medium)",
         display_name="Medium",
         required=true,
         type=String,
@@ -14,35 +14,35 @@ const GRID_INPUT_PARAMETERS = Dict(
         display_name="Temperature profile file",
         required=false,
         conditionals=[
-            ("temperature_from_global_file", "mutex"),
+            ("use_ambient_temperature_from_weather_file", "mutex"),
             ("constant_temperature", "mutex")
         ],
         type=String,
         json_type="string",
         unit="-"
     ),
-    "temperature_from_global_file" => (
-        default=nothing,
-        description="If given points to a key in the global weather data file with the " *
-                    "temperature profile to be used. Use `temp_ambient_air` as key.",
-        display_name="Global file temp. key",
+    "use_ambient_temperature_from_weather_file" => (
+        default=false,
+        description="If true, use the ambient air temperature from the project-wide weather file.",
+        weather_key="temp_ambient_air",
+        display_name="Use ambient air temperature from weather file?",
         required=false,
         conditionals=[
             ("temperature_profile_file_path", "mutex"),
             ("constant_temperature", "mutex")
         ],
-        type=String,
-        json_type="string",
+        type=Bool,
+        json_type="boolean",
         unit="-"
     ),
     "constant_temperature" => (
         default=nothing,
-        description="Constant temperature value for the grid input",
+        description="Constant temperature value for the grid supply",
         display_name="Constant temperature",
         required=false,
         conditionals=[
             ("temperature_profile_file_path", "mutex"),
-            ("temperature_from_global_file", "mutex")
+            ("use_ambient_temperature_from_weather_file", "mutex")
         ],
         type=Float64,
         json_type="number",
@@ -50,7 +50,7 @@ const GRID_INPUT_PARAMETERS = Dict(
     ),
 )
 
-const GRID_INPUT_ECONOMIC_PARAMETERS = get_economic_standard_params("connection",
+const GRID_SUPPLY_ECONOMIC_PARAMETERS = get_economic_standard_params("connection",
     Dict{String,Any}(
         "energy_price_profile_file_path" => nothing,
         "energy_price_profile_scale" => 1.0,
@@ -76,7 +76,7 @@ const GRID_INPUT_ECONOMIC_PARAMETERS = get_economic_standard_params("connection"
     ),
 )
 
-const GRID_INPUT_EMISSIONS_PARAMETERS = get_emissions_standard_params("connection_source",
+const GRID_SUPPLY_EMISSIONS_PARAMETERS = get_emissions_standard_params("connection_source",
     Dict{String,Any}(
         "energy_emissions_profile_file_path" => nothing,
         "energy_emissions_profile_scale" => 1.0,
@@ -99,10 +99,10 @@ Implementation of a component modelling the input connection to a public grid of
 
 Public grids are considered to have an unlimited amount of energy they can provide. They
 exist to model real connections to a public grid that can provide any remaining demand of
-energy. A grid input can also be configured to provide energy (if a thermal medium is
+energy. A grid supply can also be configured to provide energy (if a thermal medium is
 modelled) at a given temperature.
 """
-mutable struct GridInput <: Component
+mutable struct GridSupply <: Component
     uac::String
     controller::Controller
     sys_function::SystemFunction
@@ -120,27 +120,27 @@ mutable struct GridInput <: Component
 
     output_sum::Float64
 
-    function GridInput(uac::String, config::Dict{String,Any}, sim_params::Dict{String,Any})
-        return new(SSOT_parameter_constructor(GridInput, uac, config, sim_params)...)
+    function GridSupply(uac::String, config::AbstractDict{String,Any}, sim_params::Dict{String,Any})
+        return new(SSOT_parameter_constructor(GridSupply, uac, config, sim_params)...)
     end
 end
 
-function component_parameters(x::Type{GridInput})::Dict{String,Any}
-    return deepcopy(GRID_INPUT_PARAMETERS)
+function component_parameters(x::Type{GridSupply})::Dict{String,Any}
+    return deepcopy(GRID_SUPPLY_PARAMETERS)
 end
 
-function economic_parameters(x::Type{GridInput})::Dict{String,Any}
-    return deepcopy(GRID_INPUT_ECONOMIC_PARAMETERS)
+function economic_parameters(x::Type{GridSupply})::Dict{String,Any}
+    return deepcopy(GRID_SUPPLY_ECONOMIC_PARAMETERS)
 end
 
-function emissions_parameters(x::Type{GridInput})::Dict{String,Any}
-    return deepcopy(GRID_INPUT_EMISSIONS_PARAMETERS)
+function emissions_parameters(x::Type{GridSupply})::Dict{String,Any}
+    return deepcopy(GRID_SUPPLY_EMISSIONS_PARAMETERS)
 end
 
-function extract_parameter(x::Type{GridInput}, config::Dict{String,Any}, param_name::String,
+function extract_parameter(x::Type{GridSupply}, config::AbstractDict{String,Any}, param_name::String,
                            param_def::NamedTuple, sim_params::Dict{String,Any}, uac::String)
-    if param_name == "temperature_from_global_file"
-        return load_profile_from_global_weather_file(config, param_name, sim_params, uac)
+    if param_name == "use_ambient_temperature_from_weather_file"
+        return load_profile_from_weather_file(config, param_name, param_def, sim_params, uac)
     elseif param_name == "temperature_profile_file_path"
         return load_optional_profile(config, param_name, sim_params)
     elseif param_name == "constant_temperature"
@@ -150,21 +150,21 @@ function extract_parameter(x::Type{GridInput}, config::Dict{String,Any}, param_n
     return extract_parameter(Component, config, param_name, param_def, sim_params, uac)
 end
 
-function validate_config(x::Type{GridInput}, config::Dict{String,Any}, extracted::Dict{String,Any},
+function validate_config(x::Type{GridSupply}, config::AbstractDict{String,Any}, extracted::Dict{String,Any},
                          uac::String, sim_params::Dict{String,Any}, param_type::String)
     if param_type == "economy"
-        parameter = economic_parameters(GridInput)
+        parameter = economic_parameters(GridSupply)
         uac = uac * " - economic_parameters"
     elseif param_type == "emissions"
-        parameter = emissions_parameters(GridInput)
+        parameter = emissions_parameters(GridSupply)
         uac = uac * " - emissions_parameters"
     elseif param_type == "component"
-        parameter = component_parameters(GridInput)
+        parameter = component_parameters(GridSupply)
     end
     validate_config(Component, extracted, uac, sim_params, parameter)
 end
 
-function init_from_params(x::Type{GridInput}, uac::String, params::Dict{String,Any},
+function init_from_params(x::Type{GridSupply}, uac::String, params::Dict{String,Any},
                           raw_params::Dict{String,Any}, sim_params::Dict{String,Any})::Tuple
     medium = Symbol(params["medium"])
 
@@ -177,18 +177,20 @@ function init_from_params(x::Type{GridInput}, uac::String, params::Dict{String,A
             InterfaceMap(medium => nothing),         # output_interfaces
             params["economic_parameters"],
             params["emissions_parameters"],
-            some_or_none(params["temperature_profile_file_path"], params["temperature_from_global_file"]),
+            # Note that the two parameters in some_or_none() have misleading names, both can contain a profile 
+            # at this point and not just a path or a boolean value! They were overridden in SSOT_parameter_constructor().
+            some_or_none(params["temperature_profile_file_path"], params["use_ambient_temperature_from_weather_file"]),
             params["constant_temperature"],          # constant_temperature
             nothing,                                 # temperature
             0.0)                                     # output_sum
 end
 
-function initialise!(unit::GridInput, sim_params::Dict{String,Any})
+function initialise!(unit::GridSupply, sim_params::Dict{String,Any})
     set_storage_transfer!(unit.output_interfaces[unit.medium],
                           load_storages(unit.controller, unit.medium), unit.uac, unit.medium)
 end
 
-function control(unit::GridInput, components::Grouping, sim_params::Dict{String,Any})
+function control(unit::GridSupply, components::Grouping, sim_params::Dict{String,Any})
     update(unit.controller)
 
     if unit.constant_temperature !== nothing
@@ -200,7 +202,7 @@ function control(unit::GridInput, components::Grouping, sim_params::Dict{String,
     set_max_energy!(unit.output_interfaces[unit.medium], Inf, nothing, unit.temperature)
 end
 
-function process(unit::GridInput, sim_params::Dict{String,Any})
+function process(unit::GridSupply, sim_params::Dict{String,Any})
     outface = unit.output_interfaces[unit.medium]
     exchanges = balance_on(outface, outface.target)
 
@@ -229,11 +231,11 @@ function process(unit::GridInput, sim_params::Dict{String,Any})
     end
 end
 
-function get_reference_for_capex_and_embodied_emissions(unit::GridInput)
+function get_reference_for_capex_and_embodied_emissions(unit::GridSupply)
     return 1.0 # absolute costs here
 end
 
-function output_values(unit::GridInput)::Vector{String}
+function output_values(unit::GridSupply)::Vector{String}
     output_vals = [string(unit.medium) * ":OUT", "Output_sum"]
     if unit.temperature !== nothing
         push!(output_vals, "Temperature")
@@ -241,7 +243,7 @@ function output_values(unit::GridInput)::Vector{String}
     return output_vals
 end
 
-function output_value(unit::GridInput, key::OutputKey)::Float64
+function output_value(unit::GridSupply, key::OutputKey)::Float64
     if key.value_key == "OUT"
         return calculate_energy_flow(unit.output_interfaces[key.medium])
     elseif key.value_key == "Output_sum"
@@ -252,4 +254,4 @@ function output_value(unit::GridInput, key::OutputKey)::Float64
     throw(KeyError(key.value_key))
 end
 
-export GridInput
+export GridSupply

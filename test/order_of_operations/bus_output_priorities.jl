@@ -1,14 +1,14 @@
 using Debugger
 using Test
-using Resie
-using Resie.EnergySystems
+using ResieQuasi
+using ResieQuasi.EnergySystems
 
 include("../test_util.jl")
 
 function test_ooo_bus_output_priorities()
-    components_config = Dict{String,Any}(
+    components_config = OrderedDict{String,Any}(
         "TST_GRI_01" => Dict{String,Any}(
-            "type" => "GridInput",
+            "type" => "GridSupply",
             "medium" => "m_c_g_natgas",
             "output_refs" => ["TST_GBO_01"],
         ),
@@ -62,39 +62,39 @@ function test_ooo_bus_output_priorities()
         ),
     )
 
-    expected = [("TST_DEM_02", EnergySystems.s_reset),
-                ("TST_DEM_01", EnergySystems.s_reset),
-                ("TST_BUS_02", EnergySystems.s_reset),
-                ("TST_BUS_01", EnergySystems.s_reset),
+    expected = [("TST_DEM_01", EnergySystems.s_reset),
+                ("TST_DEM_02", EnergySystems.s_reset),
                 ("Proxy-TST_BUS_01|TST_BUS_03|TST_BUS_02", EnergySystems.s_reset),
+                ("TST_BUS_01", EnergySystems.s_reset),
+                ("TST_BUS_02", EnergySystems.s_reset),
                 ("TST_BUS_03", EnergySystems.s_reset),
                 ("TST_GBO_01", EnergySystems.s_reset),
                 ("TST_GRI_01", EnergySystems.s_reset),
-                ("TST_DEM_02", EnergySystems.s_control),
                 ("TST_DEM_01", EnergySystems.s_control),
-                ("TST_BUS_02", EnergySystems.s_control),
-                ("TST_BUS_01", EnergySystems.s_control),
+                ("TST_DEM_02", EnergySystems.s_control),
                 ("Proxy-TST_BUS_01|TST_BUS_03|TST_BUS_02", EnergySystems.s_control),
+                ("TST_BUS_01", EnergySystems.s_control),
+                ("TST_BUS_02", EnergySystems.s_control),
                 ("TST_BUS_03", EnergySystems.s_control),
                 ("TST_GBO_01", EnergySystems.s_control),
                 ("TST_GRI_01", EnergySystems.s_control),
-                ("TST_DEM_02", EnergySystems.s_process),
                 ("TST_DEM_01", EnergySystems.s_process),
-                ("TST_BUS_02", EnergySystems.s_process),
-                ("TST_BUS_01", EnergySystems.s_process),
+                ("TST_DEM_02", EnergySystems.s_process),
                 ("Proxy-TST_BUS_01|TST_BUS_03|TST_BUS_02", EnergySystems.s_process),
+                ("TST_BUS_01", EnergySystems.s_process),
+                ("TST_BUS_02", EnergySystems.s_process),
                 ("TST_BUS_03", EnergySystems.s_process),
                 ("TST_GBO_01", EnergySystems.s_process),
                 ("TST_GRI_01", EnergySystems.s_process),
                 ("Proxy-TST_BUS_01|TST_BUS_03|TST_BUS_02", EnergySystems.s_distribute),
-                ("TST_BUS_02", EnergySystems.s_distribute),
                 ("TST_BUS_01", EnergySystems.s_distribute),
+                ("TST_BUS_02", EnergySystems.s_distribute),
                 ("TST_BUS_03", EnergySystems.s_distribute)]
 
     simulation_parameters = get_default_sim_params()
 
-    components = Resie.load_components(components_config, simulation_parameters)
-    ooo = Resie.calculate_order_of_operations(components)
+    components = ResieQuasi.load_components(components_config, simulation_parameters)
+    ooo = ResieQuasi.calculate_order_of_operations(components)
     @test pwc_steps_astr(expected, ooo) == ""
 end
 

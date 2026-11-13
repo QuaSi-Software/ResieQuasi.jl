@@ -2,10 +2,141 @@
 # energy system components from the project config file, as well as constructing certain
 # helpful information data structures from the inputs in the config
 using JSON: JSON
-using OrderedCollections: OrderedDict
+using .Resie_Logger
 
 const HOURS_PER_SECOND::Float64 = 1.0 / 3600.0
 const SECONDS_PER_HOUR::Float64 = 3600.0
+
+"""
+Shared preparation cache used during parameter studies.
+
+The cache stores expensive, effectively read-only setup results that may be reused between
+simulation samples. Components themselves are intentionally not cached because component
+instances are mutable during a simulation run.
+"""
+mutable struct PreparationCache
+    lock::ReentrantLock
+    profiles::Dict{Any,Any}
+    weather_data::Dict{Any,Any}
+    operations::Dict{Any,Any}
+end
+
+PreparationCache() = PreparationCache(ReentrantLock(),
+                                      Dict{Any,Any}(),
+                                      Dict{Any,Any}(),
+                                      Dict{Any,Any}())
+
+function operation_cache_allowed(sim_params::Dict{String,Any})::Bool
+    parameter_study = get(sim_params, "parameter_study", Dict{String,Any}())
+
+    runtime = get(parameter_study, "runtime", Dict{String,Any}())
+
+    if !haskey(runtime, "parameter_keys")
+        return true
+    end
+
+    # Conservative blocklist. If one of these parameters is varied, the component graph
+    # or the operation order may change, so the operation cache is disabled.
+    structural_params = Set(["type",
+                             "medium",
+                             "m_el_in",
+                             "m_heat_in",
+                             "m_heat_out",
+                             "m_heat_out_secondary",
+                             "has_secondary_interface",
+                             "primary_el_sources",
+                             "secondary_el_sources",
+                             "input_refs",
+                             "output_refs",
+                             "input_order",
+                             "output_order",
+                             "connections",
+                             "energy_flow"])
+
+    for key in runtime["parameter_keys"]
+        parts = split(key, " ")
+        if parts[end] in structural_params
+            return false
+        end
+    end
+
+    return true
+end
+
+function operation_cache_key(project_config::AbstractDict{String,Any},
+                             sim_params::Dict{String,Any})::String
+    parameter_study = get(sim_params, "parameter_study", Dict{String,Any}())
+    runtime = get(parameter_study, "runtime", Dict{String,Any}())
+
+    component_cfg = deepcopy(project_config["components"])
+
+    # Non-structural varied component values should not invalidate the
+    # operation-order cache.
+    if haskey(runtime, "parameter_keys")
+        for key in runtime["parameter_keys"]
+            uac, param_key = split(key, " ")
+            if haskey(component_cfg, uac)
+                location = resolve_parameter_path(component_cfg[uac], param_key)
+                if location !== nothing
+                    container, leaf_key = location
+                    container[leaf_key] = "__PARAMETER_STUDY_NONSTRUCTURAL_VALUE__"
+                end
+            end
+        end
+    end
+
+    order_cfg = get(project_config, "order_of_operation", Any[])
+
+    return JSON.json(Dict(
+                         "components" => component_cfg,
+                         "order_of_operation" => order_cfg,
+                     ))
+end
+
+function build_operations(project_config::AbstractDict{String,Any},
+                          components::Grouping)::OrderOfOperations
+    if haskey(project_config, "order_of_operation") && length(project_config["order_of_operation"]) > 0
+        operations = load_order_of_operations(project_config["order_of_operation"], components)
+        @info "The order of operations was successfully imported from the input file.\n" *
+              "Note that the order of operations has a major impact on the simulation " *
+              "result and should only be changed by experienced users!"
+        return operations
+    else
+        return calculate_order_of_operations(components)
+    end
+end
+
+function get_operations(project_config::AbstractDict{String,Any},
+                        components::Grouping,
+                        sim_params::Dict{String,Any},
+                        preparation_cache::Union{Nothing,PreparationCache})::OrderOfOperations
+    if preparation_cache === nothing || !operation_cache_allowed(sim_params)
+        return build_operations(project_config, components)
+    end
+
+    key = operation_cache_key(project_config, sim_params)
+
+    cached = lock(preparation_cache.lock) do
+        get(preparation_cache.operations, key, nothing)
+    end
+
+    if cached !== nothing
+        # Return a fresh vector so reorderings of the run-local operation vector cannot
+        # mutate the cached template.
+        return deepcopy(cached)
+    end
+
+    operations = build_operations(project_config, components)
+
+    lock(preparation_cache.lock) do
+        if !haskey(preparation_cache.operations, key)
+            preparation_cache.operations[key] = deepcopy(operations)
+        end
+    end
+
+    return operations
+end
+
 
 #! format: off
 const IO_SETTINGS_DEF = Dict{String,Any}(
@@ -47,13 +178,13 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
                     "time step. Activating this functionality will ensure partial output " *
                     "if the simulation fails during execution, however it also incurs a " *
                     "substantial performance penalty due to frequent file access.",
-        display_name="Write CSV continously?",
+        display_name="Write CSV continuously?",
         required=false,
         type=Bool,
         json_type="boolean",
         unit="-"
     ),
-    "write_summary_CSV" => (
+    "write_summary_csv" => (
         default=true,
         description="Toggle if a CSV summary output with sum/mean values should be created " *
                     "additionally to the timestep-wise CSV output.",
@@ -63,10 +194,10 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="boolean",
         unit="-"
     ),
-    "csv_output_file" => (
+    "csv_output_file_path" => (
         default="./output/out.csv",
         description="File path to where the CSV output will be written",
-        display_name="CSV output file",
+        display_name="CSV output file path",
         required=false,
         type=String,
         json_type="string",
@@ -82,10 +213,10 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="string",
         unit="-"
     ),
-    "output_plot_file" => (
+    "output_plot_file_path" => (
         default="./output/output_plot.html",
         description="File path to where the output line plot will be written",
-        display_name="Output plot file",
+        display_name="Output plot file path",
         required=false,
         type=String,
         json_type="string",
@@ -103,10 +234,10 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="string",
         unit="-"
     ),
-    "sankey_plot_file" => (
+    "sankey_plot_file_path" => (
         default="./output/output_sankey.html",
         description="File path to where the Sankey plot will be written",
-        display_name="Sankey plot file",
+        display_name="Sankey plot file path",
         required=false,
         type=String,
         json_type="string",
@@ -122,6 +253,24 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="boolean",
         unit="-"
     ),
+    "general_logfile_file_path" => (
+        default="./output/logfile_general.log",
+        description="File path to where the general log file will be written",
+        display_name="General logfile file path",
+        required=false,
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
+    "balance_warn_logfile_file_path" => (
+        default="./output/logfile_balanceWarn.log",
+        description="File path to where the balance warn log file will be written",
+        display_name="Balance warn logfile file path",
+        required=false,
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
     "auxiliary_info" => (
         default=false,
         description="Toggle if auxiliary info about the current run should be written to " *
@@ -132,10 +281,10 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="boolean",
         unit="-"
     ),
-    "auxiliary_info_file" => (
+    "auxiliary_info_file_path" => (
         default="./output/auxiliary_info.md",
         description="File path to where the auxiliary information will be written",
-        display_name="Auxiliary info file",
+        display_name="Auxiliary info file path",
         required=false,
         type=String,
         json_type="string",
@@ -151,10 +300,10 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="boolean",
         unit="-"
     ),
-    "auxiliary_plots_path" => (
+    "auxiliary_plots_directory" => (
         default="./output/",
         description="Directory path to where the additional plots will be saved",
-        display_name="Auxiliary plots path",
+        display_name="Directory for auxiliary plots",
         required=false,
         type=String,
         json_type="string",
@@ -167,6 +316,7 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         display_name="Auxiliary plots formats",
         required=false,
         type=Vector{String},
+        options=["html", "pdf", "png", "ps", "svg"],
         json_type="list",
         unit="-"
     ),
@@ -206,7 +356,7 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="string",
         unit="-"
     ),
-    "output_economic_CSV" => (
+    "output_economic_csv" => (
         default=true,
         description="Toggle if a CSV with the economic results should be created",
         display_name="Output economic CSV?",
@@ -215,7 +365,7 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="boolean",
         unit="-"
     ),
-    "economic_CSV_file_path" => (
+    "economic_csv_file_path" => (
         default="./output/economic_results.csv",
         description="File path to where the economic results are written to CSV",
         display_name="Economic results CSV file path",
@@ -242,7 +392,7 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="string",
         unit="-"
     ),
-    "output_emissions_CSV" => (
+    "output_emissions_csv" => (
         default=true,
         description="Toggle if a CSV with the emission results should be created",
         display_name="Output emissions CSV?",
@@ -251,7 +401,7 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="boolean",
         unit="-"
     ),
-    "emissions_CSV_file_path" => (
+    "emissions_csv_file_path" => (
         default="./output/emissions_results.csv",
         description="File path to where the emissions are written to CSV",
         display_name="Emissions CSV file path",
@@ -376,6 +526,79 @@ const IO_SETTINGS_DEF = Dict{String,Any}(
         json_type="number",
         unit="-"
     ),
+    "output_parameter_study_csv" => (
+        default=true,
+        description="Toggle if CSV file(s) with the parameter-study results should be created",
+        display_name="Output parameter-study CSV?",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "parameter_study_csv_path_prefix" => (
+        default="./output/parameter_study",
+        description="Path including a filename prefix used to generate parameter-study CSV files. " *
+                    "An output-specific suffix and the file extension are appended automatically.",
+        display_name="Parameter-study CSV directory path with prefix",
+        required=false,
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
+    "write_parameter_study_csv_continuously" => (
+        default=false,
+        description="Toggle if parameter-study CSV output will be written continuously, " * 
+                    "meaning after every run. Activating this functionality will ensure " * 
+                    "partial output if the parameter study is stopped during execution. " *
+                    "It incurs a slight performance penalty depending on the run time of " *
+                    "one simulation and the number of parallel runs, since the threads " *
+                    "might have to wait for write access.", 
+        display_name="Write parameter-study CSV continuously?",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),   
+    "output_parameter_study_plots" => (
+        default=true,
+        description="Toggle if plots with the parameter-study results should be created",
+        display_name="Output parameter-study plots?",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "parameter_study_plots_path_prefix" => (
+        default="./output/parameter_study_plots",
+        description="Path including a filename prefix used to generate parameter-study result plots. " *
+                    "An output-specific suffix and the file extension are appended automatically.",
+        display_name="Parameter-study plots directory path with prefix",
+        required=false,
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
+    "enable_plot_downsampling" => (
+        default=true,
+        description="Toggle if big plots should be downsampled to keep the size of the " *
+                    "html file low enough to handle.",
+        display_name="Enable plot downsampling?",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "plot_downsampling_max_number_values" => (
+        default=10_000_000,
+        description="Defines the maximum number of values that are allowed in a plot. " *
+                    "Works together with plot downsampling.",
+        display_name="Maximum number of values in a plot",
+        required=false,
+        validations=[("self", "value_gt_num", 0)],
+        type=Integer,
+        json_type="number",
+        unit="-"
+    )
 )
 
 const SIMULATION_PARAMETERS_DEF = Dict{String,Any}(
@@ -410,10 +633,10 @@ const SIMULATION_PARAMETERS_DEF = Dict{String,Any}(
         json_type="string",
         unit="-"
     ),
-    "start_end_unit" => (
+    "start_date_format" => (
         description="Datetime format specifier for parameters `start`, `start_output` " *
-                    "and `end`",
-        display_name="Start/end format",
+                    "and `end`.",
+        display_name="Start/end date format",
         required=true,
         type=String,
         json_type="string",
@@ -653,8 +876,436 @@ EMISSIONS_PARAMATERS_DEF = Dict{String,Any}(
 OUTPUT_SPECIFICATION_SETTINGS = [
     ("output_plot", "output_plot_spec"),
     ("sankey_plot", "sankey_plot_spec"),
-    ("csv_output", "csv_output_keys"),
+    ("csv_output", "csv_output_keys")
 ]
+
+const OPTIMISER_LIMITS_DEF = Dict{String,Any}(
+    "max_runs" => (
+        default=nothing,
+        description="Maximum number of objective evaluations executed by the optimiser.",
+        display_name="Maximum runs",
+        required=false,
+        validations=[("self", "value_gte_num_or_nothing", 1)],
+        type=Int64,
+        json_type="number",
+        unit="-"
+    ),
+    "max_time" => (
+        default=nothing,
+        description="Maximum optimisation runtime in seconds.",
+        display_name="Maximum time",
+        required=false,
+        validations=[("self", "value_gte_num_or_nothing", 0.0)],
+        type=Float64,
+        json_type="number",
+        unit="s"
+    ),
+    "x_tol_abs" => (
+        default=nothing,
+        description="Tolerance for normalised optimisation parameters in the range " *
+                    "[0, 1]. It is translated to the closest backend-specific stopping " *
+                    "criterion, which may be absolute or relative; support depends on " *
+                    "the selected algorithm.",
+        display_name="Parameter tolerance",
+        required=false,
+        conditionals=[("type", "is_one_of", ("Optim", "NLopt", "NOMAD"))],
+        validations=[("self", "value_gt_num_or_nothing", 0.0)],
+        type=Float64,
+        json_type="number",
+        unit="-"
+    ),
+    "f_tol_abs" => (
+        default=nothing,
+        description="Tolerance for changes or spread in the objective function. It is " *
+                    "translated to the closest backend-specific stopping criterion; " *
+                    "support depends on the selected algorithm.",
+        display_name="Objective tolerance",
+        required=false,
+        conditionals=[("type", "is_one_of", ("Optim", "BlackBoxOptim", "NLopt"))],
+        validations=[("self", "value_gt_num_or_nothing", 0.0)],
+        type=Float64,
+        json_type="number",
+        unit="-"
+    ),
+)
+
+const REFINEMENT_OPTIMISATION_DEF = Dict{String,Any}(
+    "type" => (
+        default=nothing,
+        description="Optimisation backend used for the refinement stage.",
+        display_name="Refinement optimisation type",
+        required=true,
+        options=["Optim", "BlackBoxOptim", "Metaheuristics", "NLopt", "NOMAD"],
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
+    "algorithm" => (
+        default=nothing,
+        description="Algorithm used by the selected refinement optimisation backend.",
+        display_name="Refinement algorithm",
+        required=true,
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
+    "max_runs" => OPTIMISER_LIMITS_DEF["max_runs"],
+    "max_time" => OPTIMISER_LIMITS_DEF["max_time"],
+    "x_tol_abs" => OPTIMISER_LIMITS_DEF["x_tol_abs"],
+    "f_tol_abs" => OPTIMISER_LIMITS_DEF["f_tol_abs"],
+    "optim_kwargs" => (
+        default=nothing,
+        description="Additional keyword arguments passed to the selected refinement backend.",
+        display_name="Refinement keyword arguments",
+        required=false,
+        type=Dict{String,Any},
+        json_type="object",
+        unit="-"
+    ),
+)
+
+const PARAMETER_STUDY_PARAMETER_DEF = Dict{String,Any}(
+    "bounds_min" => (
+        default=nothing,
+        description="Lower bound used by optimisation and global sensitivity.",
+        display_name="Minimum bound",
+        required=false,
+        type=Float64,
+        json_type="number",
+        unit="-"
+    ),
+    "bounds_max" => (
+        default=nothing,
+        description="Upper bound used by optimisation and global sensitivity.",
+        display_name="Maximum bound",
+        required=false,
+        type=Float64,
+        json_type="number",
+        unit="-"
+    ),
+    "start" => (
+        default=nothing,
+        description="Initial optimisation value or standalone local-sensitivity reference.",
+        display_name="Start value",
+        required=false,
+        type=Float64,
+        json_type="number",
+        unit="-"
+    ),
+    "sensitivity_lower" => (
+        default=nothing,
+        description="Explicit lower evaluation value for local sensitivity.",
+        display_name="Lower sensitivity value",
+        required=false,
+        type=Float64,
+        json_type="number",
+        unit="-"
+    ),
+    "sensitivity_upper" => (
+        default=nothing,
+        description="Explicit upper evaluation value for local sensitivity.",
+        display_name="Upper sensitivity value",
+        required=false,
+        type=Float64,
+        json_type="number",
+        unit="-"
+    ),
+    "values" => (
+        default=nothing,
+        description="Explicit discrete values used for parameter variation.",
+        display_name="Parameter variation values",
+        required=false,
+        type=Vector,
+        json_type="list",
+        unit="-"
+    ),
+    "range_start" => (
+        default=nothing,
+        description="First value of a generated parameter-variation range.",
+        display_name="Range start",
+        required=false,
+        type=Float64,
+        json_type="number",
+        unit="-"
+    ),
+    "range_stop" => (
+        default=nothing,
+        description="Last value of a generated parameter-variation range.",
+        display_name="Range stop",
+        required=false,
+        type=Float64,
+        json_type="number",
+        unit="-"
+    ),
+    "range_step" => (
+        default=nothing,
+        description="Step size of a generated parameter-variation range.",
+        display_name="Range step",
+        required=false,
+        type=Float64,
+        json_type="number",
+        unit="-"
+    ),
+    "range_length" => (
+        default=nothing,
+        description="Number of values in a generated parameter-variation range.",
+        display_name="Range length",
+        required=false,
+        validations=[("self", "value_gte_num_or_nothing", 2)],
+        type=Integer,
+        json_type="number",
+        unit="-"
+    ),
+)
+
+const PARAMETER_STUDY_DEF = Dict{String,Any}(
+    "parameters" => (
+        default=nothing,
+        description="Defines the project parameters used by the parameter study. Each " *
+                    "selected parameter can define bounds, an initial value, explicit " *
+                    "or generated variation values and local-sensitivity values.",
+        display_name="Parameter study parameters",
+        required=true,
+        type=Dict{String,Any},
+        json_type="object",
+        unit="-"
+    ),
+    "objective_params" => (
+        default=nothing,
+        description="Defines which parameters are set as the objective. Definition " *
+                    "follows the definition of components. See the documentation for " *
+                    "more details.",
+        display_name="Objective parameters",
+        required=true,
+        type=Dict{String,Any},
+        json_type="object",
+        unit="-"
+    ),
+    "objective_function" => (
+        default="sum",
+        description="Defines how objective_params are combined. Supported values are " *
+                    "`sum`, `linear` and `multi-objective`. For `linear`, coefficients " *
+                    "must be supplied by objective_factors using the flattened objective " *
+                    "parameter names as keys.",
+        display_name="Objective function",
+        required=false,
+        options=["sum", "linear", "multi-objective"],
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
+    "objective_factors" => (
+        default=nothing,
+        description="Named coefficients for objective_function=`linear`. Every flattened " *
+                    "objective parameter key must occur exactly once. Example: " *
+                    "{\"economic total_annuity\": 1.0, " *
+                    "\"sum GridOut m_e_ac_230v IN\": -2.0}.",
+        display_name="Linear objective factors",
+        required=false,
+        conditionals=[("objective_function", "is", "linear")],
+        type=Dict{String,Any},
+        json_type="object",
+        unit="-"
+    ),
+    "objective_senses" => (
+        default=nothing,
+        description="Defines whether each objective is minimised or maximised " *
+                    "for objective_function=`multi-objective`. Keys must exactly " *
+                    "match the flattened objective parameter names. Allowed " *
+                    "values are `min` and `max`. If omitted, all objectives are " *
+                    "minimised.",
+        display_name="Objective directions",
+        required=false,
+        conditionals=[("objective_function", "is", "multi-objective")],
+        type=Dict{String,Any},
+        json_type="object",
+        unit="-",
+    ),
+    "disable_all_simulation_outputs" => (
+        default=true,
+        description="Disables simulation outputs written to the hard drive during " *
+                    "parameter studies.",
+        display_name="Disable all simulation outputs",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "parameter_variation" => (
+        default=nothing,
+        description="Configuration of a parameter variation.",
+        display_name="Parameter variation",
+        required=false,
+        type=Dict{String,Any},
+        json_type="object",
+        unit="-"
+    ),
+    "optimisation" => (
+        default=nothing,
+        description="Configuration of an optimisation.",
+        display_name="Optimisation",
+        required=false,
+        type=Dict{String,Any},
+        json_type="object",
+        unit="-"
+    ),
+    "sensitivity_analysis" => (
+        default=nothing,
+        description="Configuration of global and local sensitivity analyses.",
+        display_name="Sensitivity analysis",
+        required=false,
+        type=Dict{String,Any},
+        json_type="object",
+        unit="-"
+    ),
+)
+
+const PARAMETER_VARIATION_DEF = Dict{String,Any}(
+    "run_parameter_variation" => (
+        default=false,
+        description="If set to true, executes the configured parameter variation.",
+        display_name="Run parameter variation?",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "algorithm" => (
+        default="product",
+        description="Combination method for parameter values. Supported values are " *
+                    "product, zip and random_*, where * is the number of samples.",
+        display_name="Parameter variation algorithm",
+        required=false,
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
+)
+
+const PARAMETER_STUDY_OPTIMISATION_DEF = Dict{String,Any}(
+    "run_optimisation" => (
+        default=false,
+        description="If set to true, runs the configured optimisation.",
+        display_name="Run optimisation?",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "type" => (
+        default="NLopt",
+        description="Selects the optimisation backend.",
+        display_name="Optimisation type",
+        required=true,
+        conditionals=[("run_optimisation", "is", true)],
+        options=["Optim", "BlackBoxOptim", "Metaheuristics", "NLopt", "NOMAD"],
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
+    "algorithm" => (
+        default="LN_SBPLX",
+        description="Algorithm used by the selected optimisation backend.",
+        display_name="Optimisation algorithm",
+        required=false,
+        conditionals=[("run_optimisation", "is", true)],
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
+    "max_runs" => OPTIMISER_LIMITS_DEF["max_runs"],
+    "max_time" => OPTIMISER_LIMITS_DEF["max_time"],
+    "x_tol_abs" => OPTIMISER_LIMITS_DEF["x_tol_abs"],
+    "f_tol_abs" => OPTIMISER_LIMITS_DEF["f_tol_abs"],
+    "optim_kwargs" => (
+        default=nothing,
+        description="Additional keyword arguments passed to the selected optimisation backend.",
+        display_name="Optimisation keyword arguments",
+        required=false,
+        type=Dict{String,Any},
+        json_type="object",
+        unit="-"
+    ),
+    "refinement" => (
+        default=nothing,
+        description="Optional second optimisation stage starting from the best result " *
+                    "of the primary optimisation. Its nested fields are exposed as " *
+                    "refinement_optimisation by all_general_parameters().",
+        display_name="Refinement optimiser",
+        required=false,
+        type=Dict{String,Any},
+        json_type="object",
+        unit="-"
+    ),
+)
+
+const SENSITIVITY_ANALYSIS_DEF = Dict{String,Any}(
+    "run_global_sensitivity" => (
+        default=false,
+        description="If set to true, calculates global sensitivity indices. Existing " *
+                    "results from a parameter variation or optimisation are reused.",
+        display_name="Run global sensitivity analysis?",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "run_local_sensitivity" => (
+        default=false,
+        description="If set to true, calculates local sensitivity around configured " *
+                    "start values or the best optimisation result.",
+        display_name="Run local sensitivity analysis?",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "local_reference" => (
+        default="start",
+        description="Reference point for local sensitivity. Use `start` for configured " *
+                    "parameter start values or `best_result` for the best result so far " *
+                    "from optimisation or global sensitivity analysis.",
+        display_name="Local sensitivity reference",
+        required=false,
+        options=["start", "best_result"],
+        type=String,
+        json_type="string",
+        unit="-"
+    ),
+    "local_variation" => (
+        default=0.1,
+        description="Relative variation applied in positive and negative direction when " *
+                    "no explicit sensitivity_lower and sensitivity_upper values are set.",
+        display_name="Local relative variation",
+        required=false,
+        validations=[("self", "value_gt_num", 0.0)],
+        type=Float64,
+        json_type="number",
+        unit="-"
+    ),
+    "include_local_sensitivity_results_in_figures" => (
+        default=true,
+        description="If set to true, simulation results generated exclusively for local " *
+                    "sensitivity analysis are additionally included in the general " *
+                    "parameter-study result figures.",
+        display_name="Include local sensitivity results in figures?",
+        required=false,
+        type=Bool,
+        json_type="boolean",
+        unit="-"
+    ),
+    "max_runs" => (
+        default=nothing,
+        description="Maximum number of (additional) simulation performed for global " *
+                    "sensitivity. If omitted, twice the optimisation max_runs value are used.",
+        display_name="Maximum sensitivity runs",
+        required=false,
+        validations=[("self", "value_gte_num_or_nothing", 0)],
+        type=Int64,
+        json_type="number",
+        unit="-"
+    ),
+)
 #! format: on
 
 """
@@ -666,6 +1317,49 @@ function read_JSON(filepath::String)::OrderedDict{String,Any}
     open(filepath, "r") do file_handle
         content = read(file_handle, String)
         return JSON.parse(content; dicttype=OrderedDict)
+    end
+end
+
+"""
+    get_min_log_level(project_config, logger)
+
+Determine log level:
+- for parameter-study runs, allow only logs >= GlobalInfo
+- for single simulations, set min log level to Info level
+
+Therefore, we need early access to the parameter-study run flags.
+
+# Arguments
+- `project_config::OrderedDict{String,Any}`: Base project configuration used to generate
+  simulation variants.
+- `logger::Union{Nothing,Resie_Logger.CustomLogger}`: Logger used for ReSiE
+# Returns
+- `min_log_level::LogLevel`: minimum log level used in ReSiE for logging
+"""
+function get_min_log_level(project_config, logger)
+    parameter_study = get(project_config, "parameter_study", nothing)
+    parameter_variation = parameter_study isa AbstractDict ?
+                          something(get(parameter_study, "parameter_variation", nothing), Dict{String,Any}()) :
+                          Dict{String,Any}()
+    optimisation = parameter_study isa AbstractDict ?
+                   something(get(parameter_study, "optimisation", nothing), Dict{String,Any}()) :
+                   Dict{String,Any}()
+    sensitivity_analysis = parameter_study isa AbstractDict ?
+                           something(get(parameter_study, "sensitivity_analysis", nothing), Dict{String,Any}()) :
+                           Dict{String,Any}()
+    run_parameter_study = get(parameter_variation, "run_parameter_variation", false) == true ||
+                          get(optimisation, "run_optimisation", false) == true ||
+                          get(sensitivity_analysis, "run_global_sensitivity", false) == true ||
+                          get(sensitivity_analysis, "run_local_sensitivity", false) == true
+
+    if logger !== nothing
+        if run_parameter_study
+            # for parameter studies, allow only logs >= GlobalInfo
+            min_log_level = Resie_Logger.GlobalInfo
+        else
+            # for single simulations, set min log level to Info level
+            min_log_level = Resie_Logger.Info
+        end
     end
 end
 
@@ -684,7 +1378,7 @@ function get_io_settings(project_config::AbstractDict{String,Any})::Dict{String,
     # (even though we are not checking components...)
     io_settings = Dict{String,Any}()
     for (name, param_def) in pairs(IO_SETTINGS_DEF)
-        if name in ["sankey_plot_spec", "output_plot_spec", "csv_output_keys"]
+        if name in last.(OUTPUT_SPECIFICATION_SETTINGS)
             continue
         end
         io_settings[name] = EnergySystems.extract_parameter(EnergySystems.Component, project_config["io_settings"],
@@ -738,13 +1432,15 @@ end
 Constructs the dictionary of simulation parameters.
 
 # Arguments
--`project_config::Dict{String,Any}`: The project config
+-`project_config::AbstractDict{String,Any}`: The project config
 -`io_settings::Dict{String,Any}`: IO settings, already extracted from the project config
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable simulation preparation data.
 # Returns
 -`Dict{String,Any}`: The simulation parameter dictionary
 """
 function get_simulation_params(project_config::AbstractDict{String,Any},
-                               io_settings::Dict{String,Any})::Dict{String,Any}
+                               io_settings::Dict{String,Any};
+                               preparation_cache::Union{Nothing,PreparationCache}=nothing)::Dict{String,Any}
     # load time and step info directly, bypassing extraction and validation
     time_step,
     start_date,
@@ -757,7 +1453,7 @@ function get_simulation_params(project_config::AbstractDict{String,Any},
     # (even though we are not checking components...)
     sim_params = Dict{String,Any}()
     for (name, param_def) in pairs(SIMULATION_PARAMETERS_DEF)
-        if name in ["start", "start_output", "end", "start_end_unit", "time_step", "time_step_unit"]
+        if name in ["start", "start_output", "end", "start_date_format", "time_step", "time_step_unit"]
             continue
         end
         sim_params[name] = EnergySystems.extract_parameter(EnergySystems.Component,
@@ -785,8 +1481,13 @@ function get_simulation_params(project_config::AbstractDict{String,Any},
                            "show_detailed_errors" => io_settings["show_detailed_errors"],
                        ))
 
+    if preparation_cache !== nothing
+        sim_params["preparation_cache"] = preparation_cache
+    end
+
     sim_params["economic_parameters"] = get_economic_parameters(project_config, sim_params)
     sim_params["emissions_parameters"] = get_emissions_parameters(project_config, sim_params)
+    sim_params["parameter_study"] = get_parameter_study_parameters(project_config, sim_params)
 
     # add helper functions to convert power to work and vice-versa. this uses the time step
     # of the simulation as the duration required for the conversion.
@@ -805,48 +1506,124 @@ function get_simulation_params(project_config::AbstractDict{String,Any},
     # load weather profiles accessible for all components
     weather_file_path = sim_params["weather_file_path"]
     if weather_file_path !== nothing
-        # WeatherData() writes the latitude and longitude to sim_params if either of them is
-        # nothing at this point
-        sim_params["weather_data"] = WeatherData(sim_params["run_path"](weather_file_path),
-                                                 sim_params,
-                                                 guess_file_format(sim_params["run_path"](weather_file_path)),
-                                                 sim_params["weather_interpolation_type_solar"],
-                                                 sim_params["weather_interpolation_type_general"])
+        weather_path_abs = sim_params["run_path"](weather_file_path)
+
+        if preparation_cache === nothing
+            # WeatherData() writes the latitude and longitude to sim_params if either of them is
+            # nothing at this point
+            @globalInfo "Loading weather data..."
+            sim_params["weather_data"] = WeatherData(weather_path_abs,
+                                                     sim_params,
+                                                     guess_file_format(weather_path_abs),
+                                                     sim_params["weather_interpolation_type_solar"],
+                                                     sim_params["weather_interpolation_type_general"])
+        else
+            # WeatherData may infer latitude, longitude, and time_zone from the file and write
+            # them into sim_params. Cache those inferred values together with the weather data.
+            key = (weather_path_abs,
+                   sim_params["start_date"],
+                   sim_params["end_date"],
+                   sim_params["time_step_seconds"],
+                   sim_params["weather_interpolation_type_solar"],
+                   sim_params["weather_interpolation_type_general"],
+                   sim_params["latitude"],
+                   sim_params["longitude"],
+                   sim_params["time_zone"])
+
+            entry = lock(preparation_cache.lock) do
+                get(preparation_cache.weather_data, key, nothing)
+            end
+
+            if entry === nothing
+                @globalInfo "Loading weather data..."
+                weather_data = WeatherData(weather_path_abs,
+                                           sim_params,
+                                           guess_file_format(weather_path_abs),
+                                           sim_params["weather_interpolation_type_solar"],
+                                           sim_params["weather_interpolation_type_general"])
+
+                entry = (weather_data=weather_data,
+                         latitude=sim_params["latitude"],
+                         longitude=sim_params["longitude"],
+                         time_zone=sim_params["time_zone"])
+
+                lock(preparation_cache.lock) do
+                    if !haskey(preparation_cache.weather_data, key)
+                        preparation_cache.weather_data[key] = entry
+                    else
+                        entry = preparation_cache.weather_data[key]
+                    end
+                end
+            end
+
+            sim_params["weather_data"] = entry.weather_data
+            sim_params["latitude"] = entry.latitude
+            sim_params["longitude"] = entry.longitude
+            sim_params["time_zone"] = entry.time_zone
+        end
     end
 
     return sim_params
 end
 
 """
-    prepare_inputs(project_config)
+    prepare_inputs(project_config, run_ID)
 
 Construct and prepare parameters, energy system components and the order of operation.
 
 # Arguments
 -`project_config::AbstractDict{String,Any}`: The project config
+-`run_ID::UUID`: The run ID used in the run registry
+- `preparation_cache::Union{Nothing,PreparationCache}`: Optional shared cache for reusable simulation preparation data.
 # Returns
 -`Dict{String,Any}`: Simulation parameters
 -`Dict{String,Any}`: IO settings
 -`Grouping`: The constructed energy system components
 -`OrderOfOperations`: Order of operations
 """
-function prepare_inputs(project_config::AbstractDict{String,Any}, run_ID::UUID)
+function prepare_inputs(project_config::AbstractDict{String,Any},
+                        run_ID::UUID;
+                        preparation_cache::Union{Nothing,PreparationCache}=nothing)
     io_settings = get_io_settings(project_config)
-    sim_params = get_simulation_params(project_config, io_settings)
+    sim_params = get_simulation_params(project_config, io_settings;
+                                       preparation_cache=preparation_cache)
     sim_params["run_ID"] = run_ID
 
     components = load_components(project_config["components"], sim_params)
-
-    if haskey(project_config, "order_of_operation") && length(project_config["order_of_operation"]) > 0
-        operations = load_order_of_operations(project_config["order_of_operation"], components)
-        @info "The order of operations was successfully imported from the input file.\n" *
-              "Note that the order of operations has a major impact on the simulation " *
-              "result and should only be changed by experienced users!"
-    else
-        operations = calculate_order_of_operations(components)
-    end
+    operations = get_operations(project_config, components, sim_params, preparation_cache)
 
     return sim_params, io_settings, components, operations
+end
+
+"""
+    resolve_parameter_path(config, parameter_path)
+
+Resolve a parameter path in a configuration dictionary.
+
+The path may reference a direct key, such as `volume`, or a nested key using
+dot-separated notation, such as `economic_parameters.lifetime_years`. Direct
+keys are checked first.
+
+# Arguments
+- `config::AbstractDict`: Configuration dictionary in which the parameter is located.
+- `parameter_path::AbstractString`: Direct key or dot-separated path to the parameter.
+
+# Returns
+- `Union{Tuple{AbstractDict,String},Nothing}`: The dictionary containing the parameter
+  and its final key, or `nothing` if the path does not exist.
+"""
+function resolve_parameter_path(config::AbstractDict, parameter_path::AbstractString)
+    haskey(config, parameter_path) && return config, String(parameter_path)
+
+    parts = String.(split(parameter_path, "."))
+    current = config
+
+    for part in parts[1:(end - 1)]
+        current isa AbstractDict && haskey(current, part) || return nothing
+        current = current[part]
+    end
+
+    return current isa AbstractDict && haskey(current, parts[end]) ? (current, parts[end]) : nothing
 end
 
 """
@@ -907,13 +1684,13 @@ required for the particular component. The `type` parameter must be present and 
 the symbol of the component class exactly. The structure is described in more detail in the
 accompanying documentation on the project file.
 """
-function load_components(config_ordered::AbstractDict{String,Any}, sim_params::Dict{String,Any})::Grouping
+function load_components(config::AbstractDict{String,Any}, sim_params::Dict{String,Any})::Grouping
     # convert OrderedDict to normal Dict to have a normal dict in all components as they do not
     # require any sorting
     to_dict(x) = x
     to_dict(x::OrderedDict) = Dict{String,Any}(k => to_dict(v) for (k, v) in x)
     to_dict(x::AbstractVector) = map(to_dict, x)
-    config = to_dict(config_ordered)
+    # config = to_dict(config_ordered)
 
     components = Grouping()
 
@@ -981,7 +1758,7 @@ function load_components(config_ordered::AbstractDict{String,Any}, sim_params::D
                 continue
             end
             module_class = mapping[module_config["name"]]
-            push!(unit.controller.modules, module_class(module_config, components, sim_params, unit.uac))
+            push!(unit.controller.modules, module_class(to_dict(module_config), components, sim_params, unit.uac))
         end
     end
 
@@ -1063,48 +1840,83 @@ function reorder_interfaces_of_bus!(bus::EnergySystems.Bus)
 end
 
 """
-get_timesteps(simulation_parameters)
+    get_timesteps(simulation_parameters)
 
-Function to read in the time step information from the input file.
-If no information is given in the input file, the following defaults 
-will be set:
-time_step = 900 s
+Extract and validate the time-related simulation parameters against their SSOT
+specifications, then derive the simulation dates and timestep counts.
+
+If omitted, `time_step` defaults to 900 and `time_step_unit` to "seconds".
+`start_date_format` replaces `start_end_unit`; the latter remains a legacy alias.
 """
 function get_timesteps(simulation_parameters::AbstractDict{String,Any})
-    start_date = DateTime(0)
-    start_date_output = DateTime(0)
-    end_date = DateTime(0)
-    try
-        start_date = Dates.DateTime(simulation_parameters["start"], simulation_parameters["start_end_unit"])
-        end_date = Dates.DateTime(simulation_parameters["end"], simulation_parameters["start_end_unit"])
-        if haskey(simulation_parameters, "start_output")
-            start_date_output = Dates.DateTime(simulation_parameters["start_output"],
-                                               simulation_parameters["start_end_unit"])
-        else
-            start_date_output = start_date
+    # Normalise the former name before extracting the SSOT parameters. Work on
+    # a copy so the original project configuration is not modified.
+    config = Dict{String,Any}(pairs(simulation_parameters))
+    if haskey(config, "start_end_unit")
+        if haskey(config, "start_date_format")
+            @error "Simulation parameters `start_date_format` and its legacy name " *
+                   "`start_end_unit` cannot both be specified. Use `start_date_format`."
+            throw(InputError())
         end
+        config["start_date_format"] = pop!(config, "start_end_unit")
+    end
+
+    time_parameter_names = ("start", "start_output", "end", "start_date_format", "time_step", "time_step_unit")
+    definitions = Dict{String,Any}(name => SIMULATION_PARAMETERS_DEF[name]
+                                   for name in time_parameter_names)
+    extracted = Dict{String,Any}()
+    for name in time_parameter_names
+        extracted[name] = EnergySystems.extract_parameter(EnergySystems.Component,
+                                                          config, name, definitions[name],
+                                                          Dict{String,Any}(), "Sim params")
+    end
+
+    # Applying the general SSOT validations
+    EnergySystems.validate_config(EnergySystems.Component, extracted, "Sim params",
+                                  Dict{String,Any}(), definitions)
+
+    # Use the extracted format for all three dates. `start_output` defaults to
+    # nothing in the SSOT and therefore falls back to `start`.
+    date_format = extracted["start_date_format"]
+    local start_date, start_date_output, end_date
+    try
+        start_date = Dates.DateTime(extracted["start"], date_format)
+        end_date = Dates.DateTime(extracted["end"], date_format)
+        start_date_output = extracted["start_output"] === nothing ?
+                            start_date : Dates.DateTime(extracted["start_output"], date_format)
     catch e
-        @error("Time given 'start_end_unit' of the simulation parameters does not fit to the data.\n" *
-               "'start_end_unit' has to be a daytime format, e.g. 'dd-mm-yyyy HH:MM:SS'.\n" *
-               "'start_end_unit' is `$(simulation_parameters["start_end_unit"])` which does not fit to the start" *
-               "and end time given: `$(simulation_parameters["start"])` and `$(simulation_parameters["end"])`.\n" *
-               "The following error occurred: $e")
+        @error "Invalid simulation date or `start_date_format` '$date_format'. " *
+               "Expected all provided dates (`start`, `start_output`, `end`) to match " *
+               "the given format, e.g. 'dd-mm-yyyy HH:MM:SS'. start=$(repr(extracted["start"])), " *
+               "start_output=$(repr(extracted["start_output"])), " *
+               "end=$(repr(extracted["end"])). Error: $e"
         throw(InputError())
     end
     if start_date_output < start_date
-        @error "The start date of the output can not be prior to the start date of the simulation!"
+        @error "Simulation parameter `start_output` ($start_date_output) must not be earlier than `start` ($start_date)."
         throw(InputError())
     end
-    if simulation_parameters["time_step_unit"] == "seconds"
-        time_step = simulation_parameters["time_step"]
-    elseif simulation_parameters["time_step_unit"] == "minutes"
-        time_step = simulation_parameters["time_step"] * 60
-    elseif simulation_parameters["time_step_unit"] == "hours"
-        time_step = simulation_parameters["time_step"] * 60 * 60
-    else
-        time_step = 900
-        @info("The simulation time step is set to 900 s as default, as it could not be found in the input file" *
-              "(`time_step` and `time_step_unit` have to be given!).")
+    if end_date < start_date
+        @error "Simulation parameter `end` ($end_date) must not be earlier than `start` ($start_date)."
+        throw(InputError())
+    end
+    if start_date_output > end_date
+        @error "Simulation parameter `start_output` ($start_date_output) " *
+               "must not be later than the effective simulation end ($end_date)."
+        throw(InputError())
+    end
+
+    # SSOT validation guarantees a positive integral `time_step`.
+    multiplier = extracted["time_step_unit"] == "seconds" ? 1 : extracted["time_step_unit"] == "minutes" ? 60 : 3600
+    time_step = try
+        Base.checked_mul(Int(extracted["time_step"]), multiplier)
+    catch e
+        if e isa OverflowError || e isa InexactError
+            @error "Simulation parameter `time_step` ($(extracted["time_step"])) " *
+                   "is too large when converted from '$(extracted["time_step_unit"]))' to seconds."
+            throw(InputError())
+        end
+        rethrow()
     end
 
     nr_of_steps = UInt(max(0, floor(Dates.value(Second(sub_ignoring_leap_days(end_date, start_date))) / time_step)) + 1)
@@ -1118,7 +1930,7 @@ function get_timesteps(simulation_parameters::AbstractDict{String,Any})
     if (month(start_date) == 2 && day(start_date) == 29) ||
        (month(end_date) == 2 && day(end_date) == 29) ||
        (month(start_date_output) == 2 && day(start_date_output) == 29)
-        @error "The simulation start and end date and the start date of the output can not be at a leap day!"
+        @error "The simulation start and end date and the start date of the output cannot be on a leap day!"
         throw(InputError())
     end
     return UInt(time_step), start_date, start_date_output, end_date, nr_of_steps, nr_of_steps_output
@@ -1130,7 +1942,7 @@ end
 Extract economic parameters form input file.
 
 Args:
--`project_config::Dict{String,Any}`: The project config data
+-`project_config::AbstractDict{String,Any}`: The project config data
 -`sim_params::Dict{String,Any}`: Simulation parameters, that have been extracted so far
 Return:
 -`Dict{String,Any}`: The economic parameters from the input file. If none are given,
@@ -1157,9 +1969,11 @@ function get_economic_parameters(project_config::AbstractDict{String,Any},
     EnergySystems.validate_config(EnergySystems.Component, economic_parameters, "Economic parameters",
                                   sim_params, ECONOMIC_PARAMETERS_DEF)
 
-    economic_parameters["repeat_period"], economic_parameters["repeat_method"] = get_repeat_period(economic_parameters["repeat_method"],
-                                                                                                   sim_params,
-                                                                                                   "economic")
+    if economic_parameters["calculate_economy"]
+        economic_parameters["repeat_period"], economic_parameters["repeat_method"] = get_repeat_period(economic_parameters["repeat_method"],
+                                                                                                       sim_params,
+                                                                                                       "economic")
+    end
 
     return economic_parameters
 end
@@ -1206,7 +2020,7 @@ end
 Extract emissions parameters form input file.
 
 Args:
--`project_config::Dict{String,Any}`: The project config data
+-`project_config::AbstractDict{String,Any}`: The project config data
 -`sim_params::Dict{String,Any}`: Simulation parameters, that have been extracted so far
 Return:
 -`Dict{String,Any}`: The emissions parameters from the input file. If none are given,
@@ -1233,11 +2047,46 @@ function get_emissions_parameters(project_config::AbstractDict{String,Any},
     EnergySystems.validate_config(EnergySystems.Component, emissions_parameters, "Emissions parameters",
                                   sim_params, EMISSIONS_PARAMATERS_DEF)
 
-    emissions_parameters["repeat_period"], emissions_parameters["repeat_method"] = get_repeat_period(emissions_parameters["repeat_method"],
-                                                                                                     sim_params,
-                                                                                                     "emissions")
+    if emissions_parameters["calculate_emissions"]
+        emissions_parameters["repeat_period"], emissions_parameters["repeat_method"] = get_repeat_period(emissions_parameters["repeat_method"],
+                                                                                                         sim_params,
+                                                                                                         "emissions")
+    end
 
     return emissions_parameters
+end
+
+function extract_parameter_section(config::AbstractDict{String,Any},
+                                   definitions::Dict{String,Any},
+                                   sim_params::Dict{String,Any},
+                                   display_name::String)::Dict{String,Any}
+    extracted = Dict{String,Any}()
+    for (name, param_def) in pairs(definitions)
+        extracted[name] = EnergySystems.extract_parameter(EnergySystems.Component,
+                                                          config,
+                                                          name,
+                                                          param_def,
+                                                          sim_params,
+                                                          display_name)
+    end
+
+    EnergySystems.validate_config(EnergySystems.Component, extracted, display_name,
+                                  sim_params, definitions)
+
+    return extracted
+end
+
+function get_parameter_study_parameters(project_config::AbstractDict{String,Any},
+                                        sim_params::Dict{String,Any})::Dict{String,Any}
+    if haskey(project_config, "parameter_study")
+        return load_parameter_study_parameters(project_config["parameter_study"],
+                                               sim_params,
+                                               project_config)
+    end
+
+    return Dict{String,Any}(
+        "runtime" => Dict{String,Any}("enabled" => false),
+    )
 end
 
 """
@@ -1246,7 +2095,7 @@ end
 Lists all general, non-component parameters for the simulation engine.
 
 # Returns
--`Dict{String,Any}`: The parameter definitions
+- `Dict{String,Any}`: The parameter definitions.
 """
 function all_general_parameters()::Dict{String,Any}
     return Dict{String,Any}(
@@ -1254,8 +2103,1039 @@ function all_general_parameters()::Dict{String,Any}
         "io_settings" => IO_SETTINGS_DEF,
         "economic" => ECONOMIC_PARAMETERS_DEF,
         "emissions" => EMISSIONS_PARAMATERS_DEF,
+        "parameter_study" => PARAMETER_STUDY_DEF,
+        "parameter_study_parameter" => PARAMETER_STUDY_PARAMETER_DEF,
+        "parameter_variation" => PARAMETER_VARIATION_DEF,
+        "parameter_study_optimisation" => PARAMETER_STUDY_OPTIMISATION_DEF,
+        "refinement_optimisation" => REFINEMENT_OPTIMISATION_DEF,
+        "sensitivity_analysis" => SENSITIVITY_ANALYSIS_DEF,
     )
 end
 
 # calculation of the order of operations has its own include files due to its complexity
 include("order_of_operations.jl")
+
+function load_parameter_study_parameters(parameter_study_config::AbstractDict{String,Any},
+                                         sim_params::Dict{String,Any},
+                                         project_config::AbstractDict{String,Any})::Dict{String,Any}
+    parameter_study = extract_parameter_section(parameter_study_config,
+                                                PARAMETER_STUDY_DEF,
+                                                sim_params,
+                                                "Parameter study")
+
+    parameter_study["parameter_variation"] = extract_parameter_section(something(parameter_study["parameter_variation"],
+                                                                                 Dict{String,Any}()),
+                                                                       PARAMETER_VARIATION_DEF,
+                                                                       sim_params,
+                                                                       "Parameter variation")
+    parameter_study["optimisation"] = extract_parameter_section(something(parameter_study["optimisation"],
+                                                                          Dict{String,Any}()),
+                                                                PARAMETER_STUDY_OPTIMISATION_DEF,
+                                                                sim_params,
+                                                                "Optimisation")
+    parameter_study["sensitivity_analysis"] = extract_parameter_section(something(parameter_study["sensitivity_analysis"],
+                                                                                  Dict{String,Any}()),
+                                                                        SENSITIVITY_ANALYSIS_DEF,
+                                                                        sim_params,
+                                                                        "Sensitivity analysis")
+
+    parameter_variation = parameter_study["parameter_variation"]
+    optimisation = parameter_study["optimisation"]
+    sensitivity_analysis = parameter_study["sensitivity_analysis"]
+
+    optimisation["refinement"] = get_refinement_optimiser_config(optimisation["refinement"],
+                                                                 sim_params)
+    if isnothing(optimisation["optim_kwargs"])
+        optimisation["optim_kwargs"] = Dict{String,Any}()
+    end
+
+    run_parameter_variation = parameter_variation["run_parameter_variation"]
+    run_optimisation = optimisation["run_optimisation"]
+    run_global_sensitivity = sensitivity_analysis["run_global_sensitivity"]
+    run_local_sensitivity = sensitivity_analysis["run_local_sensitivity"]
+    enabled = run_parameter_variation || run_optimisation || run_global_sensitivity || run_local_sensitivity
+
+    parameter_study["runtime"] = Dict{String,Any}(
+        "enabled" => enabled,
+        "run_primary_study" => run_parameter_variation || run_optimisation,
+    )
+
+    if !enabled
+        return parameter_study
+    end
+
+    if run_parameter_variation && run_optimisation
+        @error "Parameter variation and optimisation cannot be run in the same parameter study."
+        throw(InputError())
+    end
+
+    if run_local_sensitivity && sensitivity_analysis["local_reference"] == "best_result" &&
+       (!run_optimisation && !run_global_sensitivity && !run_parameter_variation)
+        @error "Local sensitivity with local_reference='best_result' requires an optimisation, " *
+               "parameter variation or a global sensitivity analysis activated."
+        throw(InputError())
+    end
+
+    if (run_global_sensitivity || run_local_sensitivity) && parameter_study["objective_function"] == "multi-objective"
+        @error "Sensitivity analysis currently supports only single-objective calculations."
+        throw(InputError())
+    end
+
+    return prepare_parameter_study!(parameter_study, sim_params, project_config)
+end
+
+"""
+    parameter_study_target_type(project_config, uac, parameter_path)
+
+Resolve the numeric type of a varied parameter from its SSOT definition, including
+component economic/emissions parameters. A numeric value in an unregistered section
+is supported as a compatibility fallback, with a warning.
+"""
+function parameter_study_target_type(project_config::AbstractDict{String,Any},
+                                     uac::String, parameter_path::String)::Type
+    component_config = haskey(project_config["components"], uac) ?
+                       project_config["components"][uac] : nothing
+    config = component_config === nothing ? get(project_config, uac, nothing) : component_config
+    location = resolve_parameter_path(config, parameter_path)
+    location === nothing && throw(InputError())
+    container, leaf = location
+
+    definitions = nothing
+    if component_config !== nothing
+        class_name = Symbol(String(component_config["type"]))
+        if !isdefined(EnergySystems, class_name)
+            @error "Unknown component type for parameter-study target $uac $parameter_path."
+            throw(InputError())
+        end
+        component_type = getproperty(EnergySystems, class_name)
+        if startswith(parameter_path, "economic_parameters.")
+            definitions = EnergySystems.economic_parameters(component_type)
+        elseif startswith(parameter_path, "emissions_parameters.")
+            definitions = EnergySystems.emissions_parameters(component_type)
+        elseif startswith(parameter_path, "control_parameters.")
+            definitions = EnergySystems.CONTROL_PARAMS_DEF
+        else
+            definitions = EnergySystems.component_parameters(component_type)
+        end
+    elseif uac == "simulation_parameters"
+        definitions = SIMULATION_PARAMETERS_DEF
+    elseif uac == "io_settings"
+        definitions = IO_SETTINGS_DEF
+    elseif uac == "economic_parameters"
+        definitions = ECONOMIC_PARAMETERS_DEF
+    elseif uac == "emissions_parameters"
+        definitions = EMISSIONS_PARAMATERS_DEF
+    end
+
+    if definitions !== nothing && haskey(definitions, leaf)
+        declared_type = definitions[leaf].type
+        variants = filter(T -> T !== Nothing && T !== Missing, Base.uniontypes(declared_type))
+        if length(variants) == 1
+            numeric_type = only(variants)
+            if numeric_type === Bool
+                @error "Parameter $uac $parameter_path is Boolean. Only numeric (non-Boolean) study parameters are supported."
+                throw(InputError())
+            elseif numeric_type <: Integer
+                return Int
+            elseif numeric_type <: AbstractFloat || numeric_type <: Real
+                return Float64
+            end
+        end
+        @error "Parameter $uac $parameter_path has SSOT type $declared_type; only numeric parameters are supported."
+        throw(InputError())
+    end
+
+    # Maintain support for numeric user-defined parameters not registered in SSOT.
+    # Do not mistake Bool (a subtype of Integer in Julia) for an integer parameter.
+    value = container[leaf]
+    if value isa Bool || !(value isa Real)
+        @error "Parameter $uac $parameter_path has no numeric SSOT definition or numeric configuration value."
+        throw(InputError())
+    end
+    @warn "No SSOT definition found for parameter-study target $uac $parameter_path; " *
+          "inferring its type from the project configuration."
+    return value isa Integer ? Int : Float64
+end
+
+"""Convert an explicitly supplied study value, rejecting fractions for integer targets."""
+function explicit_study_number(value::Real, target_type::Type, key::String)::Float64
+    number = Float64(value)
+    if !isfinite(number) || (target_type <: Integer && !isinteger(number))
+        @error "In the parameter study, the parameter '$key' requires a finite " *
+               "$(target_type <: Integer ? "integer" : "numeric") value; got $value."
+        throw(InputError())
+    end
+    if target_type <: Integer && !(typemin(Int) <= number <= typemax(Int))
+        @error "In the parameter study, the integer parameter '$key' is outside the supported integer range: $number."
+        throw(InputError())
+    end
+    return number
+end
+
+"""Round generated/optimizer values to the admissible integer lattice."""
+function canonical_study_number(value::Real, target_type::Type, parameter_name::AbstractString;
+                                lower::Real=(-Inf), upper::Real=Inf)::Real
+    v = Float64(value)
+    isfinite(v) || throw(ArgumentError("Parameter \"$parameter_name\": non-finite parameter-study value $value."))
+    if target_type <: Integer
+        lo = isfinite(lower) ? ceil(Int, lower) : typemin(Int)
+        hi = isfinite(upper) ? floor(Int, upper) : typemax(Int)
+        lo <= hi ||
+            throw(ArgumentError("Parameter \"$parameter_name\": integer bounds [$lower, $upper] contain no valid integers."))
+        return clamp(round(Int, clamp(v, Float64(lo), Float64(hi))), lo, hi)
+    end
+    return clamp(v, Float64(lower), Float64(upper))
+end
+
+"""Canonicalise all values before simulation, lookup, caching and result output."""
+function canonical_study_values(values, runtime::Dict{String,Any};
+                                enforce_bounds::Bool=false)::Vector{Any}
+    input = values isa Real ? [values] : collect(values)
+    types = runtime["parameter_types"]
+    length(input) == length(types) || throw(ArgumentError("Wrong number of parameter-study values."))
+    bounds = runtime["parameter_bounds"]
+    canonical_values = Any[]
+    for (i, value) in enumerate(input)
+        canonical_value = if enforce_bounds
+            canonical_study_number(value, types[i], runtime["parameter_keys"][i];
+                                   lower=bounds[i, 1], upper=bounds[i, 2])
+        else
+            canonical_study_number(value, types[i], runtime["parameter_keys"][i])
+        end
+        push!(canonical_values, canonical_value)
+    end
+    return canonical_values
+end
+
+function prepare_parameter_study!(parameter_study::Dict{String,Any},
+                                  sim_params::Dict{String,Any},
+                                  project_config::AbstractDict{String,Any})::Dict{String,Any}
+    parameter_variation = parameter_study["parameter_variation"]
+    optimisation = parameter_study["optimisation"]
+    sensitivity_analysis = parameter_study["sensitivity_analysis"]
+    runtime = parameter_study["runtime"]
+
+    runtime["iterator"] = [1]
+    runtime["parameter_keys"] = String[]
+    runtime["parameter_values"] = Vector{Vector{Float64}}()
+    runtime["parameter_types"] = Type[]
+    runtime["objective_output_spec"] = Dict{String,Any}()
+    runtime["objective_params_keys"] = String[]
+
+    sensitivity_lower_values = Float64[]
+    sensitivity_upper_values = Float64[]
+    parameter_bounds = Array{Float64}(undef, 0, 3)
+
+    for (uac, params) in pairs(sort(parameter_study["parameters"]; by=lowercase))
+        for (key_param, raw_def) in pairs(sort(params; by=lowercase))
+            key = uac * " " * key_param
+            parameter_exists = if haskey(project_config["components"], uac)
+                resolve_parameter_path(project_config["components"][uac], key_param) !== nothing
+            elseif haskey(project_config, uac)
+                resolve_parameter_path(project_config[uac], key_param) !== nothing
+            else
+                false
+            end
+
+            if !parameter_exists
+                @error "$key of parameters is not a parameter in the input file. " *
+                       "Check for spelling errors or the description in the documentation."
+                throw(InputError())
+            end
+
+            if !(raw_def isa AbstractDict)
+                @error "The definition of parameter '$key' has to be an object."
+                throw(InputError())
+            end
+
+            def = Dict{String,Any}(String(k) => v for (k, v) in pairs(raw_def))
+            allowed_keys = Set(keys(PARAMETER_STUDY_PARAMETER_DEF))
+            unsupported_keys = sort(collect(setdiff(Set(keys(def)), allowed_keys)); by=lowercase)
+            if !isempty(unsupported_keys)
+                @error "Unsupported parameter definition keys for '$key': " *
+                       join(unsupported_keys, ", ")
+                throw(InputError())
+            end
+
+            for (name, param_def) in pairs(PARAMETER_STUDY_PARAMETER_DEF)
+                if haskey(def, name)
+                    def[name] = EnergySystems.extract_parameter(EnergySystems.Component,
+                                                                def,
+                                                                name,
+                                                                param_def,
+                                                                sim_params,
+                                                                "Parameter study parameter $key")
+                end
+            end
+            parameter_study["parameters"][uac][key_param] = def
+            push!(runtime["parameter_keys"], key)
+            target_type = parameter_study_target_type(project_config, String(uac), String(key_param))
+            push!(runtime["parameter_types"], target_type)
+
+            lower_bound = NaN
+            upper_bound = NaN
+            start_value = haskey(def, "start") ? Float64(def["start"]) : NaN
+            values = Float64[]
+
+            if haskey(def, "start") && !isfinite(start_value)
+                @error "The start value of parameter '$key' must be finite."
+                throw(InputError())
+            end
+
+            has_bounds_min = haskey(def, "bounds_min")
+            has_bounds_max = haskey(def, "bounds_max")
+            if has_bounds_min != has_bounds_max
+                @error "Parameter '$key' must define both bounds_min and bounds_max."
+                throw(InputError())
+            end
+            if has_bounds_min
+                lower_bound = Float64(def["bounds_min"])
+                upper_bound = Float64(def["bounds_max"])
+                if !(isfinite(lower_bound) && isfinite(upper_bound))
+                    @error "The bounds_min and bounds_max of parameter '$key' must be finite."
+                    throw(InputError())
+                end
+                if lower_bound >= upper_bound
+                    @error "The bounds_max of parameter '$key' must be greater than bounds_min."
+                    throw(InputError())
+                end
+            end
+
+            if target_type <: Integer && has_bounds_min
+                integer_lower = ceil(Int, lower_bound)
+                integer_upper = floor(Int, upper_bound)
+                if integer_lower >= integer_upper
+                    @error "Integer parameter '$key' requires at least two distinct integers inside its " *
+                           "optimisation/sensitivity bounds."
+                    throw(InputError())
+                end
+                lower_bound = Float64(integer_lower)
+                upper_bound = Float64(integer_upper)
+            end
+            if target_type <: Integer && isfinite(start_value)
+                original_start = start_value
+                start_value = Float64(canonical_study_number(start_value, target_type, key;
+                                                             lower=lower_bound, upper=upper_bound))
+                if start_value != original_start
+                    @warn "Integer parameter '$key': start value $original_start is adjusted to $start_value."
+                end
+            end
+
+            has_values = haskey(def, "values")
+            range_keys = ["range_start", "range_stop", "range_step", "range_length"]
+            has_range = any(haskey(def, range_key) for range_key in range_keys)
+            if has_values && has_range
+                @error "Parameter '$key' cannot define values and a range definition at the same time."
+                throw(InputError())
+            end
+
+            if has_values
+                raw_values = collect(def["values"])
+                if isempty(raw_values)
+                    @error "The values list of parameter '$key' must not be empty."
+                    throw(InputError())
+                end
+                if !all(value -> value isa Real, raw_values)
+                    @error "The values list of parameter '$key' must contain only numbers."
+                    throw(InputError())
+                end
+                values = [explicit_study_number(value, target_type, key) for value in raw_values]
+            elseif has_range
+                has_range_start = haskey(def, "range_start")
+                has_range_stop = haskey(def, "range_stop")
+                has_range_step = haskey(def, "range_step")
+                has_range_length = haskey(def, "range_length")
+                if !(has_range_start && has_range_stop)
+                    @error "Parameter '$key' must define both range_start and range_stop."
+                    throw(InputError())
+                end
+                if has_range_step == has_range_length
+                    @error "Parameter '$key' must define exactly one of range_step and range_length."
+                    throw(InputError())
+                end
+
+                range_start = Float64(def["range_start"])
+                range_stop = Float64(def["range_stop"])
+                if !(isfinite(range_start) && isfinite(range_stop))
+                    @error "The range_start and range_stop of parameter '$key' must be finite."
+                    throw(InputError())
+                end
+                if range_start >= range_stop
+                    @error "The range_stop of parameter '$key' must be greater than range_start."
+                    throw(InputError())
+                end
+
+                if has_range_step
+                    range_step = Float64(def["range_step"])
+                    if !isfinite(range_step)
+                        @error "The range_step of parameter '$key' must be finite."
+                        throw(InputError())
+                    end
+                    if range_step <= 0.0
+                        @error "The range_step of parameter '$key' must be greater than zero."
+                        throw(InputError())
+                    end
+                    values = Float64.(collect(range(; start=range_start,
+                                                    stop=range_stop,
+                                                    step=range_step)))
+                else
+                    range_length = Int(def["range_length"])
+                    if range_length < 2
+                        @error "The range_length of parameter '$key' must be at least 2."
+                        throw(InputError())
+                    end
+                    values = Float64.(collect(range(; start=range_start,
+                                                    stop=range_stop,
+                                                    length=range_length)))
+                end
+                if target_type <: Integer
+                    rounded_values = unique(Float64[canonical_study_number(value, target_type, key)
+                                                    for value in values])
+                    if length(rounded_values) < length(values)
+                        @warn "Integer parameter '$key': generated range has $(length(values)) values, but " *
+                              "only $(length(rounded_values)) distinct integer values remain after rounding."
+                    end
+                    values = rounded_values
+                end
+            end
+
+            has_lower = haskey(def, "sensitivity_lower")
+            has_upper = haskey(def, "sensitivity_upper")
+            if has_lower != has_upper
+                @error "Parameter '$key' must define both sensitivity_lower and sensitivity_upper."
+                throw(InputError())
+            end
+
+            local_lower = has_lower ? explicit_study_number(def["sensitivity_lower"], target_type, key) : NaN
+            local_upper = has_upper ? explicit_study_number(def["sensitivity_upper"], target_type, key) : NaN
+            if has_lower && !(isfinite(local_lower) && isfinite(local_upper))
+                @error "The sensitivity_lower and sensitivity_upper of parameter '$key' must be finite."
+                throw(InputError())
+            end
+            if has_lower && local_lower >= local_upper
+                @error "The sensitivity_lower of parameter '$key' must be smaller than sensitivity_upper."
+                throw(InputError())
+            end
+
+            push!(runtime["parameter_values"], values)
+            parameter_bounds = vcat(parameter_bounds, [lower_bound upper_bound start_value])
+            push!(sensitivity_lower_values, local_lower)
+            push!(sensitivity_upper_values, local_upper)
+        end
+    end
+
+    isempty(runtime["parameter_keys"]) && begin
+        @error "At least one parameter must be defined for a parameter study."
+        throw(InputError())
+    end
+
+    needs_bounds = optimisation["run_optimisation"] ||
+                   sensitivity_analysis["run_global_sensitivity"]
+    if needs_bounds &&
+       (any(.!isfinite.(parameter_bounds[:, 1])) ||
+        any(.!isfinite.(parameter_bounds[:, 2])))
+        @error "Optimisation and global sensitivity require bounds_min and bounds_max " *
+               "for every parameter."
+        throw(InputError())
+    end
+
+    if needs_bounds
+        ranges = parameter_bounds[:, 2] .- parameter_bounds[:, 1]
+        if any(ranges .<= 0.0)
+            @error "The bounds_max of every parameter must be greater than bounds_min."
+            throw(InputError())
+        end
+    end
+
+    if optimisation["run_optimisation"]
+        if any(.!isfinite.(parameter_bounds[:, 3])) ||
+           any(parameter_bounds[:, 3] .< parameter_bounds[:, 1]) ||
+           any(parameter_bounds[:, 3] .> parameter_bounds[:, 2])
+            @error "The start value of every optimisation parameter must lie within its bounds."
+            throw(InputError())
+        end
+    end
+
+    if parameter_variation["run_parameter_variation"] &&
+       any(isempty.(runtime["parameter_values"]))
+        @error "Parameter variation requires values or range_start, range_stop and " *
+               "either range_step or range_length for every parameter."
+        throw(InputError())
+    end
+
+    if sensitivity_analysis["run_local_sensitivity"] &&
+       sensitivity_analysis["local_reference"] == "start"
+        if any(.!isfinite.(parameter_bounds[:, 3]))
+            @error "Local sensitivity with local_reference='start' requires a start value for every parameter."
+            throw(InputError())
+        end
+
+        for (i, key) in enumerate(runtime["parameter_keys"])
+            lower_value = sensitivity_lower_values[i]
+            upper_value = sensitivity_upper_values[i]
+            if isfinite(lower_value) &&
+               !(lower_value < parameter_bounds[i, 3] < upper_value)
+                @error "Parameter '$key' must satisfy sensitivity_lower < start < sensitivity_upper."
+                throw(InputError())
+            end
+        end
+    end
+
+    runtime["parameter_bounds"] = parameter_bounds
+    runtime["start_values"] = copy(parameter_bounds[:, 3])
+    runtime["sensitivity_lower_values"] = sensitivity_lower_values
+    runtime["sensitivity_upper_values"] = sensitivity_upper_values
+
+    sensitivity_max_runs = sensitivity_analysis["max_runs"]
+    runtime["sensitivity_max_runs"] = if !isnothing(sensitivity_max_runs)
+        sensitivity_max_runs
+    elseif optimisation["run_optimisation"] && !isnothing(optimisation["max_runs"])
+        2 * optimisation["max_runs"]
+    else
+        200
+    end
+
+    normalised_bounds = nothing
+    if optimisation["run_optimisation"]
+        ranges = parameter_bounds[:, 2] .- parameter_bounds[:, 1]
+        normalised_bounds = hcat(zeros(size(parameter_bounds, 1)),
+                                 ones(size(parameter_bounds, 1)),
+                                 (parameter_bounds[:, 3] .- parameter_bounds[:, 1]) ./ ranges)
+    end
+
+    for (func, raw_spec) in pairs(parameter_study["objective_params"])
+        spec = raw_spec
+        if func in ["sum", "mean", "last", "min", "max"]
+            for (output_group, output_entries) in pairs(raw_spec)
+                group_key = String(output_group)
+                existing_entries = get!(runtime["objective_output_spec"],
+                                        group_key,
+                                        Any[])
+                append!(existing_entries, output_entries)
+            end
+            spec = parse_outkeys(raw_spec)
+        elseif func != "economic" && func != "emissions"
+            @error "Objective parameter {$func: $raw_spec} could not be read. $func has " *
+                   "to be one of 'sum', 'mean', 'last', 'min', 'max', 'economic', 'emissions'."
+            throw(InputError())
+        end
+
+        for key in spec
+            push!(runtime["objective_params_keys"], func * " " * key)
+        end
+
+        if func == "economic" && !sim_params["economic_parameters"]["calculate_economy"]
+            @error "For the parameter study, the objective parameter `economic` is chosen, " *
+                   "but the flag `calculate_economy` is set to false. Activate it in " *
+                   "the `economic_parameters` section."
+            throw(InputError())
+        elseif func == "emissions" && !sim_params["emissions_parameters"]["calculate_emissions"]
+            @error "For the parameter study, the objective parameter `emissions` is chosen, " *
+                   "but the flag `calculate_emissions` is set to false. Activate it " *
+                   "in the `emissions_parameters` section."
+            throw(InputError())
+        end
+    end
+
+    for output_entries in values(runtime["objective_output_spec"])
+        unique!(output_entries)
+    end
+    sort!(runtime["objective_params_keys"]; by=lowercase)
+
+    runtime["objective_function"],
+    runtime["objective_function_name"],
+    runtime["objective_factors"] = parse_objective_function(parameter_study["objective_function"],
+                                                            runtime["objective_params_keys"],
+                                                            parameter_study["objective_factors"])
+
+    if runtime["objective_function_name"] == "multi-objective"
+        runtime["N_obj"] = length(runtime["objective_params_keys"])
+        runtime["objective_senses"],
+        runtime["objective_signs"] = parse_objective_senses(runtime["objective_params_keys"],
+                                                            parameter_study["objective_senses"])
+    else
+        runtime["N_obj"] = 1
+        runtime["objective_senses"] = Dict{String,Symbol}()
+        runtime["objective_signs"] = Float64[]
+    end
+
+    if parameter_variation["run_parameter_variation"]
+        algorithm = parameter_variation["algorithm"]
+        if algorithm == "product"
+            runtime["iterator"] = Iterators.product(runtime["parameter_values"]...)
+        elseif algorithm == "zip"
+            runtime["iterator"] = zip(runtime["parameter_values"]...)
+        elseif startswith(algorithm, "random_")
+            parts = split(algorithm, "_")
+            if length(parts) != 2 || isnothing(tryparse(Int, parts[2]))
+                @error "Algorithm $algorithm is not supported for parameter variation. " *
+                       "Use product, zip or random_*, where * is an integer."
+                throw(InputError())
+            end
+            iterator = Iterators.product(runtime["parameter_values"]...)
+            n_samples = min(parse(Int, parts[2]), length(iterator))
+            runtime["iterator"] = rand(collect(iterator), n_samples)
+        else
+            @error "Algorithm $algorithm is not supported for parameter variation. " *
+                   "Use product, zip or random_*, where * is an integer."
+            throw(InputError())
+        end
+    elseif optimisation["run_optimisation"]
+        configure_optimiser_backend!(runtime, optimisation, normalised_bounds)
+    end
+
+    return parameter_study
+end
+
+function get_refinement_optimiser_config(config::Union{Nothing,AbstractDict},
+                                         sim_params::Dict{String,Any})
+    isnothing(config) && return nothing
+
+    refinement = extract_parameter_section(config,
+                                           REFINEMENT_OPTIMISATION_DEF,
+                                           sim_params,
+                                           "Refinement optimisation")
+    if isnothing(refinement["optim_kwargs"])
+        refinement["optim_kwargs"] = Dict{String,Any}()
+    end
+
+    return refinement
+end
+
+function configure_optimiser_backend!(optimiser, optimiser_config, normalised_bounds)
+    optim_kwargs = something(get(optimiser_config, "optim_kwargs", nothing), Dict{String,Any}())
+
+    # A configured zero disables or prevents convergence in the supported backends.
+    function reject_duplicate_tolerance(common_name::String,
+                                        backend_name::String,
+                                        backend::String)::Nothing
+        if !isnothing(get(optimiser_config, common_name, nothing)) && haskey(optim_kwargs, backend_name)
+            @error "$backend option '$backend_name' cannot be set in optim_kwargs together " *
+                   "with the corresponding common setting '$common_name'."
+            throw(InputError())
+        end
+        return nothing
+    end
+
+    if optimiser_config["type"] == "Optim"
+        if optimiser["objective_function_name"] == "multi-objective"
+            @error "Objective function multi-objective not supported for algorithms from " *
+                   "package 'Optim'"
+            throw(InputError())
+        end
+        optimiser["args"] = []
+
+        #TODO most Optim algorithms ignore bounds which can be supposedly added with wrapper 
+        # Optim.Fminbox() but it doesn't work
+        if optimiser_config["algorithm"] == "NelderMead"
+            if !isnothing(optimiser_config["x_tol_abs"])
+                @error "x_tol_abs is not supported by Optim.NelderMead. " *
+                       "Use max_runs or max_time instead."
+                throw(InputError())
+            end
+            reject_duplicate_tolerance("f_tol_abs", "g_abstol", "Optim")
+            alg = Optim.NelderMead()
+
+        elseif optimiser_config["algorithm"] == "SAMIN"
+            samin_kwargs = Dict{Symbol,Any}()
+            if !isnothing(optimiser_config["x_tol_abs"])
+                samin_kwargs[:x_tol] = optimiser_config["x_tol_abs"]
+            end
+            if !isnothing(optimiser_config["f_tol_abs"])
+                samin_kwargs[:f_tol] = optimiser_config["f_tol_abs"]
+            end
+            alg = Optim.SAMIN(; samin_kwargs...)
+            push!(optimiser["args"], normalised_bounds[:, 1])
+            push!(optimiser["args"], normalised_bounds[:, 2])
+
+        elseif optimiser_config["algorithm"] == "ParticleSwarm"
+            if !isnothing(optimiser_config["x_tol_abs"]) ||
+               !isnothing(optimiser_config["f_tol_abs"])
+                @error "x_tol_abs and f_tol_abs are not supported by " *
+                       "Optim.ParticleSwarm because this algorithm does not assess " *
+                       "convergence. Use max_runs or max_time instead."
+                throw(InputError())
+            end
+            alg = Optim.ParticleSwarm(; upper=normalised_bounds[:, 2], lower=normalised_bounds[:, 1])
+        else
+            @error "For optimisation type 'Optim' the algorithm has to be one of " *
+                   "'NelderMead', 'SAMIN', 'ParticleSwarm'."
+            throw(InputError())
+        end
+
+        push!(optimiser["args"], normalised_bounds[:, 3])
+        push!(optimiser["args"], alg)
+
+        optimiser["kwargs"] = Dict{Symbol,Any}()
+        optimiser["kwargs"][:show_trace] = true
+        for (keyword, val) in pairs(optim_kwargs)
+            optimiser["kwargs"][Symbol(keyword)] = val
+        end
+        if !isnothing(optimiser_config["max_runs"])
+            optimiser["kwargs"][:f_calls_limit] = optimiser_config["max_runs"]
+        end
+        if !isnothing(optimiser_config["max_time"])
+            optimiser["kwargs"][:time_limit] = optimiser_config["max_time"]
+        end
+        if optimiser_config["algorithm"] == "NelderMead" && !isnothing(optimiser_config["f_tol_abs"])
+            # Nelder-Mead uses the spread of objective values at the simplex vertices
+            # as its convergence criterion, exposed through Optim.Options.g_abstol.
+            optimiser["kwargs"][:g_abstol] = optimiser_config["f_tol_abs"]
+        end
+
+        push!(optimiser["args"], Optim.Options(; optimiser["kwargs"]...))
+
+    elseif optimiser_config["type"] == "BlackBoxOptim"
+        if !isnothing(optimiser_config["x_tol_abs"])
+            @error "x_tol_abs is not supported by BlackBoxOptim. " *
+                   "Use max_runs or max_time instead."
+            throw(InputError())
+        end
+        reject_duplicate_tolerance("f_tol_abs", "MinDeltaFitnessTolerance", "BlackBoxOptim")
+
+        alg = Symbol(optimiser_config["algorithm"])
+
+        optimiser["args"] = [normalised_bounds[:, 3]]
+        optimiser["kwargs"] = Dict{Symbol,Any}()
+
+        if optimiser["objective_function_name"] == "multi-objective"
+            if optimiser_config["algorithm"] != "borg_moea"
+                @error "Optimisation algorithm '$(optimiser_config["algorithm"])' doesn't " *
+                       "support multi-objective optimisation. Choose a different " *
+                       "objective_function or algorithm 'borg_moea'."
+                throw(InputError())
+            end
+            if !isnothing(optimiser_config["f_tol_abs"])
+                @error "f_tol_abs is not supported for multi-objective BlackBoxOptim."
+                throw(InputError())
+            end
+            optimiser["kwargs"][:FitnessScheme] = BlackBoxOptim.ParetoFitnessScheme{optimiser["N_obj"]}(;
+                                                                                                        is_minimizing=true)
+        end
+
+        optimiser["kwargs"][:Method] = alg
+        optimiser["kwargs"][:SearchRange] = Tuple.(eachrow(normalised_bounds[:, 1:2]))
+        optimiser["kwargs"][:NumDimensions] = size(normalised_bounds, 1)
+        n_evaluation_threads = Threads.nthreads(:default) - 1
+        if n_evaluation_threads > 1
+            optimiser["kwargs"][:NThreads] = n_evaluation_threads
+            optimiser["kwargs"][:PopulationSize] = max(20, 4 * n_evaluation_threads)
+        end
+        if !isnothing(optimiser_config["max_runs"])
+            optimiser["kwargs"][:MaxFuncEvals] = optimiser_config["max_runs"]
+        end
+        if !isnothing(optimiser_config["max_time"])
+            optimiser["kwargs"][:MaxTime] = optimiser_config["max_time"]
+        end
+        for (keyword, val) in pairs(optim_kwargs)
+            optimiser["kwargs"][Symbol(keyword)] = val
+        end
+        if !isnothing(optimiser_config["f_tol_abs"])
+            # Stop when two consecutive best-fitness improvements differ by less
+            # than the configured objective tolerance.
+            optimiser["kwargs"][:MinDeltaFitnessTolerance] = optimiser_config["f_tol_abs"]
+        end
+
+    elseif optimiser_config["type"] == "Metaheuristics"
+        if !isnothing(optimiser_config["x_tol_abs"]) || !isnothing(optimiser_config["f_tol_abs"])
+            @error "x_tol_abs and f_tol_abs are not currently supported for " *
+                   "Metaheuristics algorithms. Metaheuristics combines its parameter and " *
+                   "objective tolerances with additional mandatory population-convergence " *
+                   "conditions, so they cannot be translated to independent stopping " *
+                   "criteria. Use max_runs or max_time instead."
+            throw(InputError())
+        end
+        m_obj_algs = ["MOEAD_DE", "NSGA2", "NSGA3", "SMS_EMOA", "SPEA2", "CCMO"]
+        if optimiser["objective_function_name"] == "multi-objective" &&
+           !(optimiser_config["algorithm"] in m_obj_algs)
+            @error "Optimisation algorithm '$(optimiser_config["algorithm"])' doesn't " *
+                   "support multi-objective optimisation. Choose a different " *
+                   "objective_function or algorithm, e.g. one of $(join(string.(m_obj_algs), ", "))."
+            throw(InputError())
+        end
+
+        alg = getproperty(Metaheuristics, Symbol(optimiser_config["algorithm"]))
+
+        optimiser["args"] = Any[[normalised_bounds[:, 1] normalised_bounds[:, 2]]']
+
+        args_alg = Any[]
+        kwargs_general = Dict{Symbol,Any}()
+        kwargs_alg = Dict{Symbol,Any}()
+
+        if optimiser_config["algorithm"] == "MOEAD_DE"
+            if optimiser["N_obj"] == 1
+                @error "Algorithm 'MOEAD_DE' can only be used with " *
+                       "objective_function='multi-objective'"
+                throw(InputError())
+            end
+
+            n_partitions = get(optim_kwargs, "n_partitions", 12)
+            reference_directions = Metaheuristics.gen_ref_dirs(optimiser["N_obj"], n_partitions)
+
+            push!(args_alg, reference_directions)
+        end
+
+        if !isnothing(optimiser_config["max_runs"]) && optimiser_config["max_runs"] < 100 && :N in fieldnames(alg)
+            @warn "'max_runs' is smaller than the default population size of 100. This may lead to poor results." maxlog=1
+            kwargs_alg[:N] = max(2, ceil(Int, optimiser_config["max_runs"] / 4))
+        end
+
+        if Threads.nthreads() > 1
+            kwargs_general[:parallel_evaluation] = true
+        end
+        if !isnothing(optimiser_config["max_runs"])
+            kwargs_general[:f_calls_limit] = optimiser_config["max_runs"]
+        end
+        if !isnothing(optimiser_config["max_time"])
+            kwargs_general[:time_limit] = optimiser_config["max_time"]
+        end
+
+        for (keyword, val) in pairs(optim_kwargs)
+            # This is consumed above when constructing MOEA/D weights.
+            keyword == "n_partitions" && continue
+
+            key = Symbol(keyword)
+
+            if key in fieldnames(Metaheuristics.Options)
+                kwargs_general[key] = val
+            elseif key in fieldnames(alg)
+                kwargs_alg[key] = val
+            else
+                @warn "Unknown Metaheuristics option '$keyword' for " *
+                      "algorithm '$(optimiser_config["algorithm"])'."
+            end
+        end
+
+        options = Metaheuristics.Options(; kwargs_general...)
+        if optimiser_config["algorithm"] == "CCMO"
+            push!(optimiser["args"], alg(Metaheuristics.NSGA2(args_alg...; kwargs_alg...); options=options))
+        else
+            push!(optimiser["args"], alg(args_alg...; kwargs_alg..., options=options))
+        end
+
+    elseif optimiser_config["type"] == "NLopt"
+        configured_algorithm = optimiser_config["algorithm"]
+        algorithm = startswith(configured_algorithm, "NLOPT_") ? configured_algorithm[7:end] : configured_algorithm
+
+        if startswith(algorithm, "LD_") || startswith(algorithm, "GD_")
+            @error "The chosen algorithm `$configured_algorithm` needs a gradient which " *
+                   "is not supported in ReSiE"
+            throw(InputError())
+        end
+
+        reject_duplicate_tolerance("x_tol_abs", "xtol_abs", "NLopt")
+        reject_duplicate_tolerance("f_tol_abs", "ftol_abs", "NLopt")
+
+        n_dim_opt = length(normalised_bounds[:, 1])
+        alg = NLopt.Opt(Symbol(algorithm), n_dim_opt)
+        optimiser["kwargs"] = Dict{Symbol,Any}()
+
+        optimiser["kwargs"][:lower_bounds] = normalised_bounds[:, 1]
+        optimiser["kwargs"][:upper_bounds] = normalised_bounds[:, 2]
+        if !isnothing(optimiser_config["max_runs"])
+            optimiser["kwargs"][:maxeval] = optimiser_config["max_runs"]
+        end
+        if !isnothing(optimiser_config["max_time"])
+            optimiser["kwargs"][:maxtime] = optimiser_config["max_time"]
+        end
+        if !isnothing(optimiser_config["x_tol_abs"])
+            optimiser["kwargs"][:xtol_abs] = optimiser_config["x_tol_abs"]
+        end
+        if !isnothing(optimiser_config["f_tol_abs"])
+            optimiser["kwargs"][:ftol_abs] = optimiser_config["f_tol_abs"]
+        end
+
+        for (keyword, val) in pairs(optim_kwargs)
+            if Symbol(keyword) in propertynames(alg)
+                optimiser["kwargs"][Symbol(keyword)] = val
+            elseif NLopt.nlopt_has_param(alg, keyword)
+                NLopt.nlopt_set_param(alg, keyword, val)
+            end
+        end
+
+        for (keyword, val) in pairs(optimiser["kwargs"])
+            NLopt.setproperty!(alg, keyword, val)
+        end
+        optimiser["args"] = [alg, normalised_bounds[:, 3]]
+
+    elseif optimiser_config["type"] == "NOMAD"
+        if !isnothing(optimiser_config["f_tol_abs"])
+            @error "f_tol_abs is not supported by NOMAD. " *
+                   "Use max_runs or max_time instead."
+            throw(InputError())
+        end
+
+        optimiser["kwargs"] = Dict{Symbol,Any}()
+        optimiser["kwargs"][:lower_bound] = normalised_bounds[:, 1]
+        optimiser["kwargs"][:upper_bound] = normalised_bounds[:, 2]
+
+        if !isnothing(optimiser_config["x_tol_abs"])
+            optimiser["kwargs"][:min_mesh_size] = fill(optimiser_config["x_tol_abs"], size(normalised_bounds, 1))
+        end
+
+        kwargs_general = Dict{Symbol,Any}()
+        if !isnothing(optimiser_config["max_runs"])
+            kwargs_general[:max_bb_eval] = optimiser_config["max_runs"]
+        end
+        if !isnothing(optimiser_config["max_time"])
+            kwargs_general[:max_time] = optimiser_config["max_time"]
+        end
+
+        for (keyword, val) in pairs(optim_kwargs)
+            if Symbol(keyword) in fieldnames(NOMAD.NomadOptions)
+                kwargs_general[Symbol(keyword)] = val
+            end
+        end
+
+        optimiser["kwargs"][:options] = NOMAD.NomadOptions(; kwargs_general...)
+        optimiser["args"] = [size(normalised_bounds, 1), optimiser["N_obj"],
+                             fill("OBJ", optimiser["N_obj"]), normalised_bounds[:, 3]]
+    end
+end
+
+function load_refinement_optimiser(base_parameter_study::Dict{String,Any},
+                                   stage_config::AbstractDict,
+                                   start_values::AbstractVector{<:Real})
+    runtime = base_parameter_study["runtime"]
+    n_inputs = length(runtime["parameter_keys"])
+    normalised_start = clamp.(Float64.(start_values), 0.0, 1.0)
+    normalised_bounds = hcat(zeros(n_inputs), ones(n_inputs), normalised_start)
+
+    stage = deepcopy(base_parameter_study)
+    stage["optimisation"] = deepcopy(stage_config)
+    stage["optimisation"]["run_optimisation"] = true
+    stage["optimisation"]["refinement"] = nothing
+
+    stage_runtime = stage["runtime"]
+    pop!(stage_runtime, "args", nothing)
+    pop!(stage_runtime, "kwargs", nothing)
+
+    try
+        configure_optimiser_backend!(stage_runtime,
+                                     stage["optimisation"],
+                                     normalised_bounds)
+    catch e
+        @globalInfo "Loading of refinement algorithm was not successful. The generation of the results will be " *
+                    "continued without a refinement. Check the inputs.\n" *
+                    "  The following error occurred: $e"
+        return nothing
+    end
+    return stage
+end
+
+function parse_objective_function(eff_def::String,
+                                  objective_keys::Vector{String},
+                                  configured_factors)::Tuple{Function,String,Dict{String,Float64}}
+    method = lowercase(strip(eff_def))
+    has_configured_factors = configured_factors !== nothing && !isempty(configured_factors)
+
+    parsed_factors = Dict{String,Float64}()
+
+    if method == "sum"
+        f = x -> sum(Float64.(x))
+    elseif method == "linear"
+        if !has_configured_factors
+            @error("objective_function=\"linear\" requires objective_factors.")
+            throw(InputError())
+        end
+
+        configured_keys = String.(collect(keys(configured_factors)))
+        missing_keys = setdiff(objective_keys, configured_keys)
+        unknown_keys = setdiff(configured_keys, objective_keys)
+
+        if !isempty(missing_keys)
+            @error("objective_factors is missing coefficients for: " *
+                   join(missing_keys, ", "))
+            throw(InputError())
+        end
+
+        if !isempty(unknown_keys)
+            @error("objective_factors contains unknown objective keys: " *
+                   join(unknown_keys, ", "))
+            throw(InputError())
+        end
+
+        for key in objective_keys
+            raw_factor = configured_factors[key]
+
+            parsed_factors[key] = try
+                raw_factor isa Number ?
+                Float64(raw_factor) :
+                parse(Float64, String(raw_factor))
+            catch
+                @error("The objective factor for \"$key\" must be numeric, got " *
+                       "\"$raw_factor\".")
+                throw(InputError())
+            end
+        end
+
+        # The vector is derived from explicit names. Its order only follows the
+        # canonical objective key order used by Resie for objective_values.
+        ordered_factors = Float64[parsed_factors[key] for key in objective_keys]
+
+        f = x -> begin
+            values = Float64.(x)
+            if length(values) != length(ordered_factors)
+                throw(ArgumentError("Objective value count ($(length(values))) does not match " *
+                                    "factor count ($(length(ordered_factors)))."))
+            end
+            sum(values .* ordered_factors)
+        end
+
+    elseif method == "multi-objective"
+        f = x -> collect(Float64.(x))
+    else
+        @error("Cannot parse objective function from: $eff_def. Has to be one of " *
+               "'sum', 'linear', 'multi-objective'.")
+        throw(InputError())
+    end
+
+    return f, method, parsed_factors
+end
+
+function parse_objective_senses(objective_keys::Vector{String},
+                                configured_senses)::Tuple{Dict{String,Symbol},Vector{Float64}}
+    if configured_senses === nothing
+        senses = Dict{String,Symbol}(
+            key => :min
+            for key in objective_keys
+        )
+    else
+        normalized = Dict{String,Any}(
+            String(key) => value
+            for (key, value) in pairs(configured_senses)
+        )
+
+        configured_keys = collect(keys(normalized))
+        missing_keys = setdiff(objective_keys, configured_keys)
+        unknown_keys = setdiff(configured_keys, objective_keys)
+
+        if !isempty(missing_keys)
+            @error ("objective_senses is missing directions for: " * join(missing_keys, ", "))
+            throw(InputError())
+        end
+
+        if !isempty(unknown_keys)
+            @error ("objective_senses contains unknown objective keys: " * join(unknown_keys, ", "),)
+            throw(InputError())
+        end
+
+        senses = Dict{String,Symbol}()
+
+        for key in objective_keys
+            sense = Symbol(lowercase(strip(String(normalized[key]))))
+
+            if !(sense in (:min, :max))
+                @error("The objective sense for \"$key\" must be " * "`min` or `max`, got \"$(normalized[key])\".",)
+                throw(InputError())
+            end
+
+            senses[key] = sense
+        end
+    end
+
+    signs = Float64[senses[key] == :min ? 1.0 : -1.0
+                    for key in objective_keys]
+
+    return senses, signs
+end
