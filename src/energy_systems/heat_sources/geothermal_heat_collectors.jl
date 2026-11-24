@@ -1218,15 +1218,18 @@ O ------->               (pipe cross section)
 
 The arrow shows the x-direction.
 
-Starts with half the pipe diameter to represent the pipe nodes and increases the mesh width
-by the expansion factor for each node until half the pipe spacing is reached.
+The first two elements represent the pipe node and its adjacent node, with widths of
+half the outer pipe radius and the outer pipe radius, respectively. Starting with
+`min_mesh_width` for the third element, the mesh width increases by `expansion_factor`
+up to `max_mesh_width` until half the pipe spacing is reached.
 
-The function determines the width of each volume element around a node point, starting with
-the vertical mirror axis in which the pipe lies. The node itself is located in the center of
-the respective width, except of the first node which is located right on the mirror axis.
+The function determines the width of each volume element, starting at the vertical
+symmetry axis passing through the pipe center. Each node is located at the geometric
+center of its respective volume element.
 
-Note that the last dx can be smaller than calculated to meet the given boundary by
-`pipe_spacing`.
+The width of the last element may be reduced to ensure that the total mesh width
+equals half of `pipe_spacing`.
+
 """
 function create_mesh_x(min_mesh_width::Float64,
                        max_mesh_width::Float64,
@@ -1615,31 +1618,65 @@ function plot_optional_figures_end(unit::GeothermalHeatCollector,
     max_temp = maximum(unit.temp_field_output)
     max_temp = max_temp < 0.0 ? 0.9 * max_temp : 1.1 * max_temp
 
-    x_abs = [0; cumsum(unit.dx_mesh)]               # Absolute x coordinates
-    y_abs = [unit.dy[1] / 2; cumsum(unit.dy_mesh)]  # Absolute y coordinates
-
+    nx = length(unit.dx)
+    ny = length(unit.dy)
     nt = sim_params["number_of_time_steps_output"]
 
-    # the values are ordered with y as first index, x second and time last
+    # Element boundary coordinates
+    x_boundaries = [0.0; cumsum(unit.dx)]
+    y_boundaries = [0.0; cumsum(unit.dy)]
+
+    # Element center coordinates
+    x_centers = x_boundaries[1:(end - 1)] .+ unit.dx ./ 2
+    y_centers = y_boundaries[1:(end - 1)] .+ unit.dy ./ 2
+
+    # Extend surface coordinates to simulation domain boundaries
+    x_surface = [0.0; x_centers; x_boundaries[end]]
+    y_surface = [0.0; y_centers; y_boundaries[end]]
+
+    # Temperature field with dimensions (y, x, time)
     temps_sorted = permutedims(unit.temp_field_output[1:nt, :, :], (2, 3, 1))
 
-    surface_trace = PlotlyJS.surface(; x=x_abs,
-                                     y=y_abs,
-                                     z=temps_sorted[:, :, 1],
+    # Extend temperature field by repeating the outermost node temperatures
+    ix = [1; collect(1:nx); nx]
+    iy = [1; collect(1:ny); ny]
+    temps_surface = temps_sorted[iy, ix, :]
+
+    # Surface covering the entire simulation domain
+    surface_trace = PlotlyJS.surface(; x=x_surface,
+                                     y=y_surface,
+                                     z=temps_surface[:, :, 1],
                                      cmin=min_temp,
                                      cmax=max_temp,
                                      colorscale="RdBu",
                                      showscale=true,
                                      colorbar=PlotlyJS.attr(; title="Temperature [°C]"))
-    scatter_trace = PlotlyJS.scatter3d(; x=vec(repeat(x_abs', length(y_abs), 1)),
-                                       y=vec(repeat(y_abs, 1, length(x_abs))),
-                                       z=vec(unit.temp_field_output[1, :, :]),
-                                       mode="markers",
-                                       marker=PlotlyJS.attr(; size=4, color="black"))
 
-    scene = PlotlyJS.attr(; xaxis=PlotlyJS.attr(; range=[0.0, maximum(x_abs)],
+    # Identify actual computational nodes.
+    # Additional surface boundary points must not be shown as markers.
+    is_node = [1 < h < ny + 2 && 1 < i < nx + 2
+               for h in 1:(ny + 2), i in 1:(nx + 2)]
+
+    # Scatter coordinates with the same dimensions and ordering
+    # as the extended surface temperature field
+    x_scatter = vec([is_node[h, i] ? x_surface[i] : nothing
+                     for h in 1:(ny + 2), i in 1:(nx + 2)])
+
+    y_scatter = vec([is_node[h, i] ? y_surface[h] : nothing
+                     for h in 1:(ny + 2), i in 1:(nx + 2)])
+
+    # Show markers only at actual element centers
+    scatter_trace = PlotlyJS.scatter3d(; x=x_scatter,
+                                       y=y_scatter,
+                                       z=vec(temps_surface[:, :, 1]),
+                                       mode="markers",
+                                       marker=PlotlyJS.attr(; size=4, color="black"),
+                                       name="Temperature nodes")
+
+    # Define plot axes
+    scene = PlotlyJS.attr(; xaxis=PlotlyJS.attr(; range=[0.0, x_boundaries[end]],
                                                 title="Horizontal expansion [m]"),
-                          yaxis=PlotlyJS.attr(; range=[0.0, unit.considered_soil_depth],
+                          yaxis=PlotlyJS.attr(; range=[0.0, y_boundaries[end]],
                                               title="Vertical expansion (depth) [m]"),
                           zaxis=PlotlyJS.attr(; range=[min_temp, max_temp],
                                               title="Temperature [°C]"))
@@ -1651,7 +1688,13 @@ function plot_optional_figures_end(unit::GeothermalHeatCollector,
     base_plot = PlotlyJS.Plot([surface_trace, scatter_trace], layout)
 
     fig_name = "geothermal_collector_temperature_distribution_$(unit.uac).html"
-    save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot, sim_params)
+
+    # Use the extended temperature field for both traces
+    # to ensure compatibility with the generic slider implementation
+    save_html_slider(joinpath(output_path, fig_name),
+                     temps_surface,
+                     base_plot,
+                     sim_params)
 
     return true
 end
