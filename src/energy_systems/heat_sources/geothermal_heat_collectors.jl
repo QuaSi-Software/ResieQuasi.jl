@@ -1638,9 +1638,9 @@ function plot_optional_figures_end(unit::GeothermalHeatCollector,
                                        marker=PlotlyJS.attr(; size=4, color="black"))
 
     scene = PlotlyJS.attr(; xaxis=PlotlyJS.attr(; range=[0.0, maximum(x_abs)],
-                                                title="Vertical expansion (depth) [m]"),
+                                                title="Horizontal expansion [m]"),
                           yaxis=PlotlyJS.attr(; range=[0.0, unit.considered_soil_depth],
-                                              title="Horizontal expansion [m]"),
+                                              title="Vertical expansion (depth) [m]"),
                           zaxis=PlotlyJS.attr(; range=[min_temp, max_temp],
                                               title="Temperature [°C]"))
 
