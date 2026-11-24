@@ -1584,7 +1584,7 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
 
     if unit.ground_model == "FVM"
         # ====================================
-        # plot soil + storage temperatures
+        # Plot soil + storage temperatures
         # ====================================
         # possibility to plot the whole storage and all soil, not only half of the domain. May be useful in the future...
         mirror_domain = false
@@ -1592,22 +1592,32 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
         # Dimensions: (time, z, r_half)
         nt, nz, nr = size(unit.soil_temperature_field_output)
 
-        # Axes (cell centers) for simulated half-domain (r ≥ 0)
-        r_half = [unit.soil_dr[1] / 2; cumsum(unit.soil_dr_mesh)]
-        z_abs = [unit.soil_dz[1] / 2; cumsum(unit.soil_dz_mesh)]
+        # Element center coordinates
+        r_half = unit.soil_r_centers
+        z_abs = unit.soil_z_centers
+
+        # Element boundary coordinates
+        r_boundaries = [0.0; cumsum(unit.soil_dr)]
+        z_boundaries = [0.0; cumsum(unit.soil_dz)]
 
         # Build radius axis (mirrored or not)
         r_abs = mirror_domain ? vcat(-reverse(r_half), r_half) : r_half
 
+        # Spatial ranges covering the entire simulation domain
+        zmin = 0.0
+        zmax = z_boundaries[end]
+        rmin = mirror_domain ? -r_boundaries[end] : 0.0
+        rmax = r_boundaries[end]
+
+        # Extend surface coordinates to simulation domain boundaries
+        z_surface = [zmin; z_abs; zmax]
+        r_surface = [rmin; r_abs; rmax]
+
         # Temperature range with small padding
         Tmin_raw = minimum(unit.soil_temperature_field_output)
         Tmax_raw = maximum(unit.soil_temperature_field_output)
-        Tmin = (Tmin_raw < 0.0) ? 1.1 * Tmin_raw : 0.9 * Tmin_raw
-        Tmax = (Tmax_raw < 0.0) ? 0.9 * Tmax_raw : 1.1 * Tmax_raw
-
-        # Spatial ranges
-        zmin, zmax = extrema(z_abs)
-        rmin, rmax = extrema(r_abs)
+        Tmin = Tmin_raw < 0.0 ? 1.1 * Tmin_raw : 0.9 * Tmin_raw
+        Tmax = Tmax_raw < 0.0 ? 0.9 * Tmax_raw : 1.1 * Tmax_raw
 
         # Enforce equal spatial scaling (z & r); temperature is independent
         Δz = max(zmax - zmin, eps(Float64))
@@ -1617,35 +1627,59 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
         aspect_y = Δr / spatial_ref      # radius axis
         aspect_z = 1.0                   # temperature axis (no special scaling)
 
-        # Helper: temperature slice for given time index (handles mirroring)
-        temp_slice(t) = begin
-            A = unit.soil_temperature_field_output[t, :, :]  # (nz × nr) half-domain
-            mirror_domain ? hcat(reverse(A; dims=2), A) : A
-        end
-
+        # Temperature field: (time, depth, radius)
         temps = unit.soil_temperature_field_output[1:nt, :, :]
+
         if mirror_domain
             temps = cat(reverse(temps; dims=3), temps; dims=3)
         end
 
-        # the values are ordered with y (radius) as first index, x (depth) second, time last
+        # Temperature field: (radius, depth, time)
+        # Plotly y-axis = radius, x-axis = depth
         temps_sorted = permutedims(temps, (3, 2, 1))
 
-        # ================= PlotlyJS soil viewer =================
-        surface_trace = PlotlyJS.surface(; x=z_abs,
-                                         y=r_abs,
-                                         z=temps[1, :, :],
+        ny = length(r_abs)
+        nx = length(z_abs)
+
+        # Extend temperature field by repeating
+        # the outermost node temperatures
+        ix = [1; collect(1:nx); nx]
+        iy = [1; collect(1:ny); ny]
+
+        temps_surface = temps_sorted[iy, ix, :]
+
+        # Surface covering the entire simulation domain
+        surface_trace = PlotlyJS.surface(; x=z_surface,
+                                         y=r_surface,
+                                         z=temps_surface[:, :, 1],
                                          cmin=Tmin,
                                          cmax=Tmax,
                                          colorscale="RdBu",
                                          showscale=true,
                                          colorbar=PlotlyJS.attr(; title="Temperature [°C]"))
-        scatter_trace = PlotlyJS.scatter3d(; x=vec(repeat(z_abs', length(r_abs), 1)),
-                                           y=vec(repeat(r_abs, 1, length(z_abs))),
-                                           z=vec(temps_sorted[:, :, 1]),
-                                           mode="markers",
-                                           marker=PlotlyJS.attr(; size=3, color="black"))
 
+        # Identify actual computational nodes.
+        # Additional surface boundary points must not be shown as markers.
+        is_node = [1 < h < ny + 2 && 1 < i < nx + 2
+                   for h in 1:(ny + 2), i in 1:(nx + 2)]
+
+        # Scatter coordinates with the same dimensions and ordering
+        # as the extended surface temperature field
+        x_scatter = vec([is_node[h, i] ? z_surface[i] : nothing
+                         for h in 1:(ny + 2), i in 1:(nx + 2)])
+
+        y_scatter = vec([is_node[h, i] ? r_surface[h] : nothing
+                         for h in 1:(ny + 2), i in 1:(nx + 2)])
+
+        # Show markers only at actual element centers
+        scatter_trace = PlotlyJS.scatter3d(; x=x_scatter,
+                                           y=y_scatter,
+                                           z=vec(temps_surface[:, :, 1]),
+                                           mode="markers",
+                                           marker=PlotlyJS.attr(; size=3, color="black"),
+                                           name="Temperature nodes")
+
+        # Define plot axes
         scene = PlotlyJS.attr(; xaxis=PlotlyJS.attr(; title="Depth z [m]",
                                                     range=[zmin, zmax]),
                               yaxis=PlotlyJS.attr(; title="Radius r [m]",
@@ -1655,17 +1689,23 @@ function plot_optional_figures_end(unit::SeasonalThermalStorage, sim_params::Dic
                               aspectmode="manual",
                               aspectratio=PlotlyJS.attr(; x=aspect_x, y=aspect_y, z=aspect_z))
 
-        layout = PlotlyJS.Layout(; title_text="Soil temperature around STES $(unit.uac)",
+        layout = PlotlyJS.Layout(;
+                                 title_text="Soil temperature around STES $(unit.uac)",
                                  scene=scene,
                                  template=PlotlyJS.templates.plotly_white)
 
         base_plot = PlotlyJS.Plot([surface_trace, scatter_trace], layout)
 
         fig_name = "soil_temperature_distribution_STES_$(unit.uac).html"
-        save_html_slider(joinpath(output_path, fig_name), temps_sorted, base_plot,
-                         sim_params; render_time_ms=50)
-    end
 
+        # Use the extended temperature field for both traces
+        # to ensure compatibility with the generic slider implementation
+        save_html_slider(joinpath(output_path, fig_name),
+                         temps_surface,
+                         base_plot,
+                         sim_params;
+                         render_time_ms=50)
+    end
     return true
 end
 
