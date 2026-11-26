@@ -258,7 +258,7 @@ const BUFFER_TANK_COMPONENT_PARAMETERS = Dict(
 
 const BUFFER_TANK_ECONOMIC_PARAMETERS = get_economic_standard_params("storage",
     Dict{String,Any}(
-            "lifetime_years" => 20,
+            "economic_lifetime_years" => 20,
             "capex_specific" => nothing,
             "capex_specific_scale" => 1.0,
             "capex_price_change_rate_per_year" => 0.012,
@@ -277,7 +277,7 @@ const BUFFER_TANK_ECONOMIC_PARAMETERS = get_economic_standard_params("storage",
 
 const BUFFER_TANK_EMISSIONS_PARAMETERS = get_emissions_standard_params("storage",
     Dict{String,Any}(
-        "lifetime_years" => 20,
+        "emissions_lifetime_years" => 20,
         "embodied_emissions_specific" => "const:0.0",
         "embodied_emissions_specific_scale" => 1.0,
         "embodied_emissions_change_rate_per_year" => 0.0

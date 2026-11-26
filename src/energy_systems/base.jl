@@ -2272,8 +2272,8 @@ function get_economic_standard_params(type::String, defaults::Dict{String,Any},
     #! format: off
     if type in ["transformer", "storage", "connection", "connection_fixed"]
         capex_parameter = Dict{String,Any}(
-            "lifetime_years" => (
-                default=defaults["lifetime_years"],
+            "economic_lifetime_years" => (
+                default=defaults["economic_lifetime_years"],
                 description="Lifetime of the component until replacement is required",
                 display_name="lifetime",
                 required=false,
@@ -2522,8 +2522,8 @@ function get_emissions_standard_params(type::String, defaults::Dict{String,Any},
                                        units::Dict{String,Any})::Dict{String,Any}
     #! format: off
     base_params = Dict{String,Any}(
-        "lifetime_years" => (
-            default=defaults["lifetime_years"],
+        "emissions_lifetime_years" => (
+            default=defaults["emissions_lifetime_years"],
             description="Lifetime of the component until replacement is required",
             display_name="lifetime",
             required=false,
@@ -3329,7 +3329,7 @@ dictionaries. An example in JSON notation might look like this:
                 ...
             },
             "economic": {
-                "lifetime_years": {...},
+                "economic_lifetime_years": {...},
                 ...
             },
             "emissions": {

@@ -169,7 +169,7 @@ end
 function get_embodied_emissions_from_component(component::EnergySystems.Component, sim_params::Dict{String,Any})
     # embodied emissions including replacements and residuals
     # parameter of the component
-    lifetime_years = component.emissions_parameters["lifetime_years"]
+    lifetime_years = component.emissions_parameters["emissions_lifetime_years"]
     emissions_reference = get_reference_for_capex_and_embodied_emissions(component)  # e.g. installed power, area, etc.
 
     # parameter general

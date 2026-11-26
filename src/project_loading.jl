@@ -1601,7 +1601,7 @@ end
 Resolve a parameter path in a configuration dictionary.
 
 The path may reference a direct key, such as `volume`, or a nested key using
-dot-separated notation, such as `economic_parameters.lifetime_years`. Direct
+dot-separated notation, such as `economic_parameters.economic_lifetime_years`. Direct
 keys are checked first.
 
 # Arguments

@@ -88,7 +88,7 @@ const UTIR_COMPONENT_PARAMETERS = Dict(
 
 const UTIR_ECONOMIC_PARAMETERS = get_economic_standard_params("transformer",
     Dict{String,Any}(
-            "lifetime_years" => 10,
+            "economic_lifetime_years" => 10,
             "capex_specific" => nothing,
             "capex_specific_scale" => 1.0,
             "capex_price_change_rate_per_year" => 0.012,
@@ -107,7 +107,7 @@ const UTIR_ECONOMIC_PARAMETERS = get_economic_standard_params("transformer",
 
 const UTIR_EMISSIONS_PARAMETERS = get_emissions_standard_params("transformer",
     Dict{String,Any}(
-        "lifetime_years" => 10,
+        "emissions_lifetime_years" => 10,
         "embodied_emissions_specific" => "const:0.0",
         "embodied_emissions_specific_scale" => 1.0,
         "embodied_emissions_change_rate_per_year" => 0.0

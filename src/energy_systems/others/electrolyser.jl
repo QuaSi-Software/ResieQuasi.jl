@@ -235,7 +235,7 @@ const ELECTROLYSER_COMPONENT_PARAMETERS = Dict(
 
 const ELECTROLYSER_ECONOMIC_PARAMETERS = Base.merge(get_economic_standard_params("transformer",
     Dict{String,Any}(
-        "lifetime_years" => 20,
+        "economic_lifetime_years" => 20,
         "capex_specific" => nothing,
         "capex_specific_scale" => 1.0,
         "capex_price_change_rate_per_year" => -0.02,
@@ -313,7 +313,7 @@ const ELECTROLYSER_ECONOMIC_PARAMETERS = Base.merge(get_economic_standard_params
 
 const ELECTROLYSER_EMISSIONS_PARAMETERS = get_emissions_standard_params("transformer",
     Dict{String,Any}(
-        "lifetime_years" => 20,
+        "emissions_lifetime_years" => 20,
         "embodied_emissions_specific" => "const:0.0",
         "embodied_emissions_specific_scale" => 1.0,
         "embodied_emissions_change_rate_per_year" => 0.0

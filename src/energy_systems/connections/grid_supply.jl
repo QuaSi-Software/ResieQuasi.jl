@@ -59,7 +59,7 @@ const GRID_SUPPLY_ECONOMIC_PARAMETERS = get_economic_standard_params("connection
         "base_cost_per_year" => 0.0,
         "base_cost_change_rate_per_year" => 0.0,
 
-        "lifetime_years" => 20,
+        "economic_lifetime_years" => 20,
         "capex_specific" => "const:0.0",
         "capex_specific_scale" => 1.0,
         "capex_price_change_rate_per_year" => 0.0,
@@ -83,7 +83,7 @@ const GRID_SUPPLY_EMISSIONS_PARAMETERS = get_emissions_standard_params("connecti
         "constant_energy_emissions" => nothing,
         "energy_emissions_change_rate_per_year" =>  0.0,
 
-        "lifetime_years" => 20,
+        "emissions_lifetime_years" => 20,
         "embodied_emissions_specific" => "const:0.0",
         "embodied_emissions_specific_scale" => 1.0,
         "embodied_emissions_change_rate_per_year" => 0.0
