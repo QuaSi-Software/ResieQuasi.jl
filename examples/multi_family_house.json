@@ -58,7 +58,7 @@
             "scale": 250,
             "m_el_out": "m_e_ac_230v",
             "economic_parameters": {
-                "lifetime_years": 20,
+                "economic_lifetime_years": 20,
                 "constant_energy_price": 0.0,
                 "capex_specific": "power_func:311.0,0.92",
                 "capex_specific_scale": 1.0,
@@ -142,7 +142,7 @@
             "thermal_transmission_barrel": 0.2,
             "thermal_transmission_bottom": 0.2,
             "economic_parameters": {
-                "lifetime_years": 20,
+                "economic_lifetime_years": 20,
                 "capex_specific": "power_func:8832,0.59",
                 "capex_specific_scale": 1.0,
                 "capex_price_change_rate_per_year": 0.0,
@@ -181,7 +181,7 @@
             "thermal_transmission_barrel": 0.2,
             "thermal_transmission_bottom": 0.2,
             "economic_parameters": {
-                "lifetime_years": 20,
+                "economic_lifetime_years": 20,
                 "capex_specific": "power_func:8832,0.59",
                 "capex_specific_scale": 1.0,
                 "capex_price_change_rate_per_year": 0.0,
@@ -220,7 +220,7 @@
             "__OPTIONAL_OPTIMISATION_FOR_INVERTER_HP__": "",
             "optimise_slice_dispatch": true,
             "economic_parameters": {
-                "lifetime_years": 20,
+                "economic_lifetime_years": 20,
                 "capex_specific": "power_func:43.8,0.71",
                 "capex_specific_scale": 1.0,
                 "capex_price_change_rate_per_year": -0.01,
@@ -281,7 +281,7 @@
             "charge_efficiency": 0.95,
             "discharge_efficiency": 0.95,
             "economic_parameters": {
-                "lifetime_years": 12.0,
+                "economic_lifetime_years": 12.0,
                 "capex_specific": "linear:0.2",
                 "capex_price_change_rate_per_year": -0.031,
                 "maintenance_inspection_rate_per_year": 0.0,

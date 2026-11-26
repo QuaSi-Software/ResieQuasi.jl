@@ -57,7 +57,7 @@
             "scale": 250,
             "m_el_out": "m_e_ac_230v",
             "economic_parameters": {
-                "lifetime_years": 20,
+                "economic_lifetime_years": 20,
                 "constant_energy_price": 0.0,
                 "capex_specific": "power_func:311.0,0.92",
                 "capex_price_change_rate_per_year": -0.02,
@@ -141,7 +141,7 @@
             "thermal_transmission_barrel": 0.2,
             "thermal_transmission_bottom": 0.2,
             "economic_parameters": {
-                "lifetime_years": 20,
+                "economic_lifetime_years": 20,
                 "capex_specific": "power_func:18,0.92",
                 "capex_specific_scale": 1e3,
                 "capex_price_change_rate_per_year": 0.0,
@@ -170,7 +170,7 @@
             "allow_boost_solely": false,
             "allow_boost_additional": false,
             "economic_parameters": {
-                "lifetime_years": 18,
+                "economic_lifetime_years": 18,
                 "capex_specific": "power_func:1.428,0.75",
                 "capex_specific_scale": 1e-3,
                 "capex_price_change_rate_per_year": 0.012,
@@ -183,7 +183,7 @@
                 "subsidy_max": -1.0
             },
             "emissions_parameters": {
-                "lifetime_years": 18,
+                "emissions_lifetime_years": 18,
                 "embodied_emissions_specific": "const:0.0",
                 "embodied_emissions_change_rate_per_year": 0.0
             }
@@ -216,7 +216,7 @@
             "scale": 224,
             "m_el_out": "m_e_ac_230v",
             "economic_parameters": {
-                "lifetime_years": 20,
+                "economic_lifetime_years": 20,
                 "constant_energy_price": 0.0,
                 "capex_specific": "power_func:311.0,0.92",
                 "capex_price_change_rate_per_year": -0.02,
@@ -241,7 +241,7 @@
             "scale": 224,
             "m_el_out": "m_e_ac_230v",
             "economic_parameters": {
-                "lifetime_years": 20,
+                "economic_lifetime_years": 20,
                 "constant_energy_price": 0.0,
                 "capex_specific": "power_func:311.0,0.92",
                 "capex_price_change_rate_per_year": -0.02,
@@ -325,7 +325,7 @@
             "thermal_transmission_barrel": 0.2,
             "thermal_transmission_bottom": 0.2,
             "economic_parameters": {
-                "lifetime_years": 20,
+                "economic_lifetime_years": 20,
                 "capex_specific": "power_func:18,0.92",
                 "capex_specific_scale": 1e3,
                 "capex_price_change_rate_per_year": 0.0,
@@ -354,7 +354,7 @@
             "allow_boost_solely": false,
             "allow_boost_additional": false,
             "economic_parameters": {
-                "lifetime_years": 18,
+                "economic_lifetime_years": 18,
                 "capex_specific": "power_func:1.428,0.75",
                 "capex_specific_scale": 1e-3,
                 "capex_price_change_rate_per_year": 0.012,
@@ -367,7 +367,7 @@
                 "subsidy_max": -1.0
             },
             "emissions_parameters": {
-                "lifetime_years": 18,
+                "emissions_lifetime_years": 18,
                 "embodied_emissions_specific": "const:0.0",
                 "embodied_emissions_change_rate_per_year": 0.0
             }
@@ -402,7 +402,7 @@
             "charge_efficiency": 0.95,
             "discharge_efficiency": 0.95,
             "economic_parameters": {
-                "lifetime_years": 12.0,
+                "economic_lifetime_years": 12.0,
                 "capex_specific": "linear:0.2",
                 "capex_price_change_rate_per_year": -0.031,
                 "maintenance_inspection_rate_per_year": 0.0,
@@ -507,7 +507,7 @@
             "constant_power": 1000000,
             "economic_parameters": {
                 "constant_energy_price": 0.0,
-                "lifetime_years": 20.0,
+                "economic_lifetime_years": 20.0,
                 "capex_specific": "const:50000",
                 "capex_price_change_rate_per_year": 0.0,
                 "maintenance_inspection_rate_per_year": 0.0,
@@ -548,7 +548,7 @@
             "optimal_plr": 0.5,
             "nr_optimisation_passes": 10,
             "economic_parameters": {
-                "lifetime_years": 20,
+                "economic_lifetime_years": 20,
                 "capex_specific": "power_func:9472,0.51",
                 "capex_specific_scale": 1e-3,
                 "capex_price_change_rate_per_year": -0.01,
@@ -589,7 +589,7 @@
             "thermal_transmission_barrel": 0.1,
             "thermal_transmission_bottom": 0.1,
             "economic_parameters": {
-                "lifetime_years": 20,
+                "economic_lifetime_years": 20,
                 "capex_specific": "power_func:1183,0.91",
                 "capex_specific_scale": 1.0,
                 "capex_price_change_rate_per_year": 0.0,
@@ -624,7 +624,7 @@
                 }
             ],
             "economic_parameters": {
-                "lifetime_years": 20,
+                "economic_lifetime_years": 20,
                 "capex_specific": "power_func:4634,0.46",
                 "capex_specific_scale": 1e-3,
                 "capex_price_change_rate_per_year": -0.01,
