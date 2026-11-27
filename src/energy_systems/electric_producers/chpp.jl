@@ -117,7 +117,7 @@ const CHPP_COMPONENT_PARAMETERS = Dict(
 
 const CHPP_ECONOMIC_PARAMETERS = get_economic_standard_params("transformer",
     Dict{String,Any}(
-            "lifetime_years" => 15,
+            "economic_lifetime_years" => 15,
             "capex_specific" => nothing,
             "capex_specific_scale" => 1.0,
             "capex_price_change_rate_per_year" => 0.0,
@@ -136,7 +136,7 @@ const CHPP_ECONOMIC_PARAMETERS = get_economic_standard_params("transformer",
 
 const CHPP_EMISSIONS_PARAMETERS = get_emissions_standard_params("transformer",
     Dict{String,Any}(
-        "lifetime_years" => 15,
+        "emissions_lifetime_years" => 15,
         "embodied_emissions_specific" => "const:0.0",
         "embodied_emissions_specific_scale" => 1.0,
         "embodied_emissions_change_rate_per_year" => 0.0

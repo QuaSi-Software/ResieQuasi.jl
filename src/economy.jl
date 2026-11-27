@@ -482,7 +482,7 @@ end
 function get_capex_from_component(component::EnergySystems.Component, sim_params::Dict{String,Any})
     # capex including replacements, residuals and subsidies
     # parameter of the component
-    lifetime_years = component.economic_parameters["lifetime_years"]
+    lifetime_years = component.economic_parameters["economic_lifetime_years"]
     subsidy_rate_of_capex = component.economic_parameters["subsidy_rate_of_capex"]
     subsidy_max = component.economic_parameters["subsidy_max"]
     capex_reference = get_reference_for_capex_and_embodied_emissions(component)  # e.g. installed power, area, etc.
